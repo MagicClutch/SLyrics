@@ -92,6 +92,7 @@ public final class LyricsWorld {
 		if (idx == lastLine) return;
 		lastLine = idx;
 		if (idx < 0) return;
+		AfkCamera.onLine(idx, lines);
 
 		LyricLine line = lines.get(idx);
 		if (line.text().isEmpty()) {
