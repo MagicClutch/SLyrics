@@ -95,6 +95,15 @@ public class LyricsHud implements HudElement {
 		boolean runEmoji = false;
 		for (int i = 0; i < s.length(); i++) {
 			char ch = s.charAt(i);
+			if (c.emojis && Emojis.isSprite(ch)) { // a real Minecraft icon (item, block, heart ...)
+				if (run.length() > 0) {
+					out.append(Component.literal(run.toString()).withStyle(runEmoji ? emojiStyle : userStyle));
+					run.setLength(0);
+				}
+				out.append(Component.object(Emojis.spriteOf(ch)).withStyle(Style.EMPTY.withColor(0xFFFFFF)));
+				runEmoji = false;
+				continue;
+			}
 			boolean em = c.emojis && Emojis.isEmojiChar(ch, c);
 			Integer own = colored && c.emojiColors && em ? Emojis.colorOf(ch) : null;
 			if (own != null) { // a colored emoji is its own run
