@@ -69,6 +69,10 @@ public class Config {
 	public int blur = 50;
 	public int bounce = 100;
 	public boolean flicker = false;
+	/** 3D text: the words get a body, drawn as stacked layers behind the front face. */
+	public boolean depth3d = false;
+	/** Thickness of the 3D body in font pixels. */
+	public float depthSize = 3f;
 	/** Sky mode: huge words far away in the sky that flash up and drift slowly like clouds. */
 	public boolean skyMode = false;
 	/** Distance of the sky words in blocks. */
