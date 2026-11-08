@@ -24,7 +24,7 @@ public class LyricsHud implements HudElement {
 		float cx = sw * c.xPercent / 100f, cy = sh * c.yPercent / 100f;
 		List<LyricLine> lines = Spotify.lyrics;
 
-		if (c.hologram && !lines.isEmpty()) return; // Lyrics laufen als Hologramme in der Welt
+		if (c.hologram && !lines.isEmpty()) return; // lyrics are shown as holograms in the world
 		if (lines.isEmpty() || !Spotify.playing && Spotify.track == null) {
 			if (c.showStatus && !Spotify.status.isEmpty()) {
 				draw(g, mc.font, Spotify.status, cx, cy, Math.min(1f, c.scale) * 0.7f, 0xAAAAAA, 0.8f, c, 1f);
@@ -59,11 +59,11 @@ public class LyricsHud implements HudElement {
 		String text = Emojis.decorate(cur.text(), " ", c);
 		if (!text.isEmpty()) {
 			if (c.typewriter) {
-				// Text wird in den ersten ~60% der Zeilendauer (max 2.5s) aufgebaut
+				// text is typed out over the first ~60% of the line duration (max 2.5s)
 				float reveal = Math.min(len * 0.6f, 2500f);
 				int shown = Math.min(text.length(), Math.max(1, Math.round(text.length() * Math.min(1f, sinceStart / reveal))));
 				text = text.substring(0, shown);
-				alpha = Math.max(alpha, Math.min(1f, sinceStart / 120f)); // beim Tippen nicht ausblenden
+				alpha = Math.max(alpha, Math.min(1f, sinceStart / 120f)); // do not fade while typing
 				if (sinceStart < len - c.fadeMs) alpha = 1f;
 			}
 			draw(g, mc.font, text, cx, cy, c.scale, c.rgb(), alpha, c, 1f);
@@ -100,7 +100,7 @@ public class LyricsHud implements HudElement {
 		return out;
 	}
 
-	/** Zeichnet zentrierten Text an (cx, cy) mit Skalierung. */
+	/** Draws centered text at (cx, cy) with scaling. */
 	public static void draw(GuiGraphicsExtractor g, Font font, String s, float cx, float cy, float scale,
 							int rgb, float alpha, Config c, float unused) {
 		int a = Math.round(alpha * 255);

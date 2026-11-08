@@ -34,13 +34,13 @@ public class SLyricsClient implements ClientModInitializer {
 				.then(ClientCommands.literal("login").executes(ctx -> login(ctx.getSource())))
 				.then(ClientCommands.literal("logout").executes(ctx -> {
 					Spotify.logout();
-					ctx.getSource().sendFeedback(Component.literal("SLyrics: abgemeldet."));
+					ctx.getSource().sendFeedback(Component.literal("SLyrics: logged out."));
 					return 1;
 				}))
 				.then(ClientCommands.literal("toggle").executes(ctx -> {
 					Config.INSTANCE.enabled = !Config.INSTANCE.enabled;
 					Config.save();
-					ctx.getSource().sendFeedback(Component.literal("SLyrics: " + (Config.INSTANCE.enabled ? "an" : "aus")));
+					ctx.getSource().sendFeedback(Component.literal("SLyrics: " + (Config.INSTANCE.enabled ? "on" : "off")));
 					return 1;
 				}))
 				.then(ClientCommands.literal("offset")
@@ -60,16 +60,16 @@ public class SLyricsClient implements ClientModInitializer {
 
 	private static int login(FabricClientCommandSource src) {
 		if (Config.INSTANCE.clientId.isBlank()) {
-			src.sendError(Component.literal("Setze zuerst deine Spotify Client ID in /slyrics config (Redirect URI: " + Spotify.REDIRECT + ")"));
+			src.sendError(Component.literal("Set your Spotify Client ID in /slyrics config first (Redirect URI: " + Spotify.REDIRECT + ")"));
 			return 0;
 		}
 		try {
 			String url = Spotify.beginLogin(msg -> Minecraft.getInstance().execute(() ->
 				src.sendFeedback(Component.literal("SLyrics: " + msg))));
-			src.sendFeedback(Component.literal("SLyrics: Klicke hier, um dich bei Spotify anzumelden")
+			src.sendFeedback(Component.literal("SLyrics: Click here to log in to Spotify")
 				.withStyle(Style.EMPTY.withUnderlined(true).withColor(0x1DB954).withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))));
 		} catch (Exception e) {
-			src.sendError(Component.literal("Login-Start fehlgeschlagen: " + e.getMessage()));
+			src.sendError(Component.literal("Failed to start login: " + e.getMessage()));
 		}
 		return 1;
 	}

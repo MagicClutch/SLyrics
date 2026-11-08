@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Holt synchronisierte Lyrics von https://lrclib.net (kostenlos, ohne Key). */
+/** Fetches synced lyrics from https://lrclib.net (free, no API key). */
 public final class LrcLib {
 	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
 	private static final Map<String, List<LyricLine>> CACHE = new ConcurrentHashMap<>();
@@ -35,7 +35,7 @@ public final class LrcLib {
 		return res.statusCode() == 200 ? res.body() : null;
 	}
 
-	/** Gibt leere Liste zurück wenn nichts gefunden wurde. Blockiert -> nur im Hintergrundthread aufrufen. */
+	/** Returns an empty list if nothing was found. Blocking: only call from a background thread. */
 	public static List<LyricLine> fetch(Track t) {
 		List<LyricLine> cached = CACHE.get(t.id());
 		if (cached != null) return cached;
@@ -59,8 +59,8 @@ public final class LrcLib {
 			}
 			if (synced != null) result = LyricLine.parseLrc(synced);
 		} catch (Exception e) {
-			SLyricsClient.LOGGER.warn("LRCLIB Fehler", e);
-			return result; // nicht cachen, später erneut versuchen
+			SLyricsClient.LOGGER.warn("LRCLIB error", e);
+			return result; // do not cache, retry later
 		}
 		CACHE.put(t.id(), result);
 		return result;
