@@ -17,6 +17,7 @@ holograms in front of you, words scattered in the sky, or a plain HUD line.
 - **Lines mode:** the whole line appears and the word being sung lights up. Optional **Center layout** puts the words in a row straight ahead.
 - **Sky mode:** huge words far away in the sky that flash up and drift slowly like clouds (distance, height and letter size are configurable).
 - **Prevent block clipping** (on by default): words are moved in front of walls and terrain and never sit inside blocks.
+- **AFK camera** (off by default): after a configurable idle time the camera leaves first person and slowly orbits you like a cinematic shot, with the lyrics placed in view. Any key press or mouse movement ends it.
 - Distance, size, opacity, glow, outline, motion blur, bounce, flicker, follow-me, walls protection, uppercase.
 - Custom font: `minecraft:default`, `minecraft:uniform`, `minecraft:alt`, `minecraft:illageralt`, or any font from a resource pack (`assets/<namespace>/font/<name>.json` -> `<namespace>:<name>`).
 - Emojis: adds a symbol after keywords in many languages (love ♥, fight ⚔, ...) without replacing the word. Toggle in the config; edit the word list via `emojiMap` in `config/slyrics.json`.

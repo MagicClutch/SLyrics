@@ -51,6 +51,14 @@ public class Config {
 	public float far = 8f;
 	/** Words follow you when you walk. */
 	public boolean follow = false;
+	/** AFK camera: after afkSeconds without input the camera orbits the player like a cinematic shot. */
+	public boolean afkEnabled = false;
+	public int afkSeconds = 10;
+	public boolean afkOnlyWhilePlaying = true;
+	/** Orbit radius in blocks, height above the eyes in blocks, speed in degrees per second. */
+	public float afkRadius = 7f;
+	public float afkHeight = 1.5f;
+	public float afkSpeed = 12f;
 	/** Keep words out of blocks: they are moved in front of walls/terrain and never placed inside the ground. */
 	public boolean blockClipping = true;
 	/** Text size in percent. */
