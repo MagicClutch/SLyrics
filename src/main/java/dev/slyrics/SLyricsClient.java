@@ -24,7 +24,7 @@ public class SLyricsClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		Config.load();
 		Spotify.start();
-		Holograms.init();
+		LyricsWorld.init();
 		HudElementRegistry.attachElementAfter(VanillaHudElements.CHAT, Identifier.fromNamespaceAndPath("slyrics", "lyrics"), new LyricsHud());
 
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
