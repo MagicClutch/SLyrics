@@ -15,6 +15,8 @@ holograms in front of you, words scattered in the sky, or a plain HUD line.
 ## Features
 - **Words mode:** each word pops up around your crosshair the moment it is sung, glowing, tilted a little toward you, and fades shortly after. Words avoid overlapping each other.
 - **Lines mode:** the whole line appears and the word being sung lights up. Optional **Center layout** puts the words in a row straight ahead.
+- **Modes you can combine:** World words, Sky mode and Stick on blocks each have their own tab and switch. With several on, every word is sent to one of them at random.
+- **Stick on blocks:** words stick flat onto the walls and floors you look at, like stickers.
 - **Sky mode:** huge words far away in the sky that flash up and drift slowly like clouds (distance, height and letter size are configurable).
 - **Prevent block clipping** (on by default): words are moved in front of walls and terrain and never sit inside blocks.
 - **AFK camera** (off by default): after a configurable idle time the camera leaves first person and plays cinematic shots around you (orbit, rise, descend, diagonal sweep, fly-by, push in, pull out), with the lyrics placed in view. Pick which shots to use. The camera hard-cuts to a new shot only when a new lyric line starts, every N lines (configurable), with an optional dip through black. Any key press or mouse movement ends it.

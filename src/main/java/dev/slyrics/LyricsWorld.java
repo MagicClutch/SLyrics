@@ -25,6 +25,7 @@ public final class LyricsWorld {
 		for (int i = 0; i < 8; i++) RING8[i] = new float[]{(float) Math.cos(i * Math.PI / 4), (float) Math.sin(i * Math.PI / 4)};
 	}
 
+	private static boolean stickNow;
 	private static String lastTrack = "";
 	private static int lastLine = -1;
 	private static boolean wasPlaying;
@@ -69,7 +70,7 @@ public final class LyricsWorld {
 			lastLine = -1;
 			return;
 		}
-		if (track == null || !c.enabled || !c.hologram) {
+		if (track == null || !c.enabled || !c.anyWorld()) {
 			lastLine = -1;
 			return;
 		}
@@ -108,7 +109,7 @@ public final class LyricsWorld {
 	private static void render(LevelRenderContext ctx) {
 		Config c = Config.INSTANCE;
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null || mc.player == null || !c.enabled || !c.hologram) return;
+		if (mc.level == null || mc.player == null || !c.enabled || !c.anyWorld()) return;
 		long now = System.currentTimeMillis();
 		SCENE.frame(mc, now);
 		if (SCENE.items.isEmpty()) return;
@@ -160,10 +161,11 @@ public final class LyricsWorld {
 		if (alpha < 0.02f) return;
 
 		float bounce = c.bounce / 100f;
-		float scaleAnim = it.sky ? 1f + 0.06f * (1f - born) : 1f + (pop(born) - 1f) * bounce - 0.15f * dying;
-		double lift = it.sky ? 0 : -0.35 * bounce * (1f - smooth(born)) + Math.sin(now / 750.0 + it.seed) * 0.045 * bounce;
+		float scaleAnim = it.sky || it.stick ? 1f + 0.06f * (1f - born) : 1f + (pop(born) - 1f) * bounce - 0.15f * dying;
+		double lift = it.sky || it.stick ? 0 : -0.35 * bounce * (1f - smooth(born)) + Math.sin(now / 750.0 + it.seed) * 0.045 * bounce;
 		float smear = c.blur / 100f * Math.max(1f - born, dying);
 
+		stickNow = it.stick;
 		Vec3 at = SCENE.worldPos(it, c.follow);
 		if (it.sky) { // slow sideways drift, like a cloud
 			Vec3 d = at.subtract(cam);
@@ -231,7 +233,7 @@ public final class LyricsWorld {
 	private static void drawWord(Component text, float x, float y, float a, float smear, float glitch, float boost, float away, Sink sink) {
 		Config c = Config.INSTANCE;
 		float glow = c.glow / 100f, outline = c.outline / 100f;
-		var under = c.throughWalls ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL;
+		var under = c.throughWalls ? Font.DisplayMode.SEE_THROUGH : stickNow ? Font.DisplayMode.POLYGON_OFFSET : Font.DisplayMode.NORMAL;
 		var top = c.throughWalls ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.POLYGON_OFFSET;
 		if (glitch > 0f) {
 			x += (glitch - 0.5f) * 4f;

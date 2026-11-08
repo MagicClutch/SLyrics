@@ -40,6 +40,11 @@ public class Config {
 	public int offsetMs = 0;
 	/** Show lines as floating holograms in the world instead of HUD text. */
 	public int fadeMs = 250;
+
+	/** True if any of the in-world modes is on (otherwise the plain HUD line is shown). */
+	public boolean anyWorld() {
+		return hologram || skyMode || stickMode;
+	}
 	public boolean hologram = true;
 	/** false = Words (each word on its own), true = Lines (whole line, current word lights up). */
 	public boolean lineMode = false;
@@ -51,6 +56,12 @@ public class Config {
 	public float far = 8f;
 	/** Words follow you when you walk. */
 	public boolean follow = false;
+	/** Stick-on-block mode: words stick flat onto the blocks you look at. */
+	public boolean stickMode = false;
+	/** How far away blocks may be to get a word, in blocks. */
+	public float stickRange = 14f;
+	/** Size of the stuck words in percent. */
+	public int stickSize = 100;
 	/** AFK camera: after afkSeconds without input the camera orbits the player like a cinematic shot. */
 	public boolean afkEnabled = false;
 	public int afkSeconds = 10;
