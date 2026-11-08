@@ -33,6 +33,10 @@ public class Config {
 	/** Word (lowercase) -> symbol. Can be freely edited in slyrics.json. */
 	public java.util.Map<String, String> emojiMap = Emojis.defaults();
 	/** Internal: lets new default words be merged into an existing emojiMap once. */
+	/** Use real Minecraft icons (items, blocks, hearts, ...) for words that have one; other words still use the symbols. */
+	public boolean emojiSprites = true;
+	/** Word (lowercase) -> sprite: "item:diamond", "block:poppy" or "gui:hud/heart/full". */
+	public java.util.Map<String, String> emojiSpriteMap = Emojis.spriteDefaults();
 	public int emojiVersion = 0;
 	public boolean typewriter = true;
 	/** Also show the previous/next line, small and dimmed. */
@@ -143,9 +147,10 @@ public class Config {
 				Config c = GSON.fromJson(Files.readString(FILE), Config.class);
 				if (c != null) {
 					INSTANCE = c;
-					if (c.emojiVersion < 2) { // add the multi-language defaults once, keep user entries
+					if (c.emojiVersion < 3) { // add new default words once, keep user entries
 						Emojis.defaults().forEach(c.emojiMap::putIfAbsent);
-						c.emojiVersion = 2;
+						Emojis.spriteDefaults().forEach(c.emojiSpriteMap::putIfAbsent);
+						c.emojiVersion = 3;
 					}
 				}
 			}
