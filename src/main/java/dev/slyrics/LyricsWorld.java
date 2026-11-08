@@ -240,7 +240,7 @@ public final class LyricsWorld {
 
 		if (glow > 0.02f) {
 			int col = argb(a * (0.1f + 0.06f * glow) * boost, hex(c.glowColor, 0xDDE9FF));
-			float r = (0.6f + 0.9f * glow) * (0.8f + 0.2f * boost);
+			float r = (0.6f + 0.9f * glow) * (0.8f + 0.2f * Math.min(boost, 1.6f));
 			if (col != 0) for (float[] o : RING8) {
 				sink.draw(text, x + o[0] * r, y + o[1] * r, col, under);
 				sink.draw(text, x + o[0] * r * 2f, y + o[1] * r * 2f, col, under);
