@@ -28,6 +28,8 @@ public class Config {
 	public boolean bold = true;
 	/** Symbols after keywords (love -> love ♥). The word is kept. */
 	public boolean emojis = true;
+	/** Give every emoji its own color instead of the text color. */
+	public boolean emojiColors = true;
 	/** Word (lowercase) -> symbol. Can be freely edited in slyrics.json. */
 	public java.util.Map<String, String> emojiMap = Emojis.defaults();
 	/** Internal: lets new default words be merged into an existing emojiMap once. */

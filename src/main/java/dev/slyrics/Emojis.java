@@ -33,6 +33,32 @@ public final class Emojis {
 		return m;
 	}
 
+	/** Own color of each symbol, so emojis are colorful no matter what the text color is. */
+	private static final Map<Character, Integer> COLORS = new java.util.HashMap<>();
+
+	static {
+		COLORS.put('\u2665', 0xFF3B4E); // heart: red
+		COLORS.put('\u2694', 0xC8D6E5); // swords: steel
+		COLORS.put('\u2620', 0xF2F2EC); // skull: bone white
+		COLORS.put('\u2605', 0xFFD23F); // star: gold
+		COLORS.put('\u266A', 0x6FE3FF); // note: cyan
+		COLORS.put('\u2600', 0xFFC93C); // sun: orange-yellow
+		COLORS.put('\u263D', 0xB9C3FF); // moon: pale lavender
+		COLORS.put('\u2602', 0x5AB8FF); // umbrella: blue
+		COLORS.put('\u2601', 0xDDEBFF); // cloud: light blue-white
+		COLORS.put('\u263A', 0xFFD84A); // smile: yellow
+		COLORS.put('\u2639', 0x7FA6D9); // sad: dull blue
+		COLORS.put('\u2741', 0xFF7AC8); // flower: pink
+		COLORS.put('\u265B', 0xFFC21A); // crown: gold
+		COLORS.put('\u262E', 0x6BE38A); // peace: green
+		COLORS.put('\u26A1', 0xFFE14D); // lightning: yellow
+	}
+
+	/** The symbol's own RGB color, or null for characters that are not emojis. */
+	public static Integer colorOf(char ch) {
+		return COLORS.get(ch);
+	}
+
 	private static void put(Map<String, String> m, String emoji, String... words) {
 		for (String w : words) m.put(w, emoji);
 	}
