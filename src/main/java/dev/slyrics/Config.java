@@ -32,6 +32,8 @@ public class Config {
 	public boolean emojis = true;
 	/** Word (lowercase) -> symbol. Can be freely edited in slyrics.json. */
 	public java.util.Map<String, String> emojiMap = Emojis.defaults();
+	/** Internal: lets new default words be merged into an existing emojiMap once. */
+	public int emojiVersion = 0;
 	/** Sky mode: random tilt of the words in degrees (+-). */
 	public float skyTilt = 12f;
 	public boolean typewriter = true;
@@ -70,7 +72,13 @@ public class Config {
 		try {
 			if (Files.exists(FILE)) {
 				Config c = GSON.fromJson(Files.readString(FILE), Config.class);
-				if (c != null) INSTANCE = c;
+				if (c != null) {
+					INSTANCE = c;
+					if (c.emojiVersion < 2) { // add the multi-language defaults once, keep user entries
+						Emojis.defaults().forEach(c.emojiMap::putIfAbsent);
+						c.emojiVersion = 2;
+					}
+				}
 			}
 		} catch (Exception e) {
 			SLyricsClient.LOGGER.warn("Could not load config", e);
