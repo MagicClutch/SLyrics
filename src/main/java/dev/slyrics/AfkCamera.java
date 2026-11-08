@@ -227,8 +227,17 @@ public final class AfkCamera {
 
 	/** Offset of the camera from the player's eye for the current shot. u is progress 0..1, t is seconds into the shot. */
 	private static Vec3 offset(double u, double t) {
+		Vec3 v = baseOffset(u, t);
+		// Constant slow drift on top of every shot: the camera never stands still, even after a move has finished.
+		double ang = shotSide * Math.toRadians(5.0) * t;
+		double cos = Math.cos(ang), sin = Math.sin(ang);
+		return new Vec3(v.x * cos - v.z * sin, v.y + 0.22 * Math.sin(t * 0.7), v.x * sin + v.z * cos);
+	}
+
+	private static Vec3 baseOffset(double u, double t) {
 		Config c = Config.INSTANCE;
-		double r = c.afkRadius, h = c.afkHeight, e = smooth((float) u), a = shotAngle;
+		// half eased, half linear: the move never comes to a dead stop at its start or end
+		double r = c.afkRadius, h = c.afkHeight, e = 0.5 * smooth((float) u) + 0.5 * u, a = shotAngle;
 		switch (shot) {
 			case RISE: {
 				double ang = a + shotSide * Math.toRadians(25) * u, rad = r * lerp(0.9, 1.3, e);
