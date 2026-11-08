@@ -189,11 +189,13 @@ public final class LyricsWorld {
 		Font font = mc.font;
 		int n = it.words.length;
 		Component[] texts = new Component[n];
+		Component[] colored = new Component[n];
 		float[] widths = new float[n];
 		float gap = font.width(LyricsHud.styled(" ", c));
 		float total = gap * (n - 1);
 		for (int i = 0; i < n; i++) {
 			texts[i] = LyricsHud.styled(it.words[i], c);
+			colored[i] = LyricsHud.styled(it.words[i], c, true);
 			widths[i] = font.width(texts[i]);
 			total += widths[i];
 		}
@@ -226,7 +228,7 @@ public final class LyricsWorld {
 					sweepAlpha = clamp01(1f - (now - it.heldUntil[i]) / (float) c.sweepFadeMs); // the color goes off when the next word starts
 				}
 			}
-			drawWord(texts[i], it.words[i], -widths[i] / 2f, y, a, smear, glitch, (1f + 0.8f * sustain) * (it.sky && born < 1f ? 2f : 1f), away, sweepProg, sweepAlpha, sink);
+			drawWord(texts[i], colored[i], it.words[i], -widths[i] / 2f, y, a, smear, glitch, (1f + 0.8f * sustain) * (it.sky && born < 1f ? 2f : 1f), away, sweepProg, sweepAlpha, sink);
 			ps.popPose();
 			x += widths[i] + gap;
 		}
@@ -241,7 +243,7 @@ public final class LyricsWorld {
 		return clamp01(1f - (now - to) / 300f);
 	}
 
-	private static void drawWord(Component text, String raw, float x, float y, float a, float smear, float glitch, float boost, float away, float sweepProg, float sweepAlpha, Sink sink) {
+	private static void drawWord(Component text, Component colored, String raw, float x, float y, float a, float smear, float glitch, float boost, float away, float sweepProg, float sweepAlpha, Sink sink) {
 		Config c = Config.INSTANCE;
 		float glow = c.glow / 100f, outline = c.outline / 100f;
 		var under = c.throughWalls ? Font.DisplayMode.SEE_THROUGH : stickNow ? Font.DisplayMode.POLYGON_OFFSET : Font.DisplayMode.NORMAL;
@@ -289,7 +291,7 @@ public final class LyricsWorld {
 			}
 		}
 		int main = argb(a * (1f - 0.55f * smear), c.rgb());
-		if (main != 0) sink.draw(text, x, y, main, top);
+		if (main != 0) sink.draw(colored, x, y, main, top);
 
 		if (sweepAlpha > 0.01f && !raw.isEmpty()) {
 			Font font = Minecraft.getInstance().font;
@@ -299,7 +301,7 @@ public final class LyricsWorld {
 			int whole = Math.min(n, (int) Math.floor(exact));
 			float frac = exact - whole;
 			float z = -away * 0.08f; // a hair in front of the base text
-			Component prefix = whole > 0 ? LyricsHud.styled(raw.substring(0, whole), c) : null;
+			Component prefix = whole > 0 ? LyricsHud.styled(raw.substring(0, whole), c, true) : null;
 			int col = argb(a * sweepAlpha, rgb);
 			if (col != 0) {
 				if (c.sweepGlow) {
@@ -310,7 +312,7 @@ public final class LyricsWorld {
 				if (whole < n && frac > 0.02f) {
 					float cx = x + (prefix != null ? font.width(prefix) : 0);
 					int pcol = argb(a * sweepAlpha * frac, rgb);
-					if (pcol != 0) sink.draw(LyricsHud.styled(raw.substring(whole, whole + 1), c), cx, y, z, pcol, top);
+					if (pcol != 0) sink.draw(LyricsHud.styled(raw.substring(whole, whole + 1), c, true), cx, y, z, pcol, top);
 				}
 			}
 		}

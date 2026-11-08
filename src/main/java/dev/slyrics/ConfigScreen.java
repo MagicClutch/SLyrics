@@ -103,6 +103,7 @@ public final class ConfigScreen {
 			.option(Option.<Color>createBuilder().name(t("Glow color"))
 				.binding(new Color(Integer.parseInt(d.glowColor, 16)), () -> new Color(Integer.parseInt(c.glowColor.replace("#", ""), 16)), v -> c.glowColor = String.format("%06X", v.getRGB() & 0xFFFFFF))
 				.controller(ColorControllerBuilder::create).build())
+			.option(bool("Colorful emojis", "Every emoji gets its own color (red heart, gold star, ...) instead of the text color", d.emojiColors, () -> c.emojiColors, v -> c.emojiColors = v))
 			.option(bool("Uppercase", "", d.uppercase, () -> c.uppercase, v -> c.uppercase = v))
 			.option(bool("Bold", "", d.bold, () -> c.bold, v -> c.bold = v))
 			.option(bool("Shadow", "", d.shadow, () -> c.shadow, v -> c.shadow = v))

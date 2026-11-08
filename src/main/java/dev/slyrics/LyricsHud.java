@@ -81,6 +81,11 @@ public class LyricsHud implements HudElement {
 	}
 
 	public static MutableComponent styled(String s, Config c) {
+		return styled(s, c, false);
+	}
+
+	/** With colored=true every emoji gets its own color (the rest keeps the color the text is drawn with). */
+	public static MutableComponent styled(String s, Config c, boolean colored) {
 		Style base = Style.EMPTY.withBold(c.bold);
 		Identifier id = Identifier.tryParse(c.font);
 		Style userStyle = id != null ? base.withFont(new FontDescription.Resource(id)) : base;
@@ -91,6 +96,16 @@ public class LyricsHud implements HudElement {
 		for (int i = 0; i < s.length(); i++) {
 			char ch = s.charAt(i);
 			boolean em = c.emojis && Emojis.isEmojiChar(ch, c);
+			Integer own = colored && c.emojiColors && em ? Emojis.colorOf(ch) : null;
+			if (own != null) { // a colored emoji is its own run
+				if (run.length() > 0) {
+					out.append(Component.literal(run.toString()).withStyle(runEmoji ? emojiStyle : userStyle));
+					run.setLength(0);
+				}
+				out.append(Component.literal(String.valueOf(ch)).withStyle(emojiStyle.withColor(own)));
+				runEmoji = false;
+				continue;
+			}
 			if (i > 0 && em != runEmoji && run.length() > 0) {
 				out.append(Component.literal(run.toString()).withStyle(runEmoji ? emojiStyle : userStyle));
 				run.setLength(0);
@@ -107,7 +122,7 @@ public class LyricsHud implements HudElement {
 							int rgb, float alpha, Config c, float unused) {
 		int a = Math.round(alpha * 255);
 		if (a < 4) return;
-		MutableComponent comp = styled(s, c);
+		MutableComponent comp = styled(s, c, true);
 		int w = font.width(comp);
 		g.pose().pushMatrix();
 		g.pose().translate(cx, cy);
