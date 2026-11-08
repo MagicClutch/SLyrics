@@ -16,6 +16,7 @@ holograms in front of you, words scattered in the sky, or a plain HUD line.
 - **Words mode:** each word pops up around your crosshair the moment it is sung, glowing, tilted a little toward you, and fades shortly after. Words avoid overlapping each other.
 - **Lines mode:** the whole line appears and the word being sung lights up. Optional **Center layout** puts the words in a row straight ahead.
 - **Modes you can combine:** World words, Sky mode and Stick on blocks each have their own tab and switch. With several on, every word is sent to one of them at random.
+- **Karaoke sweep:** the word being sung is colored from left to right in time with the singing; the color goes off when the next word starts (color, whole-word mode and fade-out are configurable).
 - **Stick on blocks:** words stick flat onto the walls and floors you look at, like stickers.
 - **Sky mode:** huge words far away in the sky that flash up and drift slowly like clouds (distance, height and letter size are configurable).
 - **Prevent block clipping** (on by default): words are moved in front of walls and terrain and never sit inside blocks.

@@ -111,6 +111,16 @@ public final class ConfigScreen {
 			.option(intg("Fade (ms)", "Fade in/out duration", d.fadeMs, 0, 1000, 50, () -> c.fadeMs, v -> c.fadeMs = v))
 			.build();
 
+		var sweep = ConfigCategory.createBuilder().name(t("Karaoke sweep"))
+			.option(bool("Enable karaoke sweep", "The word being sung is colored from left to right in time with the singing. When the next word starts, the color goes off again.", d.sweepMode, () -> c.sweepMode, v -> c.sweepMode = v))
+			.option(Option.<Color>createBuilder().name(t("Sweep color"))
+				.binding(new Color(Integer.parseInt(d.sweepColor, 16)), () -> new Color(Integer.parseInt(c.sweepColor.replace("#", ""), 16)), v -> c.sweepColor = String.format("%06X", v.getRGB() & 0xFFFFFF))
+				.controller(ColorControllerBuilder::create).build())
+			.option(bool("Color the whole word at once", "Instead of sweeping across the word, color it completely the moment it is sung", d.sweepWhole, () -> c.sweepWhole, v -> c.sweepWhole = v))
+			.option(intg("Fade out (ms)", "How long the color takes to go off after the word is over (0 = instantly)", d.sweepFadeMs, 0, 600, 20, () -> c.sweepFadeMs, v -> c.sweepFadeMs = v))
+			.option(bool("Glow", "A soft halo in the sweep color around the colored part", d.sweepGlow, () -> c.sweepGlow, v -> c.sweepGlow = v))
+			.build();
+
 		var afk = ConfigCategory.createBuilder().name(t("AFK camera"))
 			.option(bool("AFK camera", "After you have been idle for a while, the camera leaves first person and slowly orbits you like a cinematic shot, with the lyrics in view. Any input ends it.", d.afkEnabled, () -> c.afkEnabled, v -> c.afkEnabled = v))
 			.option(intg("Start after (seconds)", "Idle time before the AFK camera starts", d.afkSeconds, 3, 600, 1, () -> c.afkSeconds, v -> c.afkSeconds = v))
@@ -144,7 +154,7 @@ public final class ConfigScreen {
 
 		return YetAnotherConfigLib.createBuilder()
 			.title(t("SLyrics"))
-			.category(spotify).category(holo).category(sky).category(stick).category(effects).category(text).category(afk).category(hud)
+			.category(spotify).category(holo).category(sky).category(stick).category(effects).category(sweep).category(text).category(afk).category(hud)
 			.save(Config::save)
 			.build().generateScreen(parent);
 	}
