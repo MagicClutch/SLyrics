@@ -32,11 +32,13 @@ public final class LyricScene {
 		public final double spanH, spanV;
 		public final float seed;
 		public final boolean sky;
+		public final boolean stick;
 		public long fadeAt = Long.MAX_VALUE;
 
 		Item(String[] words, long[] sungAt, long[] heldUntil, Vec3 pos, Vec3 anchor, float yaw, float pitch, float roll,
-			 float fit, double spanH, double spanV, float seed, boolean sky) {
+			 float fit, double spanH, double spanV, float seed, boolean sky, boolean stick) {
 			this.sky = sky;
+			this.stick = stick;
 			this.words = words;
 			this.sungAt = sungAt;
 			this.heldUntil = heldUntil;
@@ -52,7 +54,7 @@ public final class LyricScene {
 		}
 	}
 
-	private record Queued(String word, long sungAt, long heldUntil, long fadeAt, int order) {}
+	private record Queued(String word, long sungAt, long heldUntil, long fadeAt, int order, int mode) {}
 
 	private final Random rng = new Random();
 	public final List<Item> items = new ArrayList<>();
@@ -100,7 +102,9 @@ public final class LyricScene {
 		var player = mc.player;
 		if (player == null) return;
 
-		if (c.lineMode || c.centerLayout) {
+		int modes = (c.hologram ? 1 : 0) + (c.skyMode ? 1 : 0) + (c.stickMode ? 1 : 0);
+		boolean worldOnly = c.hologram && modes == 1;
+		if (worldOnly && (c.lineMode || c.centerLayout)) {
 			fadeAll(now);
 		} else {
 			queue.clear();
@@ -124,29 +128,25 @@ public final class LyricScene {
 
 		if (follow == null || follow.distanceToSqr(player.position()) > 900) follow = player.position();
 
-		if (c.skyMode) {
-			if (c.lineMode) {
-				placeSky(mc, words, start, end);
-			} else {
-				for (int i = 0; i < words.length; i++) {
-					long fadeAt = Math.max(start[i] + 2600, end[i] + 1400);
-					if (fadeAt < now) continue;
-					queue.add(new Queued(words[i], start[i], end[i], fadeAt, i));
-				}
-			}
-		} else if (c.lineMode) {
+		if (worldOnly && c.lineMode) {
 			Vec3 spot = c.centerLayout ? ahead(player, 0, 4) : pick(mc, words, start[0], 4000, true);
 			if (c.blockClipping) spot = safeSpot(mc, eye0(player), spot, words);
 			place(mc, words, start, end, spot, c.centerLayout ? 0 : 1, 1f);
-		} else if (c.centerLayout) {
+		} else if (worldOnly && c.centerLayout) {
 			placeRow(mc, words, start, end);
 		} else {
+			// every word goes to one of the enabled modes (World words / Sky / Stick on blocks)
+			List<Integer> enabled = new ArrayList<>();
+			if (c.hologram) enabled.add(0);
+			if (c.skyMode) enabled.add(1);
+			if (c.stickMode) enabled.add(2);
 			long gap = words.length > 1 ? (start[words.length - 1] - start[0]) / (words.length - 1) : 300;
 			long life = Math.max(1200, Math.min(2400, gap * 4));
 			for (int i = 0; i < words.length; i++) {
-				long fadeAt = Math.max(start[i] + 1200, end[i] + 500);
+				int mode = enabled.get(rng.nextInt(enabled.size()));
+				long fadeAt = mode == 1 ? Math.max(start[i] + 2600, end[i] + 1400) : Math.max(Math.max(start[i] + 1200, end[i] + 500), start[i] + life);
 				if (fadeAt < now) continue;
-				queue.add(new Queued(words[i], start[i], end[i], Math.max(fadeAt, start[i] + life), i));
+				queue.add(new Queued(words[i], start[i], end[i], fadeAt, i, mode));
 			}
 		}
 		trim();
@@ -173,9 +173,17 @@ public final class LyricScene {
 			queue.remove(i--);
 			if (now > q.fadeAt()) continue;
 			String[] w = {q.word()};
-			if (Config.INSTANCE.skyMode) {
+			if (q.mode() == 1) {
 				placeSky(mc, w, new long[]{q.sungAt()}, new long[]{q.heldUntil()}).fadeAt = q.fadeAt();
 				continue;
+			}
+			if (q.mode() == 2) {
+				Item stuck = placeStick(mc, w, new long[]{q.sungAt()}, new long[]{q.heldUntil()});
+				if (stuck != null) {
+					stuck.fadeAt = q.fadeAt();
+					continue;
+				}
+				// no block in sight: fall through and float it like a normal word
 			}
 			Vec3 spot = pick(mc, w, q.sungAt(), q.fadeAt() - q.sungAt(), false);
 			Vec3 eye = AfkCamera.eye(mc);
@@ -307,7 +315,7 @@ public final class LyricScene {
 		} else {
 			yaw = -AfkCamera.yaw(mc);
 		}
-		Item it = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, false);
+		Item it = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, false, false);
 		items.add(it);
 		return it;
 	}
@@ -358,7 +366,7 @@ public final class LyricScene {
 					float yaw = (float) Math.toDegrees(Math.atan2(off.z, off.x)) - 90f;
 					float pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
 					float roll = (rng.nextFloat() - 0.5f) * 6f;
-					best = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, true);
+					best = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, true, false);
 				}
 			}
 			if (bestGap >= 1.0) break; // found a clear spot at this size
@@ -386,6 +394,56 @@ public final class LyricScene {
 			gap = Math.min(gap, Math.max(gx, gy));
 		}
 		return gap;
+	}
+
+	/** Sticks a word flat onto a block surface in view, away from other stuck words. Returns null if no block is in sight. */
+	private Item placeStick(Minecraft mc, String[] words, long[] sung, long[] held) {
+		Config c = Config.INSTANCE;
+		var p = mc.player;
+		if (mc.level == null) return null;
+		Vec3 eye = AfkCamera.eye(mc);
+		double yawV = AfkCamera.yaw(mc), pitchV = AfkCamera.pitch(mc);
+		double fovH = hFov(mc), fovV = mc.options.fov().get();
+
+		double unitW = 0.05 * c.stickSize / 100.0;
+		double width = pixelWidth(mc, words) * unitW;
+		double scale = width > 3.5 ? 3.5 / width : 1.0;
+		double unit = unitW * scale;
+		double halfW = width * scale / 2, halfH = 9 * unit / 2;
+
+		Item best = null;
+		double bestScore = -1e9;
+		for (int i = 0; i < 32; i++) {
+			double dx = (rng.nextDouble() * 2 - 1) * fovH * 0.38, dy = (rng.nextDouble() * 2 - 1) * fovV * 0.38;
+			Vec3 dir = dirOf(yawV + dx, pitchV + dy);
+			var hit = mc.level.clip(new ClipContext(eye, eye.add(dir.scale(Math.max(3, c.stickRange))), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+			if (!(hit instanceof net.minecraft.world.phys.BlockHitResult bhr) || hit.getType() != HitResult.Type.BLOCK) continue;
+			var face = bhr.getDirection();
+			Vec3 n = new Vec3(face.getStepX(), face.getStepY(), face.getStepZ());
+			Vec3 spot = bhr.getLocation().add(n.scale(0.03));
+
+			double gap = 6;
+			for (Item it : items) {
+				if (!it.stick) continue;
+				gap = Math.min(gap, spot.distanceTo(it.pos) - (halfW + it.spanH) * 1.1);
+			}
+			double score = Math.min(gap, 6) * 10 - Math.hypot(dx, dy) * 0.05;
+			if (score > bestScore) {
+				bestScore = score;
+				float yaw, pitch = 0, roll = (rng.nextFloat() - 0.5f) * 6f;
+				if (Math.abs(n.y) > 0.9) { // floor or ceiling: lie flat, readable from where you stand
+					Vec3 fwd = dirOf(yawV, 0);
+					yaw = (float) Math.toDegrees(Math.atan2(fwd.z, fwd.x)) - 90f;
+					pitch = n.y > 0 ? 90f : -90f;
+				} else {
+					yaw = (float) Math.toDegrees(Math.atan2(-n.z, -n.x)) - 90f;
+				}
+				best = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll,
+					(float) (unit / unit()), halfW, halfH, rng.nextFloat() * 100f, false, true);
+			}
+		}
+		if (best != null) items.add(best);
+		return best;
 	}
 
 	/** Words in a row straight ahead, each appearing as it is sung. */

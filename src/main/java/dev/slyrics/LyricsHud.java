@@ -26,7 +26,7 @@ public class LyricsHud implements HudElement {
 		float cx = sw * c.xPercent / 100f, cy = sh * c.yPercent / 100f;
 		List<LyricLine> lines = Spotify.lyrics;
 
-		if (c.hologram && !lines.isEmpty()) return; // lyrics are shown as holograms in the world
+		if (c.anyWorld() && !lines.isEmpty()) return; // lyrics are shown as holograms in the world
 		if (lines.isEmpty() || !Spotify.playing && Spotify.track == null) {
 			if (c.showStatus && !Spotify.status.isEmpty()) {
 				draw(g, mc.font, Spotify.status, cx, cy, Math.min(1f, c.scale) * 0.7f, 0xAAAAAA, 0.8f, c, 1f);

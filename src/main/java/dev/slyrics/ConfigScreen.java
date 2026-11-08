@@ -55,16 +55,31 @@ public final class ConfigScreen {
 			.option(intg("Offset (ms)", "Show lyrics earlier (negative) or later (positive)", d.offsetMs, -3000, 3000, 50, () -> c.offsetMs, v -> c.offsetMs = v))
 			.build();
 
-		var holo = ConfigCategory.createBuilder().name(t("World"))
-			.option(bool("World lyrics", "Show the lyrics as floating words in the world (otherwise as plain HUD text)", d.hologram, () -> c.hologram, v -> c.hologram = v))
-			.option(bool("Lines mode", "Off: each word appears when it is sung. On: the whole line appears and the sung word lights up", d.lineMode, () -> c.lineMode, v -> c.lineMode = v))
+		var holo = ConfigCategory.createBuilder().name(t("World words"))
+			.option(bool("Enable world words", "Words float in front of you, scattered around the crosshair. If every world mode is off, the lyrics show as a plain HUD line", d.hologram, () -> c.hologram, v -> c.hologram = v))
+			.option(bool("Lines mode", "Only when World words is the only active mode. Off: each word appears when it is sung. On: the whole line appears and the sung word lights up", d.lineMode, () -> c.lineMode, v -> c.lineMode = v))
 			.option(bool("Center layout", "Off: words are scattered around the crosshair. On: words in a row straight ahead", d.centerLayout, () -> c.centerLayout, v -> c.centerLayout = v))
-			.option(bool("Sky mode", "Huge words far away in the sky that flash up and drift slowly like clouds", d.skyMode, () -> c.skyMode, v -> c.skyMode = v))
+			.option(flt("Closest distance", "Closest distance of the words in blocks", d.near, 2f, 12f, 0.5f, () -> c.near, v -> c.near = v))
+			.option(flt("Farthest distance", "Farthest distance of the words in blocks", d.far, 2f, 16f, 0.5f, () -> c.far, v -> c.far = v))
+			.option(bool("Follow me", "Words are carried along when you walk", d.follow, () -> c.follow, v -> c.follow = v))
+			.option(bool("Prevent block clipping", "Keeps words out of blocks: they are moved in front of walls and terrain and never placed inside the ground", d.blockClipping, () -> c.blockClipping, v -> c.blockClipping = v))
+			.option(bool("Visible through walls", "Text readable even behind blocks", d.throughWalls, () -> c.throughWalls, v -> c.throughWalls = v))
+			.build();
+
+		var sky = ConfigCategory.createBuilder().name(t("Sky"))
+			.option(bool("Enable sky mode", "Huge words far away in the sky that flash up and drift slowly like clouds", d.skyMode, () -> c.skyMode, v -> c.skyMode = v))
 			.option(flt("Sky distance", "How far away the sky words are, in blocks", d.skyDistance, 30f, 200f, 5f, () -> c.skyDistance, v -> c.skyDistance = v))
 			.option(flt("Sky height (°)", "Preferred angle above the horizon", d.skyElevation, 10f, 80f, 1f, () -> c.skyElevation, v -> c.skyElevation = v))
 			.option(flt("Sky letter size (°)", "Height of the letters as seen from your view", d.skyTextDeg, 3f, 20f, 0.5f, () -> c.skyTextDeg, v -> c.skyTextDeg = v))
-			.option(flt("Closest distance", "Closest distance of the words in blocks", d.near, 2f, 12f, 0.5f, () -> c.near, v -> c.near = v))
-			.option(flt("Farthest distance", "Farthest distance of the words in blocks", d.far, 2f, 16f, 0.5f, () -> c.far, v -> c.far = v))
+			.build();
+
+		var stick = ConfigCategory.createBuilder().name(t("Stick on blocks"))
+			.option(bool("Enable stick-on-block mode", "Words stick flat onto the blocks you look at, like stickers on walls and floors", d.stickMode, () -> c.stickMode, v -> c.stickMode = v))
+			.option(flt("Range", "How far away blocks may be to get a word, in blocks", d.stickRange, 3f, 40f, 1f, () -> c.stickRange, v -> c.stickRange = v))
+			.option(intg("Size (%)", "Size of the stuck words", d.stickSize, 30, 300, 5, () -> c.stickSize, v -> c.stickSize = v))
+			.build();
+
+		var effects = ConfigCategory.createBuilder().name(t("Effects"))
 			.option(intg("Size (%)", "Size of the text in the world", d.size, 50, 250, 5, () -> c.size, v -> c.size = v))
 			.option(intg("Opacity (%)", "", d.opacity, 10, 100, 5, () -> c.opacity, v -> c.opacity = v))
 			.option(intg("Glow (%)", "Soft halo around the words", d.glow, 0, 100, 5, () -> c.glow, v -> c.glow = v))
@@ -72,9 +87,8 @@ public final class ConfigScreen {
 			.option(intg("Motion blur (%)", "Smear while a word appears and fades", d.blur, 0, 100, 5, () -> c.blur, v -> c.blur = v))
 			.option(intg("Bounce (%)", "Words spring into place and float slightly", d.bounce, 0, 100, 5, () -> c.bounce, v -> c.bounce = v))
 			.option(bool("Flicker", "Occasional glitch effect", d.flicker, () -> c.flicker, v -> c.flicker = v))
-			.option(bool("Follow me", "Words are carried along when you walk", d.follow, () -> c.follow, v -> c.follow = v))
-			.option(bool("Prevent block clipping", "Keeps words out of blocks: they are moved in front of walls and terrain and never placed inside the ground", d.blockClipping, () -> c.blockClipping, v -> c.blockClipping = v))
-			.option(bool("Visible through walls", "Text readable even behind blocks", d.throughWalls, () -> c.throughWalls, v -> c.throughWalls = v))
+			.option(bool("3D text", "Gives the words a body: stacked layers behind the front face, visible from the side", d.depth3d, () -> c.depth3d, v -> c.depth3d = v))
+			.option(flt("3D thickness", "Thickness of the 3D body in font pixels", d.depthSize, 1f, 8f, 0.5f, () -> c.depthSize, v -> c.depthSize = v))
 			.build();
 
 		var text = ConfigCategory.createBuilder().name(t("Text"))
@@ -90,8 +104,6 @@ public final class ConfigScreen {
 				.binding(new Color(Integer.parseInt(d.glowColor, 16)), () -> new Color(Integer.parseInt(c.glowColor.replace("#", ""), 16)), v -> c.glowColor = String.format("%06X", v.getRGB() & 0xFFFFFF))
 				.controller(ColorControllerBuilder::create).build())
 			.option(bool("Uppercase", "", d.uppercase, () -> c.uppercase, v -> c.uppercase = v))
-			.option(bool("3D text", "Gives the words a body: stacked layers behind the front face, visible from the side", d.depth3d, () -> c.depth3d, v -> c.depth3d = v))
-			.option(flt("3D thickness", "Thickness of the 3D body in font pixels", d.depthSize, 1f, 8f, 0.5f, () -> c.depthSize, v -> c.depthSize = v))
 			.option(bool("Bold", "", d.bold, () -> c.bold, v -> c.bold = v))
 			.option(bool("Shadow", "", d.shadow, () -> c.shadow, v -> c.shadow = v))
 			.option(bool("Typewriter", "Text is typed out letter by letter", d.typewriter, () -> c.typewriter, v -> c.typewriter = v))
@@ -132,7 +144,7 @@ public final class ConfigScreen {
 
 		return YetAnotherConfigLib.createBuilder()
 			.title(t("SLyrics"))
-			.category(spotify).category(holo).category(text).category(afk).category(hud)
+			.category(spotify).category(holo).category(sky).category(stick).category(effects).category(text).category(afk).category(hud)
 			.save(Config::save)
 			.build().generateScreen(parent);
 	}
