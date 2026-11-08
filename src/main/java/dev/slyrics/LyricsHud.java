@@ -18,6 +18,8 @@ public class LyricsHud implements HudElement {
 	public void extractRenderState(GuiGraphicsExtractor g, DeltaTracker delta) {
 		Config c = Config.INSTANCE;
 		Minecraft mc = Minecraft.getInstance();
+		float fadeBlack = AfkCamera.fadeAlpha();
+		if (fadeBlack > 0f) g.fill(0, 0, g.guiWidth(), g.guiHeight(), Math.round(fadeBlack * 255) << 24);
 		if (!c.enabled) return;
 
 		int sw = g.guiWidth(), sh = g.guiHeight();

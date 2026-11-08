@@ -59,6 +59,20 @@ public class Config {
 	public float afkRadius = 7f;
 	public float afkHeight = 1.5f;
 	public float afkSpeed = 12f;
+	/** Which camera shots may be used. */
+	public boolean afkOrbit = true;
+	public boolean afkRise = true;
+	public boolean afkDescend = true;
+	public boolean afkDiagonal = true;
+	public boolean afkFlyby = true;
+	public boolean afkPushIn = true;
+	public boolean afkPullOut = true;
+	/** Seconds each shot lasts before the next one starts. */
+	public int afkShotSeconds = 12;
+	/** Pick the next shot at random (otherwise in a fixed order). */
+	public boolean afkRandomOrder = true;
+	/** Fade to black between shots instead of gliding from one to the next. */
+	public boolean afkFadeBetween = false;
 	/** Keep words out of blocks: they are moved in front of walls/terrain and never placed inside the ground. */
 	public boolean blockClipping = true;
 	/** Text size in percent. */
