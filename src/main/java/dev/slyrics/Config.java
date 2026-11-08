@@ -26,36 +26,40 @@ public class Config {
 	public String color = "FF5FB0";
 	public boolean shadow = true;
 	public boolean bold = true;
-	/** Glowing outline around the text. */
-	public boolean glow = true;
 	/** Symbols after keywords (love -> love ♥). The word is kept. */
 	public boolean emojis = true;
 	/** Word (lowercase) -> symbol. Can be freely edited in slyrics.json. */
 	public java.util.Map<String, String> emojiMap = Emojis.defaults();
 	/** Internal: lets new default words be merged into an existing emojiMap once. */
 	public int emojiVersion = 0;
-	/** Sky mode: random tilt of the words in degrees (+-). */
-	public float skyTilt = 12f;
 	public boolean typewriter = true;
 	/** Also show the previous/next line, small and dimmed. */
 	public boolean showNeighbors = false;
 	public boolean background = false;
 	/** Lyrics timing offset in ms (positive = later). */
 	public int offsetMs = 0;
-	public int fadeMs = 250;
 	/** Show lines as floating holograms in the world instead of HUD text. */
+	public int fadeMs = 250;
 	public boolean hologram = true;
-	/** Maximum hologram distance from the player in blocks. */
-	public float holoRadius = 12f;
-	public float holoScale = 0.8f;
-	public int holoMax = 4;
-	/** Sky mode: words scattered in the sky instead of in front of you. */
-	public boolean skyMode = false;
-	/** Sky height in degrees above the horizon. */
-	public float skyElevation = 25f;
-	public float skyDistance = 40f;
-	/** Max words per hologram; longer lines are split into separate holograms shown one after another. */
-	public int maxWords = 6;
+	/** false = Words (each word on its own), true = Lines (whole line, current word lights up). */
+	public boolean lineMode = false;
+	/** false = scattered around the crosshair, true = in a row straight ahead. */
+	public boolean centerLayout = false;
+	public boolean uppercase = false;
+	/** Closest / farthest distance of the words in blocks. */
+	public float near = 4f;
+	public float far = 8f;
+	/** Words follow you when you walk. */
+	public boolean follow = false;
+	/** Text size in percent. */
+	public int size = 100;
+	public int opacity = 100;
+	public int glow = 60;
+	public int outline = 60;
+	public int blur = 50;
+	public int bounce = 100;
+	public boolean flicker = false;
+	public String glowColor = "DDE9FF";
 	public boolean throughWalls = true;
 	/** On-screen status message (e.g. when no lyrics were found). */
 	public boolean showStatus = true;

@@ -13,12 +13,12 @@ holograms in front of you, words scattered in the sky, or a plain HUD line.
 `/slyrics config | login | logout | toggle | offset <ms>`
 
 ## Features
-- Hologram mode: each lyric chunk appears at a fixed spot in front of you (left to right, in reading order), always inside your field of view.
-- Sky mode: each word is placed separately in the sky, slightly tilted, one after another.
-- Max words per chunk, size, radius, distance, tilt, fade, typewriter effect, bold, shadow, glow, color, background.
+- **Words mode:** each word pops up around your crosshair the moment it is sung, glowing, tilted a little toward you, and fades shortly after. Words avoid overlapping each other.
+- **Lines mode:** the whole line appears and the word being sung lights up. Optional **Center layout** puts the words in a row straight ahead.
+- Distance, size, opacity, glow, outline, motion blur, bounce, flicker, follow-me, walls protection, uppercase.
 - Custom font: `minecraft:default`, `minecraft:uniform`, `minecraft:alt`, `minecraft:illageralt`, or any font from a resource pack (`assets/<namespace>/font/<name>.json` -> `<namespace>:<name>`).
-- Emojis: adds a symbol after keywords (love ♥, fight ⚔, ...) without replacing the word. Toggle in the config; edit the word list via `emojiMap` in `config/slyrics.json`.
-- Texts fade out when Spotify is paused; optional wall protection (turn off "Visible through walls").
+- Emojis: adds a symbol after keywords in many languages (love ♥, fight ⚔, ...) without replacing the word. Toggle in the config; edit the word list via `emojiMap` in `config/slyrics.json`.
+- Words fade out when Spotify is paused.
 
 ## Build
 `./gradlew build` (26.3). For 26.2:
