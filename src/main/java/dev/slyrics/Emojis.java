@@ -15,21 +15,21 @@ public final class Emojis {
 
 	public static Map<String, String> defaults() {
 		Map<String, String> m = new java.util.LinkedHashMap<>();
-		put(m, "♥", "love", "loving", "loved", "heart", "hearts", "baby", "darling", "kiss", "lover");
-		put(m, "⚔", "fight", "fighting", "war", "battle", "kill", "sword", "enemy", "blood");
-		put(m, "☠", "die", "dying", "dead", "death", "ghost", "grave", "hell", "devil");
-		put(m, "★", "star", "stars", "shine", "shining", "shiny", "gold", "dream", "dreams");
-		put(m, "♪", "music", "song", "sing", "singing", "dance", "dancing", "melody", "rhythm");
-		put(m, "☀", "sun", "sunshine", "sunny", "summer", "day", "light");
-		put(m, "☽", "moon", "night", "midnight", "dark", "tonight");
-		put(m, "☂", "rain", "raining", "storm", "cry", "crying", "tears");
-		put(m, "☁", "cloud", "clouds", "sky", "heaven", "fly", "flying");
-		put(m, "☺", "smile", "smiling", "happy", "laugh", "fun");
-		put(m, "☹", "sad", "lonely", "alone", "broken", "pain");
-		put(m, "❁", "flower", "flowers", "rose", "roses", "spring");
-		put(m, "♛", "king", "queen", "crown", "princess", "prince");
-		put(m, "☮", "peace", "free", "freedom");
-		put(m, "⚡", "thunder", "lightning", "electric", "power", "energy");
+		put(m, "♥", "amor", "amore", "amour", "aşk", "baby", "bacio", "beijo", "cheri", "chéri", "coeur", "coracao", "corazon", "corazón", "coração", "cuore", "cœur", "darling", "hart", "heart", "hearts", "herz", "herzen", "kalp", "kiss", "kuss", "liebe", "lieben", "liebst", "liefde", "love", "loved", "lover", "loving", "querer", "schatz", "любовь", "сердце");
+		put(m, "⚔", "bataille", "batalha", "batalla", "battaglia", "battle", "bloed", "blood", "blut", "combat", "enemy", "epee", "espada", "feind", "fight", "fighting", "guerra", "guerre", "kampf", "kampfen", "kan", "kill", "krieg", "kämpfen", "lotta", "luta", "oorlog", "pelea", "sang", "sangre", "sangue", "savas", "savaş", "schwert", "spada", "strijd", "sword", "épée", "бой", "война", "кровь");
+		put(m, "☠", "dead", "death", "devil", "diable", "diablo", "diavolo", "dood", "dying", "enfer", "fantasma", "fantome", "fantôme", "geist", "ghost", "grab", "graf", "grave", "inferno", "infierno", "mort", "morte", "morto", "muerta", "muerte", "muerto", "olum", "spook", "sterben", "teufel", "tod", "tomba", "tombe", "tot", "tumba", "ölüm", "призрак", "смерть");
+		put(m, "★", "dream", "dreams", "dromen", "droom", "estrela", "estrelas", "estrella", "estrellas", "etoile", "etoiles", "glanzen", "gold", "reve", "ruya", "rêve", "rüya", "shine", "shining", "shiny", "sogni", "sogno", "sonho", "sonhos", "star", "stars", "stella", "stelle", "ster", "stern", "sterne", "sterren", "sueno", "sueño", "sueños", "traum", "traume", "träume", "yildiz", "yıldız", "étoile", "étoiles", "звезда", "мечта");
+		put(m, "♪", "bailar", "ballare", "cancao", "cancion", "canción", "cantar", "cantare", "canzone", "canção", "chanson", "chanter", "dance", "dancing", "dansen", "danser", "dançar", "melodie", "melody", "music", "musica", "musik", "musique", "muziek", "muzik", "música", "müzik", "rhythm", "sarki", "sing", "singen", "singing", "song", "tanzen", "zingen", "şarkı", "музыка", "песня", "танец");
+		put(m, "☀", "day", "ete", "gunes", "güneş", "licht", "light", "luce", "lumiere", "lumière", "luz", "sol", "sole", "soleil", "sommer", "sonne", "summer", "sun", "sunny", "sunshine", "verano", "verao", "verão", "zomer", "zon", "été", "свет", "солнце");
+		put(m, "☽", "dark", "dunkel", "gece", "lua", "luna", "lune", "maan", "midnight", "minuit", "mitternacht", "mond", "moon", "nacht", "night", "noche", "noite", "notte", "nuit", "oscuro", "tonight", "луна", "ночь");
+		put(m, "☂", "chorar", "chuva", "cry", "crying", "gözyaşı", "huilen", "lacrime", "lagrimas", "larmes", "llorar", "lluvia", "lágrimas", "piangere", "pioggia", "pleurer", "pluie", "rain", "raining", "regen", "storm", "sturm", "tears", "tempesta", "tempestade", "tempete", "tempête", "tormenta", "tranen", "tränen", "weinen", "yagmur", "yağmur", "дождь", "слезы", "слёзы");
+		put(m, "☁", "bulut", "ceu", "ciel", "cielo", "cloud", "clouds", "céu", "fliegen", "fly", "flying", "gokyuzu", "gökyüzü", "heaven", "hemel", "himmel", "lucht", "nuage", "nuages", "nube", "nubes", "nuvem", "nuvens", "nuvola", "nuvole", "sky", "vliegen", "voar", "volar", "voler", "wolk", "wolke", "wolken", "небо", "облако");
+		put(m, "☺", "blij", "felice", "feliz", "fun", "glimlach", "glucklich", "glücklich", "gülmek", "happy", "heureux", "lacheln", "lachen", "laugh", "lächeln", "mutlu", "reir", "reír", "ridere", "rir", "rire", "smile", "smiling", "sonrisa", "sorriso", "sourire", "spass", "spaß", "счастье", "улыбка");
+		put(m, "☹", "acı", "allein", "alone", "brise", "brisé", "broken", "dolor", "dolore", "dor", "douleur", "eenzaam", "einsam", "lonely", "pain", "pijn", "quebrado", "roto", "sad", "schmerz", "seul", "seule", "solitario", "solitudine", "sozinho", "traurig", "triste", "uzgun", "verdriet", "yalniz", "yalnız", "üzgün", "боль", "грусть");
+		put(m, "❁", "bloem", "bloemen", "blume", "blumen", "cicek", "fiore", "fiori", "fleur", "fleurs", "flor", "flores", "flower", "flowers", "fruhling", "frühling", "lente", "primavera", "printemps", "rose", "roses", "spring", "çiçek", "цветок");
+		put(m, "♛", "coroa", "corona", "couronne", "crown", "king", "konig", "konigin", "koning", "koningin", "kral", "kraliçe", "krone", "kroon", "könig", "königin", "prince", "princesa", "princess", "principe", "principessa", "prinz", "prinzessin", "príncipe", "queen", "rainha", "regina", "rei", "reina", "reine", "rey", "roi", "королева", "король");
+		put(m, "☮", "baris", "barış", "free", "freedom", "freiheit", "frieden", "liberdade", "liberta", "libertad", "liberte", "libertà", "liberté", "paix", "paz", "peace", "vrede", "vrijheid", "özgürlük");
+		put(m, "⚡", "bliksem", "blitz", "donder", "donner", "eclair", "electric", "energy", "foudre", "fulmine", "gök", "lightning", "power", "raio", "rayo", "relampago", "relámpago", "simsek", "thunder", "tonnerre", "trovao", "trovão", "trueno", "tuono", "éclair", "şimşek", "гром", "молния");
 		return m;
 	}
 
