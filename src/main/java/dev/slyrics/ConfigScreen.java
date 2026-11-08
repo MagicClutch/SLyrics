@@ -90,6 +90,8 @@ public final class ConfigScreen {
 				.binding(new Color(Integer.parseInt(d.glowColor, 16)), () -> new Color(Integer.parseInt(c.glowColor.replace("#", ""), 16)), v -> c.glowColor = String.format("%06X", v.getRGB() & 0xFFFFFF))
 				.controller(ColorControllerBuilder::create).build())
 			.option(bool("Uppercase", "", d.uppercase, () -> c.uppercase, v -> c.uppercase = v))
+			.option(bool("3D text", "Gives the words a body: stacked layers behind the front face, visible from the side", d.depth3d, () -> c.depth3d, v -> c.depth3d = v))
+			.option(flt("3D thickness", "Thickness of the 3D body in font pixels", d.depthSize, 1f, 8f, 0.5f, () -> c.depthSize, v -> c.depthSize = v))
 			.option(bool("Bold", "", d.bold, () -> c.bold, v -> c.bold = v))
 			.option(bool("Shadow", "", d.shadow, () -> c.shadow, v -> c.shadow = v))
 			.option(bool("Typewriter", "Text is typed out letter by letter", d.typewriter, () -> c.typewriter, v -> c.typewriter = v))

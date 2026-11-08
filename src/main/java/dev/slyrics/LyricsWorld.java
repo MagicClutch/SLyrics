@@ -30,7 +30,11 @@ public final class LyricsWorld {
 	private static boolean wasPlaying;
 
 	private interface Sink {
-		void draw(Component text, float x, float y, int argb, Font.DisplayMode mode);
+		void draw(Component text, float x, float y, float z, int argb, Font.DisplayMode mode);
+
+		default void draw(Component text, float x, float y, int argb, Font.DisplayMode mode) {
+			draw(text, x, y, 0f, argb, mode);
+		}
 	}
 
 	private LyricsWorld() {}
@@ -111,8 +115,12 @@ public final class LyricsWorld {
 		PoseStack ps = ctx.poseStack();
 		Vec3 cam = ctx.levelState().cameraRenderState.pos;
 		var collector = ctx.submitNodeCollector();
-		Sink sink = (text, x, y, argb, mode) ->
+		Sink sink = (text, x, y, z, argb, mode) -> {
+			if (z != 0f) ps.pushPose();
+			if (z != 0f) ps.translate(0f, 0f, z);
 			collector.submitText(ps, x, y, text.getVisualOrderText(), false, mode, LightCoordsUtil.FULL_BRIGHT, argb, 0, 0);
+			if (z != 0f) ps.popPose();
+		};
 
 		// far to near, so near words end up on top
 		List<LyricScene.Item> order = new java.util.ArrayList<>(SCENE.items);
@@ -170,6 +178,11 @@ public final class LyricsWorld {
 		float s = 0.05f * (c.size / 100f) * it.fit * scaleAnim;
 		ps.scale(-s, -s, s);
 
+		// Which local z direction points away from the camera: the 3D body is built behind the front face.
+		double yawRad = Math.toRadians(-it.yaw);
+		Vec3 toCam = cam.subtract(at);
+		float away = (toCam.x * Math.sin(yawRad) + toCam.z * Math.cos(yawRad)) >= 0 ? -1f : 1f;
+
 		Font font = mc.font;
 		int n = it.words.length;
 		Component[] texts = new Component[n];
@@ -199,7 +212,7 @@ public final class LyricsWorld {
 			ps.translate(x + widths[i] / 2f, 0f, 0f);
 			ps.scale(grow, grow, 1f);
 			float glitch = c.flicker ? glitch(now, it.seed + i * 1.9f) : 0f;
-			drawWord(texts[i], -widths[i] / 2f, y, a, smear, glitch, (1f + 0.8f * sustain) * (it.sky && born < 1f ? 2f : 1f), sink);
+			drawWord(texts[i], -widths[i] / 2f, y, a, smear, glitch, (1f + 0.8f * sustain) * (it.sky && born < 1f ? 2f : 1f), away, sink);
 			ps.popPose();
 			x += widths[i] + gap;
 		}
@@ -214,7 +227,7 @@ public final class LyricsWorld {
 		return clamp01(1f - (now - to) / 300f);
 	}
 
-	private static void drawWord(Component text, float x, float y, float a, float smear, float glitch, float boost, Sink sink) {
+	private static void drawWord(Component text, float x, float y, float a, float smear, float glitch, float boost, float away, Sink sink) {
 		Config c = Config.INSTANCE;
 		float glow = c.glow / 100f, outline = c.outline / 100f;
 		var under = c.throughWalls ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL;
@@ -248,6 +261,18 @@ public final class LyricsWorld {
 		if (outline > 0.02f) {
 			int col = argb(a * 0.3f * outline, OUTLINE_RGB);
 			if (col != 0) for (float[] o : RING8) sink.draw(text, x + o[0] * 0.8f, y + o[1] * 0.8f, col, under);
+		}
+		if (c.depth3d && c.depthSize > 0.1f) {
+			// stacked copies from the back to just behind the front face, darker toward the back
+			int layers = Math.max(2, Math.min(12, Math.round(c.depthSize * 1.6f)));
+			int base = c.rgb();
+			for (int k = layers; k >= 1; k--) {
+				float f = (float) k / layers;                      // 1 = back, small = near the front
+				float shade = 0.72f - 0.4f * f;                    // back is darker
+				int rgb = ((int) (((base >> 16) & 255) * shade) << 16) | ((int) (((base >> 8) & 255) * shade) << 8) | (int) ((base & 255) * shade);
+				int col = argb(a * 0.97f, rgb);
+				if (col != 0) sink.draw(text, x, y, away * c.depthSize * f, col, under);
+			}
 		}
 		int main = argb(a * (1f - 0.55f * smear), c.rgb());
 		if (main != 0) sink.draw(text, x, y, main, top);
