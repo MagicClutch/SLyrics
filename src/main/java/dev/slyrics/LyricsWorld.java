@@ -142,14 +142,26 @@ public final class LyricsWorld {
 		float born = clamp01((now - it.sungAt[0]) / (float) LyricScene.POP_MS);
 		float dying = now < it.fadeAt ? 0f : clamp01((now - it.fadeAt) / (float) LyricScene.FADE_MS);
 		float alpha = smooth(born) * (1f - dying) * (c.opacity / 100f);
+		if (it.sky) { // flashes up: three quick pulses, then a faint shimmer
+			double sn = Math.sin(born * Math.PI * 2.5);
+			float flash = 0.25f + 0.75f * (float) (sn * sn);
+			float shimmer = 0.88f + 0.12f * (float) Math.sin(now / 900.0 + it.seed);
+			alpha *= born < 1f ? flash : shimmer;
+		}
 		if (alpha < 0.02f) return;
 
 		float bounce = c.bounce / 100f;
-		float scaleAnim = 1f + (pop(born) - 1f) * bounce - 0.15f * dying;
-		double lift = -0.35 * bounce * (1f - smooth(born)) + Math.sin(now / 750.0 + it.seed) * 0.045 * bounce;
+		float scaleAnim = it.sky ? 1f + 0.06f * (1f - born) : 1f + (pop(born) - 1f) * bounce - 0.15f * dying;
+		double lift = it.sky ? 0 : -0.35 * bounce * (1f - smooth(born)) + Math.sin(now / 750.0 + it.seed) * 0.045 * bounce;
 		float smear = c.blur / 100f * Math.max(1f - born, dying);
 
 		Vec3 at = SCENE.worldPos(it, c.follow);
+		if (it.sky) { // slow sideways drift, like a cloud
+			Vec3 d = at.subtract(cam);
+			double len = Math.max(1.0, Math.hypot(d.x, d.z));
+			double drift = (now - it.sungAt[0]) / 1000.0 * len * 0.006;
+			at = at.add(-d.z / len * drift, 0, d.x / len * drift);
+		}
 		ps.pushPose();
 		ps.translate((float) (at.x - cam.x), (float) (at.y - cam.y + lift), (float) (at.z - cam.z));
 		ps.rotateDegrees(Axis.YP, -it.yaw);
@@ -187,7 +199,7 @@ public final class LyricsWorld {
 			ps.translate(x + widths[i] / 2f, 0f, 0f);
 			ps.scale(grow, grow, 1f);
 			float glitch = c.flicker ? glitch(now, it.seed + i * 1.9f) : 0f;
-			drawWord(texts[i], -widths[i] / 2f, y, a, smear, glitch, 1f + 0.8f * sustain, sink);
+			drawWord(texts[i], -widths[i] / 2f, y, a, smear, glitch, (1f + 0.8f * sustain) * (it.sky && born < 1f ? 2f : 1f), sink);
 			ps.popPose();
 			x += widths[i] + gap;
 		}
