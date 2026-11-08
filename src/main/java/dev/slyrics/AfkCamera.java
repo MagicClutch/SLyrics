@@ -28,6 +28,10 @@ public final class AfkCamera {
 	private static Shot shot = Shot.ORBIT;
 	private static int shotIndex = -1;
 	private static long shotStart;
+	/** How long the current shot's movement takes: until the next planned cut. */
+	private static long shotDurMs = 12000;
+	private static int linesSinceCut;
+	private static long pendingDurMs = 12000;
 	private static double shotAngle;
 	private static int shotSide = 1;
 	/** Fade-to-black between shots. */
@@ -101,13 +105,16 @@ public final class AfkCamera {
 		startPos = p.getEyePosition();
 		startYaw = p.getYRot();
 		startPitch = p.getXRot();
-		blendIn = true;
+		blendIn = false;
 		fading = false;
 		shotIndex = -1;
+		linesSinceCut = 0;
+		shotDurMs = Math.max(3, Config.INSTANCE.afkShotSeconds) * 1000L;
 		saved = mc.options.getCameraType();
 		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
 		camPos = null;
 		nextShot(now, p.getYRot(), false);
+		blendIn = false;
 	}
 
 	private static void stop(Minecraft mc) {
@@ -115,6 +122,32 @@ public final class AfkCamera {
 		camPos = null;
 		fading = false;
 		mc.options.setCameraType(saved);
+	}
+
+	/** Called whenever a new lyric line starts. Cuts to a new shot every N lines, never in the middle of a line. */
+	public static void onLine(int idx, java.util.List<LyricLine> lines) {
+		if (!active) return;
+		Config c = Config.INSTANCE;
+		linesSinceCut++;
+		int every = Math.max(1, c.afkCutEveryLines);
+		if (linesSinceCut < every) return;
+		linesSinceCut = 0;
+		long dur = c.afkShotSeconds * 1000L;
+		int target = idx + every;
+		if (idx >= 0 && target < lines.size()) dur = lines.get(target).timeMs() - lines.get(idx).timeMs();
+		dur = Math.max(3000L, Math.min(120000L, dur));
+		long now = System.currentTimeMillis();
+		var mc = Minecraft.getInstance();
+		if (c.afkFadeBetween) {
+			pendingDurMs = dur;
+			fading = true;
+			fadeSwitched = false;
+			fadeStart = now;
+		} else {
+			nextShot(now, mc.player != null ? mc.player.getYRot() : 0f, false);
+			blendIn = false; // instant cut
+			shotDurMs = dur;
+		}
 	}
 
 	/** 0..1 black overlay while fading between shots. */
@@ -227,20 +260,7 @@ public final class AfkCamera {
 		var p = mc.player;
 		long now = System.currentTimeMillis();
 
-		double dur = Math.max(3, c.afkShotSeconds) * 1000.0;
-		double u = Math.min(1.0, (now - shotStart) / dur);
-		if (u >= 1.0) {
-			if (c.afkFadeBetween) {
-				if (!fading) {
-					fading = true;
-					fadeSwitched = false;
-					fadeStart = now;
-				}
-			} else {
-				nextShot(now, p.getYRot(), true);
-				u = 0;
-			}
-		}
+		double u = Math.min(1.0, (now - shotStart) / (double) Math.max(1000L, shotDurMs));
 		if (fading) {
 			float ft = (now - fadeStart) / 900f;
 			if (!fadeSwitched && ft >= 0.5f) {
@@ -248,6 +268,7 @@ public final class AfkCamera {
 				startPos = null; // jump while the screen is black
 				nextShot(now, p.getYRot(), false);
 				blendIn = false;
+				shotDurMs = pendingDurMs;
 				u = 0;
 			}
 			if (ft >= 1f) fading = false;

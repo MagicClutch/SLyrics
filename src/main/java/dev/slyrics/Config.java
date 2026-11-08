@@ -67,8 +67,10 @@ public class Config {
 	public boolean afkFlyby = true;
 	public boolean afkPushIn = true;
 	public boolean afkPullOut = true;
-	/** Seconds each shot lasts before the next one starts. */
+	/** Fallback shot length in seconds (used when the lyric timing for the next cut is unknown). */
 	public int afkShotSeconds = 12;
+	/** Hard cut to a new shot every this many lyric lines (cuts only happen on line changes). */
+	public int afkCutEveryLines = 3;
 	/** Pick the next shot at random (otherwise in a fixed order). */
 	public boolean afkRandomOrder = true;
 	/** Fade to black between shots instead of gliding from one to the next. */
