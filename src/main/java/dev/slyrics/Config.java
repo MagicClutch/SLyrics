@@ -73,6 +73,12 @@ public class Config {
 	public int afkCutEveryLines = 3;
 	/** Pick the next shot at random (otherwise in a fixed order). */
 	public boolean afkRandomOrder = true;
+	/** The camera never gets farther than this from the player, in blocks. */
+	public float afkMaxDistance = 8f;
+	/** Close-up shots (camera 2-3 blocks away at head height). */
+	public boolean afkCloseUp = true;
+	/** Chance in percent that the next shot is a close-up. */
+	public int afkCloseUpPercent = 45;
 	/** Fade to black between shots instead of gliding from one to the next. */
 	public boolean afkFadeBetween = false;
 	/** Keep words out of blocks: they are moved in front of walls/terrain and never placed inside the ground. */
