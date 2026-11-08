@@ -312,55 +312,80 @@ public final class LyricScene {
 		return it;
 	}
 
-	private int skyCursor;
-
-	/** Puts words huge and far away in the sky, inside the current view, kept apart from other sky words. */
+	/** Puts words huge and far away in the sky, inside the current view, without overlapping other sky words. */
 	private Item placeSky(Minecraft mc, String[] words, long[] sung, long[] held) {
 		Config c = Config.INSTANCE;
 		var p = mc.player;
 		Vec3 eye = AfkCamera.eye(mc);
 		double fovH = hFov(mc), fovV = mc.options.fov().get();
 		double viewElev = -AfkCamera.pitch(mc);
-		int slot = skyCursor++ % 5;
+		double viewYaw = AfkCamera.yaw(mc);
+		int pixels = pixelWidth(mc, words);
 
 		Item best = null;
-		double bestRoom = -1e9;
-		for (int i = 0; i < 16; i++) {
-			double dist = Math.max(30, c.skyDistance) * (0.85 + rng.nextDouble() * 0.3);
-			double unit = 2 * dist * Math.tan(Math.toRadians(c.skyTextDeg) / 2) / 9.0;
-			double width = pixelWidth(mc, words) * unit;
-			double maxWidth = 2 * dist * Math.tan(Math.toRadians(fovH * 0.36));
-			if (width > maxWidth) {
-				unit *= maxWidth / width;
-				width = maxWidth;
-			}
-			double spanH = Math.toDegrees(Math.atan(width / 2 / dist));
-			double spanV = Math.toDegrees(Math.atan(9 * unit / 2 / dist));
+		double bestGap = -1e9;
+		// If no free spot exists, retry with smaller letters.
+		double[] shrink = {1.0, 0.85, 0.7, 0.55};
+		for (double sh : shrink) {
+			// every word gets its own size and distance, so the sky does not look stamped
+			double sizeVar = (0.8 + rng.nextDouble() * 0.45) * sh;
+			for (int i = 0; i < 40; i++) {
+				double dist = Math.max(30, c.skyDistance) * (0.75 + rng.nextDouble() * 0.5);
+				double unit = 2 * dist * Math.tan(Math.toRadians(c.skyTextDeg * sizeVar) / 2) / 9.0;
+				double width = pixels * unit;
+				double maxWidth = 2 * dist * Math.tan(Math.toRadians(fovH * 0.36));
+				if (width > maxWidth) {
+					unit *= maxWidth / width;
+					width = maxWidth;
+				}
+				double spanH = Math.toDegrees(Math.atan(width / 2 / dist));
+				double spanV = Math.toDegrees(Math.atan(9 * unit / 2 / dist));
 
-			double dx = (slot - 2) * fovH * 0.14 + (rng.nextDouble() - 0.5) * fovH * 0.1;
-			double dxLimit = Math.max(0, fovH / 2 - spanH - 4);
-			dx = Math.max(-dxLimit, Math.min(dxLimit, dx));
-			double elev = c.skyElevation + (slot % 2 == 0 ? 5 : -5) + (rng.nextDouble() - 0.5) * 8;
-			double room = fovV * 0.5 - spanV - 4;
-			elev = Math.max(viewElev - room, Math.min(viewElev + room, elev));
-			elev = Math.max(6, elev);
+				double dxLimit = Math.max(0, fovH / 2 - spanH - 4);
+				double dx = (rng.nextDouble() * 2 - 1) * dxLimit;
+				double room = fovV * 0.5 - spanV - 4;
+				double elev = c.skyElevation + rng.nextGaussian() * 9;
+				elev = Math.max(viewElev - room, Math.min(viewElev + room, elev));
+				elev = Math.max(6, elev);
 
-			Vec3 spot = eye.add(dirOf(AfkCamera.yaw(mc) + dx, -elev).scale(dist));
-			float fit = (float) (unit / unit());
-			Vec3 off = spot.subtract(eye);
-			float yaw = (float) Math.toDegrees(Math.atan2(off.z, off.x)) - 90f;
-			float pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
-			float roll = (rng.nextFloat() - 0.5f) * 6f;
-			Item it = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, true);
-			double room2 = clearance(eye, spot, spanH, spanV, false);
-			if (c.blockClipping && blocked(mc, eye, spot, width / 2, 9 * unit / 2)) room2 -= 60;
-			if (room2 > bestRoom) {
-				bestRoom = room2;
-				best = it;
+				Vec3 spot = eye.add(dirOf(viewYaw + dx, -elev).scale(dist));
+				double gap = skyGap(eye, spot, spanH, spanV);
+				if (c.blockClipping && blocked(mc, eye, spot, width / 2, 9 * unit / 2)) gap -= 60;
+				if (gap > bestGap) {
+					bestGap = gap;
+					float fit = (float) (unit / unit());
+					Vec3 off = spot.subtract(eye);
+					float yaw = (float) Math.toDegrees(Math.atan2(off.z, off.x)) - 90f;
+					float pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
+					float roll = (rng.nextFloat() - 0.5f) * 6f;
+					best = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, true);
+				}
 			}
+			if (bestGap >= 1.0) break; // found a clear spot at this size
 		}
 		items.add(best);
 		return best;
+	}
+
+	/** Free angular space (degrees) between a sky word and the nearest other sky word, treating both as rectangles. */
+	private double skyGap(Vec3 eye, Vec3 spot, double halfW, double halfH) {
+		Vec3 d = spot.subtract(eye);
+		double yawA = Math.toDegrees(Math.atan2(d.z, d.x));
+		double pitchA = Math.toDegrees(Math.atan2(d.y, Math.hypot(d.x, d.z)));
+		double gap = 8;
+		for (Item it : items) {
+			if (!it.sky) continue;
+			Vec3 o = it.pos.subtract(eye);
+			double dYaw = Math.abs(Math.toDegrees(Math.atan2(o.z, o.x)) - yawA);
+			if (dYaw > 180) dYaw = 360 - dYaw;
+			dYaw *= Math.cos(Math.toRadians(pitchA)); // yaw degrees shrink toward the zenith
+			double dPitch = Math.abs(Math.toDegrees(Math.atan2(o.y, Math.hypot(o.x, o.z))) - pitchA);
+			// widths are projected sideways, so scale them with the pitch; add a margin for the tilt
+			double gx = dYaw - (halfW + it.spanH) * 1.15 - 1.5;
+			double gy = dPitch - (halfH + it.spanV) * 1.3 - 1.0;
+			gap = Math.min(gap, Math.max(gx, gy));
+		}
+		return gap;
 	}
 
 	/** Words in a row straight ahead, each appearing as it is sung. */
