@@ -25,7 +25,8 @@ public record LyricLine(long timeMs, String text) {
 				end = m.end();
 			}
 			if (times.isEmpty()) continue;
-			String text = raw.substring(end).trim();
+			// brackets like (Ooh) or [Chorus] are dropped, the words inside stay
+			String text = raw.substring(end).replaceAll("[()\\[\\]{}]", "").replaceAll("\\s{2,}", " ").trim();
 			for (long t : times) out.add(new LyricLine(t, text));
 		}
 		out.sort((a, b) -> Long.compare(a.timeMs, b.timeMs));

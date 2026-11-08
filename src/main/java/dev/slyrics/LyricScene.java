@@ -270,6 +270,7 @@ public final class LyricScene {
 			if (c.blockClipping) spot = liftFromGround(mc, spot);
 			double room = clearance(eye, spot, spanH, spanV, c.follow);
 			double score = Math.min(room, 7) * 9 - Math.hypot(dx - cx, dy - cy) * 0.35;
+			if (coversPlayer(mc, eye, spot, spanH, spanV)) score -= 200;
 			if (score > bestScore) {
 				bestScore = score;
 				best = spot;
@@ -359,6 +360,7 @@ public final class LyricScene {
 				Vec3 spot = eye.add(dirOf(viewYaw + dx, -elev).scale(dist));
 				double gap = skyGap(eye, spot, spanH, spanV);
 				if (c.blockClipping && blocked(mc, eye, spot, width / 2, 9 * unit / 2)) gap -= 60;
+				if (coversPlayer(mc, eye, spot, spanH, spanV)) gap -= 80;
 				if (gap > bestGap) {
 					bestGap = gap;
 					float fit = (float) (unit / unit());
@@ -428,6 +430,8 @@ public final class LyricScene {
 				gap = Math.min(gap, spot.distanceTo(it.pos) - (halfW + it.spanH) * 1.1);
 			}
 			double score = Math.min(gap, 6) * 10 - Math.hypot(dx, dy) * 0.05;
+			double sd = Math.max(1, spot.distanceTo(eye));
+			if (coversPlayer(mc, eye, spot, Math.toDegrees(Math.atan(halfW / sd)), Math.toDegrees(Math.atan(halfH / sd)))) score -= 200;
 			if (score > bestScore) {
 				bestScore = score;
 				float yaw, pitch = 0, roll = (rng.nextFloat() - 0.5f) * 6f;
@@ -518,6 +522,28 @@ public final class LyricScene {
 		Vec3 dir = hit.getLocation().subtract(eye);
 		double len = dir.length();
 		return len < 1.2 ? eye.add(dir.scale(0.5)) : eye.add(dir.scale((len - 0.5) / len));
+	}
+
+	/**
+	 * In AFK mode the camera looks at the player: true if a word at this spot (half sizes in degrees)
+	 * would cover the player on screen, or sit right in front of them.
+	 */
+	private boolean coversPlayer(Minecraft mc, Vec3 eye, Vec3 spot, double halfWDeg, double halfHDeg) {
+		if (!AfkCamera.active() || mc.player == null) return false;
+		Vec3 body = mc.player.position().add(0, 0.9, 0);
+		Vec3 toBody = body.subtract(eye);
+		double bodyDist = Math.max(0.5, toBody.length());
+		Vec3 toSpot = spot.subtract(eye);
+		double yawB = Math.toDegrees(Math.atan2(toBody.z, toBody.x)), yawS = Math.toDegrees(Math.atan2(toSpot.z, toSpot.x));
+		double pitchB = Math.toDegrees(Math.atan2(toBody.y, Math.hypot(toBody.x, toBody.z)));
+		double pitchS = Math.toDegrees(Math.atan2(toSpot.y, Math.hypot(toSpot.x, toSpot.z)));
+		double dYaw = Math.abs(yawB - yawS);
+		if (dYaw > 180) dYaw = 360 - dYaw;
+		dYaw *= Math.cos(Math.toRadians(pitchS));
+		double dPitch = Math.abs(pitchB - pitchS);
+		double bodyHalfW = Math.toDegrees(Math.atan(0.55 / bodyDist)) + 2;
+		double bodyHalfH = Math.toDegrees(Math.atan(1.0 / bodyDist)) + 2;
+		return dYaw < halfWDeg + bodyHalfW && dPitch < halfHDeg + bodyHalfH;
 	}
 
 	/** Moves a spot up if it would sit inside the ground. */
