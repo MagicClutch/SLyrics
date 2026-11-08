@@ -23,7 +23,7 @@ public final class AfkCamera {
 	private static float startYaw, startPitch;
 	private static boolean blendIn;
 
-	private enum Shot { ORBIT, RISE, DESCEND, DIAGONAL, FLYBY, PUSH_IN, PULL_OUT }
+	private enum Shot { ORBIT, RISE, DESCEND, DIAGONAL, FLYBY, PUSH_IN, PULL_OUT, CLOSEUP }
 
 	private static Shot shot = Shot.ORBIT;
 	private static int shotIndex = -1;
@@ -192,6 +192,14 @@ public final class AfkCamera {
 	private static void nextShot(long now, float refYaw, boolean glide) {
 		Config c = Config.INSTANCE;
 		java.util.List<Shot> shots = enabledShots();
+		if (c.afkCloseUp && RNG.nextInt(100) < c.afkCloseUpPercent && !(shot == Shot.CLOSEUP && shotIndex >= 0)) {
+			shot = Shot.CLOSEUP;
+			if (shotIndex < 0) shotIndex = 0;
+			shotStart = now;
+			shotAngle = Math.toRadians(RNG.nextInt(360));
+			shotSide = RNG.nextBoolean() ? 1 : -1;
+			return;
+		}
 		if (c.afkRandomOrder && shots.size() > 1) {
 			Shot pick;
 			do {
@@ -242,6 +250,10 @@ public final class AfkCamera {
 				double rad = lerp(r * 2.0, r * 0.6, e);
 				return new Vec3(Math.cos(a) * rad, lerp(h + 2, h * 0.6, e), Math.sin(a) * rad);
 			}
+			case CLOSEUP: {
+				double ang = a + shotSide * Math.toRadians(25) * u, rad = lerp(3.2, 1.9, e);
+				return new Vec3(Math.cos(ang) * rad, lerp(0.5, 0.1, e), Math.sin(ang) * rad);
+			}
 			case PULL_OUT: {
 				double rad = lerp(r * 0.6, r * 2.0, e);
 				return new Vec3(Math.cos(a) * rad, lerp(h * 0.6, h + 2, e), Math.sin(a) * rad);
@@ -276,7 +288,10 @@ public final class AfkCamera {
 		double t = (now - shotStart) / 1000.0;
 
 		Vec3 target = p.getPosition(partialTicks).add(0, p.getEyeHeight(), 0);
-		Vec3 desired = target.add(offset(u, t));
+		Vec3 off = offset(u, t);
+		double maxDist = Math.max(1.5, c.afkMaxDistance);
+		if (off.length() > maxDist) off = off.scale(maxDist / off.length());
+		Vec3 desired = target.add(off);
 
 		// do not let the camera go through blocks
 		var hit = mc.level.clip(new ClipContext(target, desired, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, p));
