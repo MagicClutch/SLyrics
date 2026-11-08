@@ -1,373 +1,340 @@
 package dev.slyrics;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
 /**
- * The words of the song placed in the world, each with the moment it is sung and how long it is held.
- * Everything here runs on the render thread.
+ * Holds the lyric words that currently exist in the world: when each one is sung, where it floats,
+ * how it is turned, and when it fades. Runs on the render thread.
  */
 public final class LyricScene {
-	public static final long APPEAR_MS = 280L;
-	public static final long FADE_MS = 550L;
-	private static final int MAX_PIECES = 32;
-	private static final long WORD_LEAD_MS = 80L;
-	private static final double MAX_SYLLABLE_MS = 450.0;
-	private static final long MIN_WORD_LIFE_MS = 1200L;
-	private static final long MAX_WORD_LIFE_MS = 2400L;
-	private static final float GLYPH_HEIGHT = 9f;
-	private static final String VOWELS = "aeiouyáéíóúýěůäöüåøæàèìòùâêîôûãõ";
+	public static final long POP_MS = 300L;
+	public static final long FADE_MS = 500L;
+	private static final int MAX_ITEMS = 40;
 
-	/** One word (or line) in the world. */
-	public static final class Piece {
+	/** A word, or a whole line, floating in the world. */
+	public static final class Item {
 		public final String[] words;
-		public final long[] sungAt, heldUntil;
-		public final double x, y, z;
+		public final long[] sungAt;
+		public final long[] heldUntil;
+		public final Vec3 pos;
 		public final Vec3 anchor;
-		public final float yaw, pitch, roll, fit;
-		public final double halfWidth, halfHeight;
-		public final float driftSeed;
+		public final float yaw, pitch, roll;
+		/** Shrink factor applied to the world size so it fits the view. */
+		public final float fit;
+		/** Rough angular size in degrees, used to keep words apart. */
+		public final double spanH, spanV;
+		public final float seed;
 		public long fadeAt = Long.MAX_VALUE;
 
-		Piece(String[] words, long[] sungAt, long[] heldUntil, Vec3 pos, Vec3 anchor, float yaw, float pitch, float roll,
-			  float fit, double halfWidth, double halfHeight, float driftSeed) {
+		Item(String[] words, long[] sungAt, long[] heldUntil, Vec3 pos, Vec3 anchor, float yaw, float pitch, float roll,
+			 float fit, double spanH, double spanV, float seed) {
 			this.words = words;
 			this.sungAt = sungAt;
 			this.heldUntil = heldUntil;
-			this.x = pos.x;
-			this.y = pos.y;
-			this.z = pos.z;
+			this.pos = pos;
 			this.anchor = anchor;
 			this.yaw = yaw;
 			this.pitch = pitch;
 			this.roll = roll;
 			this.fit = fit;
-			this.halfWidth = halfWidth;
-			this.halfHeight = halfHeight;
-			this.driftSeed = driftSeed;
+			this.spanH = spanH;
+			this.spanV = spanV;
+			this.seed = seed;
 		}
 	}
 
-	private record Pending(String word, long sungAt, long heldUntil, long fadeAt, int index) {}
+	private record Queued(String word, long sungAt, long heldUntil, long fadeAt, int order) {}
 
 	private final Random rng = new Random();
-	public final List<Piece> pieces = new ArrayList<>();
-	private final List<Pending> pending = new ArrayList<>();
-	private Vec3 followPos;
-	private long lastFollowNs;
+	public final List<Item> items = new ArrayList<>();
+	private final List<Queued> queue = new ArrayList<>();
+	private Vec3 follow;
+	private long followNs;
+	private int slotCursor;
 
 	public void clear() {
-		pieces.clear();
-		pending.clear();
+		items.clear();
+		queue.clear();
 	}
 
 	public void fadeAll(long now) {
-		for (Piece p : pieces) p.fadeAt = Math.min(p.fadeAt, now);
-		pending.clear();
+		for (Item it : items) it.fadeAt = Math.min(it.fadeAt, now);
+		queue.clear();
 	}
 
-	/** Where a piece is drawn: where it was put, or carried along with the player. */
-	public Vec3 worldPos(Piece piece, boolean follow) {
-		Vec3 base = new Vec3(piece.x, piece.y, piece.z);
-		if (follow && followPos != null) return base.add(followPos.subtract(piece.anchor));
-		return base;
+	public Vec3 worldPos(Item it, boolean followMe) {
+		return followMe && follow != null ? it.pos.add(follow.subtract(it.anchor)) : it.pos;
 	}
 
-	// ---------------------------------------------------------------- timing guess
+	// ------------------------------------------------------------------ a new line
 
-	/** A guess at when each word of a line is sung: the line's time shared out by syllables. */
-	public static long[] wordTimes(String[] words, long start, long durationMs) {
-		int[] syl = new int[words.length];
-		int sum = 0;
+	/** Distributes the line's duration over its words, weighted by word length. */
+	private static long[] schedule(String[] words, long start, long duration) {
+		double[] w = new double[words.length];
+		double sum = 0;
 		for (int i = 0; i < words.length; i++) {
-			syl[i] = syllables(words[i]);
-			sum += syl[i];
+			w[i] = words[i].length() + 1.5;
+			sum += w[i];
 		}
-		double per = Math.min(durationMs * 0.85 / Math.max(1, sum), MAX_SYLLABLE_MS);
-		long[] out = new long[words.length];
-		int before = 0;
+		double usable = Math.min(duration * 0.85, 420.0 * sum / 4.0);
+		long[] t = new long[words.length];
+		double acc = 0;
 		for (int i = 0; i < words.length; i++) {
-			out[i] = start - WORD_LEAD_MS + Math.round(before * per);
-			before += syl[i];
+			t[i] = start - 90 + Math.round(acc / sum * usable);
+			acc += w[i];
 		}
-		return out;
+		return t;
 	}
-
-	public static int syllables(String word) {
-		String lower = word.toLowerCase();
-		int count = 0, letters = 0;
-		boolean inVowel = false;
-		for (int i = 0; i < lower.length(); i++) {
-			char c = lower.charAt(i);
-			if (Character.isLetter(c)) letters++;
-			boolean vowel = VOWELS.indexOf(c) >= 0;
-			if (vowel && !inVowel) count++;
-			inVowel = vowel;
-		}
-		if (count > 1 && lower.endsWith("e") && !lower.endsWith("le")) count--;
-		if (count == 0) count = Math.max(1, letters / 3);
-		return Math.min(count, 5);
-	}
-
-	// ---------------------------------------------------------------- a new line
 
 	public void setLine(Minecraft mc, String text, long lineTimeMs, long lineEndMs, long positionMs, long now) {
 		Config c = Config.INSTANCE;
-		boolean lines = c.lineMode, center = c.centerLayout;
-		if (lines || center) {
-			fadeAll(now);
-		} else {
-			pending.clear();
-			for (Piece p : pieces) if (p.fadeAt == Long.MAX_VALUE) p.fadeAt = now;
-		}
 		var player = mc.player;
 		if (player == null) return;
-		long songStart = now - positionMs;
 
-		String[] split = text.trim().split("\\s+");
-		List<String> rawList = new ArrayList<>();
-		for (String w : split) if (!w.isEmpty()) rawList.add(c.uppercase ? Emojis.decorate(w, "", c).toUpperCase() : Emojis.decorate(w, "", c));
-		if (rawList.isEmpty()) return;
-		String[] words = rawList.toArray(new String[0]);
-		long[] times = wordTimes(words, songStart + lineTimeMs, Math.max(400L, lineEndMs - lineTimeMs));
-		long[] ends = new long[words.length];
-		for (int i = 0; i < words.length; i++) ends[i] = i + 1 < words.length ? times[i + 1] : songStart + lineEndMs;
-
-		Vec3 eye = player.getEyePosition();
-		Vec3 look = player.getViewVector(1f);
-		float yaw = yawOf(look), pitch = pitchOf(look);
-		if (followPos == null || followPos.distanceToSqr(player.position()) > 1024.0) followPos = player.position();
-
-		if (lines) {
-			Vec3 target = center ? centerPos(eye, pitch, yaw) : scatter(mc, eye, pitch, yaw, words, 0, times[0], 4000L, true);
-			addPiece(words, times, ends, inFront(mc, eye, target), eye, yaw, !center, 1f);
-		} else if (!center) {
-			long gap = words.length > 1 ? (times[times.length - 1] - times[0]) / (words.length - 1) : 300L;
-			long life = Math.max(MIN_WORD_LIFE_MS, Math.min(MAX_WORD_LIFE_MS, 4 * gap));
-			for (int i = 0; i < words.length; i++) {
-				long fadeAt = times[i] + life;
-				if (fadeAt < now) continue;
-				pending.add(new Pending(words[i], times[i], ends[i], fadeAt, i));
-			}
+		if (c.lineMode || c.centerLayout) {
+			fadeAll(now);
 		} else {
-			// Words in a row ahead, each appearing as it is sung, the whole row fitted to the view.
-			var font = mc.font;
-			float space = font.width(LyricsHud.styled(" ", c));
-			float[] widths = new float[words.length];
-			float total = space * (words.length - 1);
+			queue.clear();
+			for (Item it : items) if (it.fadeAt == Long.MAX_VALUE) it.fadeAt = now;
+		}
+
+		List<String> list = new ArrayList<>();
+		for (String w : text.trim().split("\\s+")) {
+			if (w.isEmpty()) continue;
+			String d = Emojis.decorate(w, "", c);
+			list.add(c.uppercase ? d.toUpperCase() : d);
+		}
+		if (list.isEmpty()) return;
+		String[] words = list.toArray(new String[0]);
+
+		long songStart = now - positionMs;
+		long duration = Math.max(400L, lineEndMs - lineTimeMs);
+		long[] start = schedule(words, songStart + lineTimeMs, duration);
+		long[] end = new long[words.length];
+		for (int i = 0; i < words.length; i++) end[i] = i + 1 < words.length ? start[i + 1] : songStart + lineEndMs;
+
+		if (follow == null || follow.distanceToSqr(player.position()) > 900) follow = player.position();
+
+		if (c.lineMode) {
+			Vec3 spot = c.centerLayout ? ahead(player, 0, 4) : pick(mc, words, start[0], 4000, true);
+			place(mc, words, start, end, spot, c.centerLayout ? 0 : 1, 1f);
+		} else if (c.centerLayout) {
+			placeRow(mc, words, start, end);
+		} else {
+			long gap = words.length > 1 ? (start[words.length - 1] - start[0]) / (words.length - 1) : 300;
+			long life = Math.max(1200, Math.min(2400, gap * 4));
 			for (int i = 0; i < words.length; i++) {
-				widths[i] = font.width(LyricsHud.styled(words[i], c));
-				total += widths[i];
-			}
-			Vec3 ctr = inFront(mc, eye, centerPos(eye, pitch, yaw));
-			Vec3 right = Vec3.directionFromRotation(0f, yaw + 90f);
-			float unit = unit();
-			float fit = (float) Math.min(1.0, 2.0 * ctr.distanceTo(eye) * Math.tan(Math.toRadians(horizontalFov(mc) * 0.38)) / Math.max(total * (double) unit, 0.001));
-			unit *= fit;
-			float x = -total / 2f;
-			for (int i = 0; i < words.length; i++) {
-				Vec3 pos = ctr.add(right.scale((x + widths[i] / 2f) * unit));
-				addPiece(new String[]{words[i]}, new long[]{times[i]}, new long[]{ends[i]}, pos, eye, yaw, false, fit);
-				x += widths[i] + space;
+				long fadeAt = Math.max(start[i] + 1200, end[i] + 500);
+				if (fadeAt < now) continue;
+				queue.add(new Queued(words[i], start[i], end[i], Math.max(fadeAt, start[i] + life), i));
 			}
 		}
-		while (pieces.size() > MAX_PIECES) pieces.remove(0);
+		trim();
 	}
 
-	// ---------------------------------------------------------------- every frame
+	private void trim() {
+		while (items.size() > MAX_ITEMS) items.remove(0);
+	}
+
+	// ------------------------------------------------------------------ every frame
 
 	public void frame(Minecraft mc, long now) {
 		var player = mc.player;
 		if (player == null) return;
-		updateFollow(player.position());
-		if (!pending.isEmpty()) {
+		smoothFollow(player.position());
+
+		for (int i = 0; i < queue.size(); i++) {
+			Queued q = queue.get(i);
+			if (now < q.sungAt() - 50) continue;
+			queue.remove(i--);
+			if (now > q.fadeAt()) continue;
+			String[] w = {q.word()};
+			Vec3 spot = pick(mc, w, q.sungAt(), q.fadeAt() - q.sungAt(), false);
 			Vec3 eye = player.getEyePosition();
-			Vec3 look = player.getViewVector(1f);
-			float yaw = yawOf(look), pitch = pitchOf(look);
-			for (Iterator<Pending> it = pending.iterator(); it.hasNext(); ) {
-				Pending p = it.next();
-				if (now < p.sungAt() - 60) continue;
-				it.remove();
-				if (now > p.fadeAt()) continue;
-				Vec3 target = scatter(mc, eye, pitch, yaw, new String[]{p.word()}, p.index(), p.sungAt(), p.fadeAt() - p.sungAt(), false);
-				Vec3 placed = inFront(mc, eye, target);
-				// Pulled in front of a wall: shrink it so it looks the size it would have been.
-				float fit = (float) Math.min(1.0, placed.distanceTo(eye) / Math.max(0.01, target.distanceTo(eye)) * 1.1);
-				addPiece(new String[]{p.word()}, new long[]{p.sungAt()}, new long[]{p.heldUntil()}, placed, eye, yaw, true, fit).fadeAt = p.fadeAt();
-			}
-			while (pieces.size() > MAX_PIECES) pieces.remove(0);
+			Vec3 safe = clipToWalls(mc, eye, spot);
+			float shrink = (float) Math.min(1.0, safe.distanceTo(eye) / Math.max(0.01, spot.distanceTo(eye)) * 1.1);
+			place(mc, w, new long[]{q.sungAt()}, new long[]{q.heldUntil()}, safe, 2, shrink).fadeAt = q.fadeAt();
 		}
-		Vec3 pp = player.position();
-		boolean follow = Config.INSTANCE.follow;
-		pieces.removeIf(p -> now - p.fadeAt > FADE_MS || worldPos(p, follow).distanceToSqr(pp) > 4096.0);
+		trim();
+
+		Vec3 me = player.position();
+		boolean fm = Config.INSTANCE.follow;
+		items.removeIf(it -> now - it.fadeAt > FADE_MS || worldPos(it, fm).distanceToSqr(me) > 3600);
 	}
 
-	private void updateFollow(Vec3 target) {
-		long nowNs = System.nanoTime();
-		if (followPos == null || followPos.distanceToSqr(target) > 1024.0) {
-			followPos = target;
+	private void smoothFollow(Vec3 target) {
+		long ns = System.nanoTime();
+		if (follow == null || follow.distanceToSqr(target) > 900) {
+			follow = target;
 		} else {
-			double dt = Math.max(0.0, Math.min(0.1, (nowNs - lastFollowNs) / 1e9));
-			double k = 1.0 - Math.exp(-dt * 8.0);
-			followPos = followPos.add(target.subtract(followPos).scale(k));
+			double dt = Math.min(0.1, Math.max(0, (ns - followNs) / 1e9));
+			follow = follow.add(target.subtract(follow).scale(1 - Math.exp(-dt * 7)));
 		}
-		lastFollowNs = nowNs;
+		followNs = ns;
 	}
 
-	// ---------------------------------------------------------------- placing
+	// ------------------------------------------------------------------ placement
 
 	private float unit() {
 		return 0.05f * Config.INSTANCE.size / 100f;
 	}
 
-	private Piece addPiece(String[] words, long[] times, long[] ends, Vec3 pos, Vec3 eye, float camYaw, boolean tilt, float fitLimit) {
-		Minecraft mc = Minecraft.getInstance();
-		double dist = pos.distanceTo(eye);
-		double width = textWidth(mc, words) * unit();
-		float fit = (float) Math.min(fitLimit, 2.0 * dist * Math.tan(Math.toRadians(horizontalFov(mc) * 0.38)) / Math.max(width, 0.001));
-		double halfWidth = Math.toDegrees(Math.atan(width * fit / (2.0 * dist))) + 2.0;
-		double halfHeight = Math.toDegrees(Math.atan(GLYPH_HEIGHT * unit() * fit / (2.0 * dist))) + 2.0;
-
-		float yaw, pitch, roll;
-		if (tilt) {
-			// Turned to face you; a single word is also knocked a little off square.
-			float k = words.length > 1 ? 0f : 1f;
-			Vec3 off = pos.subtract(eye);
-			yaw = (float) Math.toDegrees(Math.atan2(off.z, off.x)) - 90f + (rng.nextFloat() - 0.5f) * 50f * k;
-			pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
-			roll = (rng.nextFloat() - 0.5f) * 16f * k;
-		} else {
-			yaw = camYaw;
-			pitch = 0f;
-			roll = 0f;
-		}
-		Vec3 anchor = followPos != null ? followPos : mc.player != null ? mc.player.position() : eye;
-		Piece piece = new Piece(words, times, ends, pos, anchor, yaw, pitch, roll, fit, halfWidth, halfHeight, rng.nextFloat() * 100f);
-		pieces.add(piece);
-		return piece;
+	/** A point in the player's view, offset by yaw/pitch degrees, at the given distance. */
+	private Vec3 ahead(net.minecraft.world.entity.player.Player p, double yawOff, double dist) {
+		return p.getEyePosition().add(dirOf(p.getYRot() + yawOff, p.getXRot()).scale(dist));
 	}
 
-	/** A spot near the crosshair for word [index]: four columns across the view, kept where it overlaps the other words least. */
-	private Vec3 scatter(Minecraft mc, Vec3 eye, float pitch, float yaw, String[] words, int index, long sungAt, long life, boolean lineBase) {
-		Config c = Config.INSTANCE;
-		double hFov = horizontalFov(mc);
-		double vFov = mc.options.fov().get();
-		double spanH = Math.min(hFov * 0.21, 18.0);
-		double spanV = Math.min(vFov * 0.17, 10.0);
-		double baseH = lineBase ? 0.0 : -spanH + (index % 4) * (2 * spanH / 3);
-		double baseV = (lineBase ? -0.2 : index % 2 == 0 ? 0.5 : -0.3) * spanV;
-		float near = c.near;
-		float far = Math.max(near + 0.5f, c.far);
-		double width = textWidth(mc, words) * unit();
-
-		Vec3 best = null;
-		double bestScore = Double.NEGATIVE_INFINITY;
-		for (int i = 0; i < 28; i++) {
-			double spread = 3.0 + i * 0.6;
-			double dh = clamp(baseH + rng.nextGaussian() * spread, -spanH * 1.25, spanH * 1.25);
-			double dv = clamp(baseV + rng.nextGaussian() * spread * 0.6, -spanV * 1.25, spanV * 1.25);
-			double dist = near + rng.nextDouble() * (far - near);
-			double fit = Math.min(1.0, 2.0 * dist * Math.tan(Math.toRadians(hFov * 0.38)) / Math.max(width, 0.001));
-			double halfW = Math.toDegrees(Math.atan(width * fit / (2.0 * dist))) + 2.0;
-			double halfH = Math.toDegrees(Math.atan(GLYPH_HEIGHT * unit() * fit / (2.0 * dist))) + 2.0;
-			Vec3 pos = aboveFloor(mc, eye.add(Vec3.directionFromRotation((float) (pitch + dv), (float) (yaw + dh)).scale(dist)));
-			double gap = nearestGap(eye, pos, halfW, halfH, sungAt, sungAt + life, c.follow);
-			double score = Math.min(gap, 6.0) * 10.0 - Math.hypot(dh - baseH, dv - baseV) * 0.3;
-			if (score > bestScore) {
-				bestScore = score;
-				best = pos;
-			}
-		}
-		return best != null ? best : eye.add(Vec3.directionFromRotation(pitch, yaw).scale((near + far) / 2));
+	private static Vec3 dirOf(double yawDeg, double pitchDeg) {
+		double y = Math.toRadians(yawDeg), p = Math.toRadians(pitchDeg);
+		return new Vec3(-Math.sin(y) * Math.cos(p), -Math.sin(p), Math.cos(y) * Math.cos(p));
 	}
 
-	/** Degrees of clear sky between a spot and the nearest word on screen at the same time (6 when none). */
-	private double nearestGap(Vec3 eye, Vec3 pos, double halfW, double halfH, long from, long until, boolean follow) {
-		Vec3 dir = pos.subtract(eye);
-		double yawA = Math.toDegrees(Math.atan2(dir.z, dir.x));
-		double pitchA = Math.toDegrees(Math.atan2(dir.y, Math.hypot(dir.x, dir.z)));
-		double gap = 6.0;
-		for (Piece piece : pieces) {
-			if (piece.fadeAt + FADE_MS < from || piece.sungAt[0] > until) continue;
-			Vec3 other = worldPos(piece, follow).subtract(eye);
-			double dYaw = Math.abs(Math.toDegrees(Math.atan2(other.z, other.x)) - yawA);
-			if (dYaw > 180) dYaw = 360 - dYaw;
-			double dPitch = Math.abs(Math.toDegrees(Math.atan2(other.y, Math.hypot(other.x, other.z))) - pitchA);
-			gap = Math.min(gap, Math.max(dYaw - (halfW + piece.halfWidth), dPitch - (halfH + piece.halfHeight)));
-		}
-		return gap;
-	}
-
-	private Vec3 centerPos(Vec3 eye, float pitch, float yaw) {
-		Config c = Config.INSTANCE;
-		return eye.add(Vec3.directionFromRotation(Math.max(-40f, Math.min(40f, pitch + 4f)), yaw).scale((c.near + c.far) / 2.0));
-	}
-
-	/** Pulls a spot in front of the first wall between the eye and it, so a word never sits inside a block. */
-	private Vec3 inFront(Minecraft mc, Vec3 eye, Vec3 pos) {
-		var level = mc.level;
-		if (level == null) return pos;
-		Vec3 delta = pos.subtract(eye);
-		double length = delta.length();
-		if (length < 0.01) return pos;
-		Vec3 step = delta.scale(0.2 / length);
-		Vec3 at = eye;
-		double travelled = 0.0;
-		while (travelled < length) {
-			at = at.add(step);
-			travelled += 0.2;
-			BlockPos block = BlockPos.containing(at.x, at.y, at.z);
-			if (!level.getBlockState(block).getCollisionShape(level, block).isEmpty()) {
-				return eye.add(delta.scale(Math.max(1.0, travelled - 0.4) / length));
-			}
-		}
-		return pos;
-	}
-
-	/** Lifts a spot out of the ground it would be buried in. */
-	private Vec3 aboveFloor(Minecraft mc, Vec3 pos) {
-		var level = mc.level;
-		if (level == null) return pos;
-		Vec3 out = pos;
-		for (int i = 0; i < 3; i++) {
-			BlockPos block = BlockPos.containing(out.x, out.y, out.z);
-			if (level.getBlockState(block).getCollisionShape(level, block).isEmpty()) return out;
-			out = out.add(0.0, 1.0, 0.0);
-		}
-		return out;
-	}
-
-	private int textWidth(Minecraft mc, String[] words) {
-		Config c = Config.INSTANCE;
-		var font = mc.font;
-		int space = font.width(LyricsHud.styled(" ", c));
-		int sum = 0;
-		for (String w : words) sum += font.width(LyricsHud.styled(w, c));
-		return sum + space * (words.length - 1);
-	}
-
-	private static double horizontalFov(Minecraft mc) {
+	private static double hFov(Minecraft mc) {
 		double v = Math.toRadians(mc.options.fov().get());
 		double aspect = (double) mc.getWindow().getGuiScaledWidth() / Math.max(1, mc.getWindow().getGuiScaledHeight());
-		return Math.toDegrees(2.0 * Math.atan(Math.tan(v / 2.0) * aspect));
+		return Math.toDegrees(2 * Math.atan(Math.tan(v / 2) * aspect));
 	}
 
-	private static double clamp(double v, double lo, double hi) {
-		return Math.max(lo, Math.min(hi, v));
+	private int pixelWidth(Minecraft mc, String[] words) {
+		Config c = Config.INSTANCE;
+		int sum = mc.font.width(LyricsHud.styled(" ", c)) * (words.length - 1);
+		for (String w : words) sum += mc.font.width(LyricsHud.styled(w, c));
+		return sum;
 	}
 
-	private static float yawOf(Vec3 look) {
-		return (float) Math.toDegrees(Math.atan2(-look.x, look.z));
+	/**
+	 * Chooses where a word goes: the view is split into six slots (3 across, 2 up/down) that are
+	 * used in turn; around the slot centre several random spots are tried and the one farthest
+	 * from the words already visible wins.
+	 */
+	private Vec3 pick(Minecraft mc, String[] words, long from, long life, boolean wholeLine) {
+		Config c = Config.INSTANCE;
+		var p = mc.player;
+		Vec3 eye = p.getEyePosition();
+		double fovH = hFov(mc), fovV = mc.options.fov().get();
+		double reachH = Math.min(fovH * 0.22, 20), reachV = Math.min(fovV * 0.18, 11);
+		int slot = wholeLine ? 0 : (slotCursor++ % 6);
+		double cx = wholeLine ? 0 : (slot % 3 - 1) * reachH * 0.8;
+		double cy = wholeLine ? -0.15 * reachV : (slot / 3 == 0 ? 0.55 : -0.4) * reachV;
+		double near = c.near, far = Math.max(near + 0.5, c.far);
+		double width = pixelWidth(mc, words) * unit();
+
+		Vec3 best = null;
+		double bestScore = -1e9;
+		for (int i = 0; i < 24; i++) {
+			double j = 2 + i * 0.5;
+			double dx = Math.max(-reachH * 1.2, Math.min(reachH * 1.2, cx + rng.nextGaussian() * j));
+			double dy = Math.max(-reachV * 1.2, Math.min(reachV * 1.2, cy + rng.nextGaussian() * j * 0.55));
+			double dist = near + rng.nextDouble() * (far - near);
+			double fit = Math.min(1.0, 2 * dist * Math.tan(Math.toRadians(fovH * 0.38)) / Math.max(width, 0.01));
+			double spanH = Math.toDegrees(Math.atan(width * fit / (2 * dist)));
+			double spanV = Math.toDegrees(Math.atan(9 * unit() * fit / (2 * dist)));
+			Vec3 spot = eye.add(dirOf(p.getYRot() + dx, p.getXRot() + dy).scale(dist));
+			spot = liftFromGround(mc, spot);
+			double room = clearance(eye, spot, spanH, spanV, c.follow);
+			double score = Math.min(room, 7) * 9 - Math.hypot(dx - cx, dy - cy) * 0.35;
+			if (score > bestScore) {
+				bestScore = score;
+				best = spot;
+			}
+		}
+		return best != null ? best : ahead(p, 0, (near + far) / 2);
 	}
 
-	private static float pitchOf(Vec3 look) {
-		return (float) Math.toDegrees(-Math.asin(clamp(look.y, -1.0, 1.0)));
+	/** Angular room (degrees) between a spot and the nearest visible word, capped at 7. */
+	private double clearance(Vec3 eye, Vec3 spot, double spanH, double spanV, boolean followMe) {
+		Vec3 a = spot.subtract(eye).normalize();
+		double room = 7;
+		for (Item it : items) {
+			Vec3 b = worldPos(it, followMe).subtract(eye).normalize();
+			double sep = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, a.dot(b)))));
+			double need = Math.max(spanH + it.spanH, spanV + it.spanV);
+			room = Math.min(room, sep - need * 0.75);
+		}
+		return room;
+	}
+
+	private Item place(Minecraft mc, String[] words, long[] sung, long[] held, Vec3 spot, int faceMode, float fitLimit) {
+		var p = mc.player;
+		Vec3 eye = p.getEyePosition();
+		double dist = Math.max(0.5, spot.distanceTo(eye));
+		double width = pixelWidth(mc, words) * unit();
+		float fit = (float) Math.min(fitLimit, 2 * dist * Math.tan(Math.toRadians(hFov(mc) * 0.38)) / Math.max(width, 0.01));
+		double spanH = Math.toDegrees(Math.atan(width * fit / (2 * dist)));
+		double spanV = Math.toDegrees(Math.atan(9 * unit() * fit / (2 * dist)));
+
+		float yaw, pitch = 0, roll = 0;
+		Vec3 off = spot.subtract(eye);
+		if (faceMode == 2 || faceMode == 1) {
+			// turned toward the player; single words are also knocked slightly off square
+			float k = words.length > 1 ? 0f : 1f;
+			yaw = (float) Math.toDegrees(Math.atan2(off.z, off.x)) - 90f + (rng.nextFloat() - 0.5f) * 44f * k;
+			pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
+			roll = (rng.nextFloat() - 0.5f) * 14f * k;
+			if (words.length > 1) { // keep long lines square so their far end does not smear
+				yaw = p.getYRot() * -1f;
+				pitch = 0;
+			}
+		} else {
+			yaw = -p.getYRot();
+		}
+		Item it = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f);
+		items.add(it);
+		return it;
+	}
+
+	/** Words in a row straight ahead, each appearing as it is sung. */
+	private void placeRow(Minecraft mc, String[] words, long[] start, long[] end) {
+		Config c = Config.INSTANCE;
+		var p = mc.player;
+		Vec3 eye = p.getEyePosition();
+		double dist = (c.near + c.far) / 2;
+		Vec3 centre = clipToWalls(mc, eye, ahead(p, 0, dist).add(0, -0.25, 0));
+		double d = centre.distanceTo(eye);
+		Vec3 side = dirOf(p.getYRot() + 90, 0);
+		float spaceW = mc.font.width(LyricsHud.styled(" ", c));
+		float[] w = new float[words.length];
+		float total = spaceW * (words.length - 1);
+		for (int i = 0; i < words.length; i++) {
+			w[i] = mc.font.width(LyricsHud.styled(words[i], c));
+			total += w[i];
+		}
+		double fit = Math.min(1.0, 2 * d * Math.tan(Math.toRadians(hFov(mc) * 0.38)) / Math.max(total * unit(), 0.01));
+		double u = unit() * fit;
+		double x = -total / 2.0;
+		for (int i = 0; i < words.length; i++) {
+			Vec3 spot = centre.add(side.scale((x + w[i] / 2.0) * u));
+			place(mc, new String[]{words[i]}, new long[]{start[i]}, new long[]{end[i]}, spot, 0, (float) fit);
+			x += w[i] + spaceW;
+		}
+	}
+
+	/** If a block is between the eye and the spot, the spot moves to just in front of it. */
+	private Vec3 clipToWalls(Minecraft mc, Vec3 eye, Vec3 spot) {
+		if (mc.level == null) return spot;
+		var hit = mc.level.clip(new ClipContext(eye, spot, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+		if (hit.getType() == HitResult.Type.MISS) return spot;
+		Vec3 dir = hit.getLocation().subtract(eye);
+		double len = dir.length();
+		return len < 1.2 ? eye.add(dir.scale(0.5)) : eye.add(dir.scale((len - 0.5) / len));
+	}
+
+	/** Moves a spot up if it would sit inside the ground. */
+	private Vec3 liftFromGround(Minecraft mc, Vec3 spot) {
+		if (mc.level == null) return spot;
+		Vec3 s = spot;
+		for (int i = 0; i < 3; i++) {
+			var pos = net.minecraft.core.BlockPos.containing(s.x, s.y, s.z);
+			if (mc.level.getBlockState(pos).getCollisionShape(mc.level, pos).isEmpty()) return s;
+			s = s.add(0, 1, 0);
+		}
+		return s;
 	}
 }
