@@ -187,7 +187,7 @@ public final class LyricScene {
 
 		Vec3 me = player.position();
 		boolean fm = Config.INSTANCE.follow;
-		items.removeIf(it -> now - it.fadeAt > FADE_MS || worldPos(it, fm).distanceToSqr(me) > 3600);
+		items.removeIf(it -> now - it.fadeAt > FADE_MS || (!it.sky && worldPos(it, fm).distanceToSqr(me) > 3600)); // sky words stand far away on purpose
 	}
 
 	private void smoothFollow(Vec3 target) {
