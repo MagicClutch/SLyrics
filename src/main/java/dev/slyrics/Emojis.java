@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Hängt hinter bestimmte Wörter ein Symbol (Unicode, in der Minecraft-Schrift enthalten). Das Wort bleibt erhalten. */
+/** Appends a symbol after certain words (Unicode, included in the Minecraft font). The word is kept. */
 public final class Emojis {
 	private static final Pattern WORD = Pattern.compile("[\\p{L}']+");
 
@@ -37,13 +37,13 @@ public final class Emojis {
 		for (String w : words) m.put(w, emoji);
 	}
 
-	/** Alle Zeichen, die als Emoji gelten (werden in der Standardschrift gezeichnet). */
+	/** All characters counted as emoji (drawn in the default font). */
 	public static boolean isEmojiChar(char ch, Config c) {
 		for (String v : c.emojiMap.values()) if (v.indexOf(ch) >= 0) return true;
 		return false;
 	}
 
-	/** "I love you" -> "I love ♥ you" (sep=" "), im Sky-Modus mit sep="". */
+	/** "I love you" -> "I love ♥ you" (sep=" "), in sky mode with sep="". */
 	public static String decorate(String text, String sep, Config c) {
 		if (!c.emojis || c.emojiMap.isEmpty()) return text;
 		Matcher m = WORD.matcher(text);

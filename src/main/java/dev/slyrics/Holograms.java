@@ -16,7 +16,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-/** Jede neue Lyric-Zeile erscheint als schwebender Text an einer festen Position vor dem Spieler. */
+/** Each new lyric line appears as floating text at a fixed position in front of the player. */
 public final class Holograms {
 	private static final Random RNG = new Random();
 	private static final List<Holo> ACTIVE = new ArrayList<>();
@@ -31,9 +31,9 @@ public final class Holograms {
 		final long born;
 		final long life;
 		final long reveal;
-		/** Drehung um die Y-Achse, einmalig beim Spawnen zum Spieler hin. */
+		/** Rotation around the Y axis, set once at spawn to face the player. */
 		final float yaw;
-		/** Zusatzskalierung, damit Text in der Ferne gleich gross wirkt. */
+		/** Extra scaling so distant text looks equally large. */
 		final float sizeMul;
 		final float roll;
 
@@ -103,7 +103,7 @@ public final class Holograms {
 		String[] words = text.trim().split("\\s+");
 		List<String> out = new ArrayList<>();
 		int n = Math.max(1, maxWords);
-		// gleichmäßig verteilen statt 6 + 1 Wort
+		// distribute evenly instead of 6 + 1 words
 		int lines = (words.length + n - 1) / n;
 		int per = (words.length + lines - 1) / lines;
 		for (int i = 0; i < words.length; i += per) {
@@ -112,7 +112,7 @@ public final class Holograms {
 		return out;
 	}
 
-	/** Teilt die Zeile in Stücke mit höchstens maxWords Wörtern; jedes Stück erscheint einzeln, nacheinander. */
+	/** Splits the line into chunks of at most maxWords words; each chunk appears separately, one after another. */
 	private static void schedule(String text, long life, long reveal) {
 		Config c = Config.INSTANCE;
 		if (c.skyMode) {
@@ -148,7 +148,7 @@ public final class Holograms {
 			return;
 		}
 
-		// Sichtfeld (FOV-Einstellung ist vertikal)
+		// Field of view (the FOV setting is vertical)
 		double vfov = Math.toRadians(mc.options.fov().get());
 		double aspect = (double) mc.getWindow().getWidth() / Math.max(1, mc.getWindow().getHeight());
 		double hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
@@ -161,15 +161,15 @@ public final class Holograms {
 		for (int i = 0; i < 16; i++) {
 			double d = minD + RNG.nextDouble() * (maxD - minD);
 			float mul = (float) Math.max(1.0, d / 5.0);
-			double unit = 0.025 * c.holoScale * mul; // Blöcke pro Pixel
+			double unit = 0.025 * c.holoScale * mul; // blocks per pixel
 			double halfW = widthPx * unit / 2.0;
 			double halfH = lines.size() * font.lineHeight * unit / 2.0;
 			double maxYaw = hfov / 2 - Math.atan(halfW / d) - margin;
 			double maxPitch = vfov / 2 - Math.atan(halfH / d) - margin;
-			if (maxYaw < 0.02 || maxPitch < 0.02) continue; // Text passt in dieser Entfernung nicht ins Bild
-			// bevorzugt weit seitlich (Mitte bleibt frei), aber nie aus dem Sichtfeld
+			if (maxYaw < 0.02 || maxPitch < 0.02) continue; // text does not fit on screen at this distance
+			// prefer far to the sides (center stays free), but never outside the view
 			double yawOff, pitchOff;
-			if (curCount > 1) { // Lesereihenfolge: von links nach rechts, leicht versetzt auf/ab
+			if (curCount > 1) { // reading order: left to right, slightly offset up/down
 				double f = (curIdx + 0.5) / curCount * 2 - 1;
 				yawOff = f * maxYaw * 0.9 + (RNG.nextDouble() * 2 - 1) * maxYaw * 0.08;
 				pitchOff = (curIdx % 2 == 0 ? 1 : -1) * Math.min(maxPitch, 0.2) * 0.5 + (RNG.nextDouble() * 2 - 1) * 0.03;
@@ -189,7 +189,7 @@ public final class Holograms {
 				bestMul = mul;
 			}
 		}
-		if (best == null) { // Notlösung: mittig, so weit wie nötig
+		if (best == null) { // fallback: centered, as far away as needed
 			double d = maxD;
 			double yaw = Math.toRadians(p.getYRot()), pitch = Math.toRadians(p.getXRot());
 			best = eye.add(-Math.sin(yaw) * Math.cos(pitch) * d, -Math.sin(pitch) * d, Math.cos(yaw) * Math.cos(pitch) * d);
@@ -201,7 +201,7 @@ public final class Holograms {
 		while (ACTIVE.size() > Math.max(1, c.holoMax)) ACTIVE.remove(0);
 	}
 
-	/** Liegt ein Block zwischen Auge und Ziel, wird das Ziel kurz vor den Block gezogen. */
+	/** If a block is between the eye and the target, the target is pulled in front of the block. */
 	private static Vec3 pullInFrontOfBlocks(Minecraft mc, Vec3 eye, Vec3 target) {
 		if (mc.level == null) return target;
 		var hit = mc.level.clip(new net.minecraft.world.level.ClipContext(eye, target,
@@ -216,12 +216,12 @@ public final class Holograms {
 
 	private record Pending(String raw, long due, long life, boolean sky, int idx, int count) {}
 
-	/** Position des gerade platzierten Stücks in seiner Zeile (für Lesereihenfolge links -> rechts). */
+	/** Index of the chunk being placed within its line (for left -> right reading order). */
 	private static int curIdx = 0, curCount = 1;
 
 	private static final List<Pending> PENDING = new ArrayList<>();
 
-	/** Sky-Modus: Wörter werden eingeplant und erst beim Erscheinen platziert (aktuelle Blickrichtung). */
+	/** Sky mode: words are scheduled and only placed when they appear (using the current view direction). */
 	private static void spawnSky(String text, long life, long fullReveal) {
 		String[] words = text.trim().split("\\s+");
 		int totalChars = 0;
@@ -262,11 +262,11 @@ public final class Holograms {
 		double d = Math.max(15.0, c.skyDistance);
 		float mul = (float) Math.max(1.0, d / 9.0);
 		double unit = 0.025 * c.holoScale * mul;
-		// Etwas Reserve für Schräglage und Zeilenhöhe
+		// Some margin for tilt and line height
 		double halfW = wPx * unit / 2.0 * 1.15 + font.lineHeight * unit * 0.3;
 		double halfH = font.lineHeight * unit / 2.0 * 1.15 + wPx * unit * 0.2;
 
-		double vfov = Math.toRadians(mc.options.fov().get()) * 1.1; // Reserve (z.B. Sprint-FOV)
+		double vfov = Math.toRadians(mc.options.fov().get()) * 1.1; // margin (e.g. sprint FOV)
 		double aspect = (double) mc.getWindow().getWidth() / Math.max(1, mc.getWindow().getHeight());
 		double hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
 		double margin = 0.07;
@@ -286,7 +286,7 @@ public final class Holograms {
 			double zig = curCount > 1 ? (curIdx % 2 == 0 ? 6 : -6) : 0;
 			double yaw = Math.toRadians(p.getYRot()) + yawOff;
 			double target = Math.toRadians(c.skyElevation + zig + (RNG.nextDouble() * 2 - 1) * 4);
-			// immer innerhalb des sichtbaren Bereichs, auch wenn der Spieler nicht nach oben schaut
+			// always within the visible area, even if the player is not looking up
 			double elev = Math.max(viewElev - maxPitch, Math.min(viewElev + maxPitch, target));
 			Vec3 cand = eye.add(-Math.sin(yaw) * Math.cos(elev) * d, Math.sin(elev) * d, Math.cos(yaw) * Math.cos(elev) * d);
 			double nearest = 999;
@@ -322,13 +322,13 @@ public final class Holograms {
 			}
 		}
 		int rgb = c.rgb();
-		// Rand: dunklere Variante der Textfarbe -> auch weisser Text bleibt auf hellem Himmel lesbar
+		// Outline: darker variant of the text color, so white text stays readable on a bright sky
 		int glowRgb = ((((rgb >> 16 & 255) * 35 / 100)) << 16) | ((((rgb >> 8 & 255) * 35 / 100)) << 8) | ((rgb & 255) * 35 / 100);
 
 		for (Iterator<Holo> it = ACTIVE.iterator(); it.hasNext(); ) {
 			Holo h = it.next();
 			long age = now - h.born;
-			if (age < 0) continue; // Wort kommt erst später
+			if (age < 0) continue; // word appears later
 			if (age > h.life) {
 				it.remove();
 				continue;
@@ -347,7 +347,7 @@ public final class Holograms {
 			double drift = Math.min(age, 6000) / 1000.0 * 0.06;
 			ps.pushPose();
 			ps.translate(h.pos.x - cam.pos.x, h.pos.y - cam.pos.y + drift, h.pos.z - cam.pos.z);
-			ps.mulPose(new org.joml.Matrix4f().rotationY(h.yaw)); // fest, kein Billboard
+			ps.mulPose(new org.joml.Matrix4f().rotationY(h.yaw)); // fixed, not a billboard
 			if (h.roll != 0f) ps.mulPose(new org.joml.Matrix4f().rotationZ(h.roll));
 			float s = 0.025f * c.holoScale * h.sizeMul;
 			ps.scale(s, -s, s);

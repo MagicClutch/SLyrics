@@ -26,7 +26,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-/** Spotify Login (PKCE, kein Client Secret nötig) und Abfrage des aktuell laufenden Songs. */
+/** Spotify login (PKCE, no client secret needed) and polling of the currently playing song. */
 public final class Spotify {
 	public static final int PORT = 8888;
 	public static final String REDIRECT = "http://127.0.0.1:" + PORT + "/callback";
@@ -47,14 +47,14 @@ public final class Spotify {
 	private static volatile long pausedUntil;
 	private static String verifier;
 
-	// ---- öffentlicher Zustand für das HUD ----
+	// ---- public state for the HUD ----
 	public static volatile Track track;
 	public static volatile List<LyricLine> lyrics = List.of();
 	public static volatile boolean lyricsLoading;
 	public static volatile boolean playing;
 	private static volatile long progressAtFetch;
 	private static volatile long fetchedAtNanos;
-	public static volatile String status = "Nicht verbunden. Nutze /slyrics login";
+	public static volatile String status = "Not connected. Use /slyrics login";
 
 	private Spotify() {}
 
@@ -62,7 +62,7 @@ public final class Spotify {
 		return refreshToken != null;
 	}
 
-	/** Aktuelle Songposition in ms (interpoliert zwischen den Abfragen). */
+	/** Current song position in ms (interpolated between polls). */
 	public static long positionMs() {
 		long p = progressAtFetch;
 		if (playing) p += (System.nanoTime() - fetchedAtNanos) / 1_000_000L;
@@ -78,7 +78,7 @@ public final class Spotify {
 
 	public static String beginLogin(Consumer<String> onDone) throws Exception {
 		String clientId = Config.INSTANCE.clientId.trim();
-		if (clientId.isEmpty()) throw new IllegalStateException("Keine Client ID gesetzt");
+		if (clientId.isEmpty()) throw new IllegalStateException("No client ID set");
 		byte[] rnd = new byte[64];
 		new SecureRandom().nextBytes(rnd);
 		verifier = Base64.getUrlEncoder().withoutPadding().encodeToString(rnd);
@@ -91,8 +91,8 @@ public final class Spotify {
 			String q = ex.getRequestURI().getQuery();
 			String code = param(q, "code");
 			boolean ok = code != null && state.equals(param(q, "state"));
-			byte[] body = (ok ? "<h2>SLyrics verbunden. Du kannst dieses Fenster schliessen.</h2>"
-				: "<h2>Login fehlgeschlagen.</h2>").getBytes(StandardCharsets.UTF_8);
+			byte[] body = (ok ? "<h2>SLyrics connected. You can close this window.</h2>"
+				: "<h2>Login failed.</h2>").getBytes(StandardCharsets.UTF_8);
 			ex.getResponseHeaders().add("Content-Type", "text/html; charset=utf-8");
 			ex.sendResponseHeaders(200, body.length);
 			ex.getResponseBody().write(body);
@@ -100,12 +100,12 @@ public final class Spotify {
 			server.stop(1);
 			EXEC.execute(() -> {
 				try {
-					if (!ok) throw new IllegalStateException("Ungültige Antwort von Spotify");
+					if (!ok) throw new IllegalStateException("Invalid response from Spotify");
 					exchangeCode(code);
-					onDone.accept("Spotify verbunden!");
+					onDone.accept("Spotify connected!");
 				} catch (Exception e) {
-					SLyricsClient.LOGGER.warn("Login Fehler", e);
-					onDone.accept("Login fehlgeschlagen: " + e.getMessage());
+					SLyricsClient.LOGGER.warn("Login error", e);
+					onDone.accept("Login failed: " + e.getMessage());
 				}
 			});
 		});
@@ -124,7 +124,7 @@ public final class Spotify {
 		track = null;
 		lyrics = List.of();
 		playing = false;
-		status = "Nicht verbunden. Nutze /slyrics login";
+		status = "Not connected. Use /slyrics login";
 		try {
 			Files.deleteIfExists(AUTH_FILE);
 		} catch (Exception ignored) {}
@@ -156,7 +156,7 @@ public final class Spotify {
 		accessExpiresAt = System.currentTimeMillis() + o.get("expires_in").getAsLong() * 1000L - 60_000L;
 		if (o.has("refresh_token")) refreshToken = o.get("refresh_token").getAsString();
 		saveAuth();
-		status = "Verbunden. Warte auf Wiedergabe...";
+		status = "Connected. Waiting for playback...";
 	}
 
 	private static void saveAuth() {
@@ -165,7 +165,7 @@ public final class Spotify {
 			o.addProperty("refresh_token", refreshToken);
 			Files.writeString(AUTH_FILE, GSON.toJson(o));
 		} catch (Exception e) {
-			SLyricsClient.LOGGER.warn("Konnte Auth nicht speichern", e);
+			SLyricsClient.LOGGER.warn("Could not save auth", e);
 		}
 	}
 
@@ -174,10 +174,10 @@ public final class Spotify {
 			if (Files.exists(AUTH_FILE)) {
 				JsonObject o = JsonParser.parseString(Files.readString(AUTH_FILE)).getAsJsonObject();
 				refreshToken = o.get("refresh_token").getAsString();
-				status = "Verbunden. Warte auf Wiedergabe...";
+				status = "Connected. Waiting for playback...";
 			}
 		} catch (Exception e) {
-			SLyricsClient.LOGGER.warn("Konnte Auth nicht laden", e);
+			SLyricsClient.LOGGER.warn("Could not load auth", e);
 		}
 	}
 
@@ -187,8 +187,8 @@ public final class Spotify {
 		try {
 			poll();
 		} catch (Exception e) {
-			SLyricsClient.LOGGER.debug("Spotify Poll Fehler", e);
-			status = "Spotify nicht erreichbar";
+			SLyricsClient.LOGGER.debug("Spotify poll error", e);
+			status = "Spotify unreachable";
 		}
 	}
 
@@ -212,14 +212,14 @@ public final class Spotify {
 		}
 		if (code == 204 || code != 200) {
 			playing = false;
-			if (code == 204) status = "Spotify spielt gerade nichts";
+			if (code == 204) status = "Spotify is not playing anything";
 			return;
 		}
 		JsonObject root = JsonParser.parseString(res.body()).getAsJsonObject();
 		if (!root.has("item") || root.get("item").isJsonNull()
 			|| !"track".equals(root.has("currently_playing_type") ? root.get("currently_playing_type").getAsString() : "track")) {
 			playing = false;
-			status = "Kein Song (Podcast/Werbung)";
+			status = "No song (podcast/ad)";
 			return;
 		}
 		JsonObject item = root.getAsJsonObject("item");
@@ -228,7 +228,7 @@ public final class Spotify {
 			item.getAsJsonArray("artists").get(0).getAsJsonObject().get("name").getAsString(),
 			item.getAsJsonObject("album").get("name").getAsString(), item.get("duration_ms").getAsLong());
 
-		// Latenz grob ausgleichen: halbe Request-Zeit
+		// roughly compensate latency: half the request time
 		long latencyMs = (System.nanoTime() - sent) / 2_000_000L;
 		boolean isPlaying = root.get("is_playing").getAsBoolean();
 		progressAtFetch = root.get("progress_ms").getAsLong() + (isPlaying ? latencyMs : 0);
@@ -240,13 +240,13 @@ public final class Spotify {
 			track = t;
 			lyrics = List.of();
 			lyricsLoading = true;
-			status = t.artist() + " - " + t.title() + ": suche Lyrics...";
+			status = t.artist() + " - " + t.title() + ": searching lyrics...";
 			EXEC.execute(() -> {
 				List<LyricLine> l = LrcLib.fetch(t);
 				if (track != null && track.id().equals(t.id())) {
 					lyrics = l;
 					lyricsLoading = false;
-					status = l.isEmpty() ? t.artist() + " - " + t.title() + ": keine Lyrics gefunden" : "";
+					status = l.isEmpty() ? t.artist() + " - " + t.title() + ": no lyrics found" : "";
 				}
 			});
 		}

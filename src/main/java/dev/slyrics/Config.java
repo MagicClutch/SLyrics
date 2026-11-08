@@ -7,55 +7,55 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-/** Einstellungen, gespeichert in config/slyrics.json. */
+/** Settings, stored in config/slyrics.json. */
 public class Config {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("slyrics.json");
 	public static Config INSTANCE = new Config();
 
 	public boolean enabled = true;
-	/** Spotify Client ID (aus developer.spotify.com). */
+	/** Spotify Client ID (from developer.spotify.com). */
 	public String clientId = "";
-	/** Schriftart als Identifier, z.B. minecraft:default, minecraft:uniform, minecraft:alt oder eine eigene aus einem Resourcepack. */
+	/** Font as identifier, e.g. minecraft:default, minecraft:uniform, minecraft:alt or a custom one from a resource pack. */
 	public String font = "minecraft:default";
 	public float scale = 1.5f;
-	/** Position des Textes in Prozent der Bildschirmbreite/-höhe (Mitte des Textes). */
+	/** Text position in percent of screen width/height (center of the text). */
 	public float xPercent = 50f;
 	public float yPercent = 75f;
-	/** Textfarbe als RGB-Hex ohne Alpha. */
+	/** Text color as RGB hex without alpha. */
 	public String color = "FF5FB0";
 	public boolean shadow = true;
 	public boolean bold = true;
-	/** Leuchtender Rand um den Text (Glow). */
+	/** Glowing outline around the text. */
 	public boolean glow = true;
-	/** Symbole hinter Schlüsselwörtern (love -> love ♥). Wort bleibt erhalten. */
+	/** Symbols after keywords (love -> love ♥). The word is kept. */
 	public boolean emojis = true;
-	/** Wort (klein geschrieben) -> Symbol. Kann in slyrics.json frei angepasst werden. */
+	/** Word (lowercase) -> symbol. Can be freely edited in slyrics.json. */
 	public java.util.Map<String, String> emojiMap = Emojis.defaults();
-	/** Sky-Modus: zufällige Schräglage der Wörter in Grad (+-). */
+	/** Sky mode: random tilt of the words in degrees (+-). */
 	public float skyTilt = 12f;
 	public boolean typewriter = true;
-	/** Vorherige/nächste Zeile klein und gedimmt mit anzeigen. */
+	/** Also show the previous/next line, small and dimmed. */
 	public boolean showNeighbors = false;
 	public boolean background = false;
-	/** Verschiebung der Lyrics in ms (positiv = später). */
+	/** Lyrics timing offset in ms (positive = later). */
 	public int offsetMs = 0;
 	public int fadeMs = 250;
-	/** Zeilen als schwebende Hologramme in der Welt statt als HUD-Text. */
+	/** Show lines as floating holograms in the world instead of HUD text. */
 	public boolean hologram = true;
-	/** Maximale Entfernung der Hologramme zum Spieler in Blöcken. */
+	/** Maximum hologram distance from the player in blocks. */
 	public float holoRadius = 12f;
 	public float holoScale = 0.8f;
 	public int holoMax = 4;
-	/** Sky-Modus: Lyrics riesig am Himmel statt vor dir. */
+	/** Sky mode: words scattered in the sky instead of in front of you. */
 	public boolean skyMode = false;
-	/** Höhe am Himmel in Grad über dem Horizont. */
+	/** Sky height in degrees above the horizon. */
 	public float skyElevation = 25f;
 	public float skyDistance = 40f;
-	/** Max. Wörter pro Textzeile; längere Zeilen werden umbrochen und untereinander gestapelt. */
+	/** Max words per hologram; longer lines are split into separate holograms shown one after another. */
 	public int maxWords = 6;
 	public boolean throughWalls = true;
-	/** Hinweis auf dem Bildschirm wenn keine Lyrics gefunden wurden. */
+	/** On-screen status message (e.g. when no lyrics were found). */
 	public boolean showStatus = true;
 
 	public int rgb() {
@@ -73,7 +73,7 @@ public class Config {
 				if (c != null) INSTANCE = c;
 			}
 		} catch (Exception e) {
-			SLyricsClient.LOGGER.warn("Konnte Config nicht laden", e);
+			SLyricsClient.LOGGER.warn("Could not load config", e);
 		}
 		save();
 	}
@@ -82,7 +82,7 @@ public class Config {
 		try {
 			Files.writeString(FILE, GSON.toJson(INSTANCE));
 		} catch (Exception e) {
-			SLyricsClient.LOGGER.warn("Konnte Config nicht speichern", e);
+			SLyricsClient.LOGGER.warn("Could not save config", e);
 		}
 	}
 }

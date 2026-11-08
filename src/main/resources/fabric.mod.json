@@ -3,7 +3,7 @@
 	"id": "slyrics",
 	"version": "${version}",
 	"name": "SLyrics",
-	"description": "Zeigt die Lyrics des aktuell auf Spotify laufenden Songs Zeile für Zeile im Spiel an.",
+	"description": "Shows the lyrics of the song currently playing on Spotify as floating text in the world.",
 	"authors": ["SLyrics"],
 	"license": "MIT",
 	"environment": "client",

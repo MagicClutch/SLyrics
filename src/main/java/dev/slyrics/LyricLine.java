@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 public record LyricLine(long timeMs, String text) {
 	private static final Pattern TS = Pattern.compile("\\[(\\d+):(\\d+)(?:[.:](\\d+))?]");
 
-	/** Parst synchronisierte LRC-Lyrics. Leere Zeilen bleiben erhalten (Pausen). */
+	/** Parses synced LRC lyrics. Empty lines are kept (pauses). */
 	public static List<LyricLine> parseLrc(String lrc) {
 		List<LyricLine> out = new ArrayList<>();
 		for (String raw : lrc.split("\\R")) {
