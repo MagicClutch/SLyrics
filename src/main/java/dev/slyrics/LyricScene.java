@@ -31,10 +31,12 @@ public final class LyricScene {
 		/** Rough angular size in degrees, used to keep words apart. */
 		public final double spanH, spanV;
 		public final float seed;
+		public final boolean sky;
 		public long fadeAt = Long.MAX_VALUE;
 
 		Item(String[] words, long[] sungAt, long[] heldUntil, Vec3 pos, Vec3 anchor, float yaw, float pitch, float roll,
-			 float fit, double spanH, double spanV, float seed) {
+			 float fit, double spanH, double spanV, float seed, boolean sky) {
+			this.sky = sky;
 			this.words = words;
 			this.sungAt = sungAt;
 			this.heldUntil = heldUntil;
@@ -122,8 +124,19 @@ public final class LyricScene {
 
 		if (follow == null || follow.distanceToSqr(player.position()) > 900) follow = player.position();
 
-		if (c.lineMode) {
+		if (c.skyMode) {
+			if (c.lineMode) {
+				placeSky(mc, words, start, end);
+			} else {
+				for (int i = 0; i < words.length; i++) {
+					long fadeAt = Math.max(start[i] + 2600, end[i] + 1400);
+					if (fadeAt < now) continue;
+					queue.add(new Queued(words[i], start[i], end[i], fadeAt, i));
+				}
+			}
+		} else if (c.lineMode) {
 			Vec3 spot = c.centerLayout ? ahead(player, 0, 4) : pick(mc, words, start[0], 4000, true);
+			if (c.blockClipping) spot = safeSpot(mc, eye0(player), spot, words);
 			place(mc, words, start, end, spot, c.centerLayout ? 0 : 1, 1f);
 		} else if (c.centerLayout) {
 			placeRow(mc, words, start, end);
@@ -137,6 +150,10 @@ public final class LyricScene {
 			}
 		}
 		trim();
+	}
+
+	private static Vec3 eye0(net.minecraft.world.entity.player.Player p) {
+		return p.getEyePosition();
 	}
 
 	private void trim() {
@@ -156,9 +173,13 @@ public final class LyricScene {
 			queue.remove(i--);
 			if (now > q.fadeAt()) continue;
 			String[] w = {q.word()};
+			if (Config.INSTANCE.skyMode) {
+				placeSky(mc, w, new long[]{q.sungAt()}, new long[]{q.heldUntil()}).fadeAt = q.fadeAt();
+				continue;
+			}
 			Vec3 spot = pick(mc, w, q.sungAt(), q.fadeAt() - q.sungAt(), false);
 			Vec3 eye = player.getEyePosition();
-			Vec3 safe = clipToWalls(mc, eye, spot);
+			Vec3 safe = Config.INSTANCE.blockClipping ? safeSpot(mc, eye, spot, w) : spot;
 			float shrink = (float) Math.min(1.0, safe.distanceTo(eye) / Math.max(0.01, spot.distanceTo(eye)) * 1.1);
 			place(mc, w, new long[]{q.sungAt()}, new long[]{q.heldUntil()}, safe, 2, shrink).fadeAt = q.fadeAt();
 		}
@@ -237,7 +258,7 @@ public final class LyricScene {
 			double spanH = Math.toDegrees(Math.atan(width * fit / (2 * dist)));
 			double spanV = Math.toDegrees(Math.atan(9 * unit() * fit / (2 * dist)));
 			Vec3 spot = eye.add(dirOf(p.getYRot() + dx, p.getXRot() + dy).scale(dist));
-			spot = liftFromGround(mc, spot);
+			if (c.blockClipping) spot = liftFromGround(mc, spot);
 			double room = clearance(eye, spot, spanH, spanV, c.follow);
 			double score = Math.min(room, 7) * 9 - Math.hypot(dx - cx, dy - cy) * 0.35;
 			if (score > bestScore) {
@@ -285,9 +306,60 @@ public final class LyricScene {
 		} else {
 			yaw = -p.getYRot();
 		}
-		Item it = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f);
+		Item it = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, false);
 		items.add(it);
 		return it;
+	}
+
+	private int skyCursor;
+
+	/** Puts words huge and far away in the sky, inside the current view, kept apart from other sky words. */
+	private Item placeSky(Minecraft mc, String[] words, long[] sung, long[] held) {
+		Config c = Config.INSTANCE;
+		var p = mc.player;
+		Vec3 eye = p.getEyePosition();
+		double fovH = hFov(mc), fovV = mc.options.fov().get();
+		double viewElev = -p.getXRot();
+		int slot = skyCursor++ % 5;
+
+		Item best = null;
+		double bestRoom = -1e9;
+		for (int i = 0; i < 16; i++) {
+			double dist = Math.max(30, c.skyDistance) * (0.85 + rng.nextDouble() * 0.3);
+			double unit = 2 * dist * Math.tan(Math.toRadians(c.skyTextDeg) / 2) / 9.0;
+			double width = pixelWidth(mc, words) * unit;
+			double maxWidth = 2 * dist * Math.tan(Math.toRadians(fovH * 0.36));
+			if (width > maxWidth) {
+				unit *= maxWidth / width;
+				width = maxWidth;
+			}
+			double spanH = Math.toDegrees(Math.atan(width / 2 / dist));
+			double spanV = Math.toDegrees(Math.atan(9 * unit / 2 / dist));
+
+			double dx = (slot - 2) * fovH * 0.14 + (rng.nextDouble() - 0.5) * fovH * 0.1;
+			double dxLimit = Math.max(0, fovH / 2 - spanH - 4);
+			dx = Math.max(-dxLimit, Math.min(dxLimit, dx));
+			double elev = c.skyElevation + (slot % 2 == 0 ? 5 : -5) + (rng.nextDouble() - 0.5) * 8;
+			double room = fovV * 0.5 - spanV - 4;
+			elev = Math.max(viewElev - room, Math.min(viewElev + room, elev));
+			elev = Math.max(6, elev);
+
+			Vec3 spot = eye.add(dirOf(p.getYRot() + dx, -elev).scale(dist));
+			float fit = (float) (unit / unit());
+			Vec3 off = spot.subtract(eye);
+			float yaw = (float) Math.toDegrees(Math.atan2(off.z, off.x)) - 90f;
+			float pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
+			float roll = (rng.nextFloat() - 0.5f) * 6f;
+			Item it = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, true);
+			double room2 = clearance(eye, spot, spanH, spanV, false);
+			if (c.blockClipping && blocked(mc, eye, spot, width / 2, 9 * unit / 2)) room2 -= 60;
+			if (room2 > bestRoom) {
+				bestRoom = room2;
+				best = it;
+			}
+		}
+		items.add(best);
+		return best;
 	}
 
 	/** Words in a row straight ahead, each appearing as it is sung. */
@@ -296,7 +368,8 @@ public final class LyricScene {
 		var p = mc.player;
 		Vec3 eye = p.getEyePosition();
 		double dist = (c.near + c.far) / 2;
-		Vec3 centre = clipToWalls(mc, eye, ahead(p, 0, dist).add(0, -0.25, 0));
+		Vec3 centre = ahead(p, 0, dist).add(0, -0.25, 0);
+		if (c.blockClipping) centre = safeSpot(mc, eye, centre, words);
 		double d = centre.distanceTo(eye);
 		Vec3 side = dirOf(p.getYRot() + 90, 0);
 		float spaceW = mc.font.width(LyricsHud.styled(" ", c));
@@ -314,6 +387,43 @@ public final class LyricScene {
 			place(mc, new String[]{words[i]}, new long[]{start[i]}, new long[]{end[i]}, spot, 0, (float) fit);
 			x += w[i] + spaceW;
 		}
+	}
+
+	/** True if a block is between the eye and the word's centre or any of its four edges. */
+	private boolean blocked(Minecraft mc, Vec3 eye, Vec3 spot, double halfW, double halfH) {
+		if (mc.level == null) return false;
+		Vec3 dir = spot.subtract(eye);
+		Vec3 side = new Vec3(-dir.z, 0, dir.x).normalize();
+		Vec3[] pts = {spot, spot.add(side.scale(halfW)), spot.subtract(side.scale(halfW)), spot.add(0, halfH, 0), spot.add(0, -halfH, 0)};
+		for (Vec3 pt : pts) {
+			var hit = mc.level.clip(new ClipContext(eye, pt, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+			if (hit.getType() != HitResult.Type.MISS) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Moves the spot toward the eye until the whole word (centre and its four edges) has a clear
+	 * line of sight, so it is never drawn inside a block.
+	 */
+	private Vec3 safeSpot(Minecraft mc, Vec3 eye, Vec3 spot, String[] words) {
+		if (mc.level == null) return spot;
+		double halfW = pixelWidth(mc, words) * unit() / 2, halfH = 9 * unit() / 2;
+		Vec3 dir = spot.subtract(eye);
+		double len = dir.length();
+		if (len < 0.01) return spot;
+		Vec3 side = new Vec3(-dir.z, 0, dir.x).normalize();
+		Vec3[] pts = {spot, spot.add(side.scale(halfW)), spot.subtract(side.scale(halfW)), spot.add(0, halfH, 0), spot.add(0, -halfH, 0)};
+		double ratio = 1.0;
+		for (Vec3 pt : pts) {
+			var hit = mc.level.clip(new ClipContext(eye, pt, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+			if (hit.getType() == HitResult.Type.MISS) continue;
+			double r = hit.getLocation().subtract(eye).length() / Math.max(0.01, pt.subtract(eye).length());
+			ratio = Math.min(ratio, r);
+		}
+		if (ratio >= 1.0) return spot;
+		double newLen = Math.max(0.8, len * ratio - 0.6);
+		return eye.add(dir.scale(newLen / len));
 	}
 
 	/** If a block is between the eye and the spot, the spot moves to just in front of it. */

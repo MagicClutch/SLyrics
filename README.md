@@ -15,6 +15,8 @@ holograms in front of you, words scattered in the sky, or a plain HUD line.
 ## Features
 - **Words mode:** each word pops up around your crosshair the moment it is sung, glowing, tilted a little toward you, and fades shortly after. Words avoid overlapping each other.
 - **Lines mode:** the whole line appears and the word being sung lights up. Optional **Center layout** puts the words in a row straight ahead.
+- **Sky mode:** huge words far away in the sky that flash up and drift slowly like clouds (distance, height and letter size are configurable).
+- **Prevent block clipping** (on by default): words are moved in front of walls and terrain and never sit inside blocks.
 - Distance, size, opacity, glow, outline, motion blur, bounce, flicker, follow-me, walls protection, uppercase.
 - Custom font: `minecraft:default`, `minecraft:uniform`, `minecraft:alt`, `minecraft:illageralt`, or any font from a resource pack (`assets/<namespace>/font/<name>.json` -> `<namespace>:<name>`).
 - Emojis: adds a symbol after keywords in many languages (love ♥, fight ⚔, ...) without replacing the word. Toggle in the config; edit the word list via `emojiMap` in `config/slyrics.json`.

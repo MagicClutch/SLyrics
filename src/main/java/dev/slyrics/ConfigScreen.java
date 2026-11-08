@@ -59,6 +59,10 @@ public final class ConfigScreen {
 			.option(bool("World lyrics", "Show the lyrics as floating words in the world (otherwise as plain HUD text)", d.hologram, () -> c.hologram, v -> c.hologram = v))
 			.option(bool("Lines mode", "Off: each word appears when it is sung. On: the whole line appears and the sung word lights up", d.lineMode, () -> c.lineMode, v -> c.lineMode = v))
 			.option(bool("Center layout", "Off: words are scattered around the crosshair. On: words in a row straight ahead", d.centerLayout, () -> c.centerLayout, v -> c.centerLayout = v))
+			.option(bool("Sky mode", "Huge words far away in the sky that flash up and drift slowly like clouds", d.skyMode, () -> c.skyMode, v -> c.skyMode = v))
+			.option(flt("Sky distance", "How far away the sky words are, in blocks", d.skyDistance, 30f, 200f, 5f, () -> c.skyDistance, v -> c.skyDistance = v))
+			.option(flt("Sky height (°)", "Preferred angle above the horizon", d.skyElevation, 10f, 80f, 1f, () -> c.skyElevation, v -> c.skyElevation = v))
+			.option(flt("Sky letter size (°)", "Height of the letters as seen from your view", d.skyTextDeg, 3f, 20f, 0.5f, () -> c.skyTextDeg, v -> c.skyTextDeg = v))
 			.option(flt("Closest distance", "Closest distance of the words in blocks", d.near, 2f, 12f, 0.5f, () -> c.near, v -> c.near = v))
 			.option(flt("Farthest distance", "Farthest distance of the words in blocks", d.far, 2f, 16f, 0.5f, () -> c.far, v -> c.far = v))
 			.option(intg("Size (%)", "Size of the text in the world", d.size, 50, 250, 5, () -> c.size, v -> c.size = v))
@@ -69,6 +73,7 @@ public final class ConfigScreen {
 			.option(intg("Bounce (%)", "Words spring into place and float slightly", d.bounce, 0, 100, 5, () -> c.bounce, v -> c.bounce = v))
 			.option(bool("Flicker", "Occasional glitch effect", d.flicker, () -> c.flicker, v -> c.flicker = v))
 			.option(bool("Follow me", "Words are carried along when you walk", d.follow, () -> c.follow, v -> c.follow = v))
+			.option(bool("Prevent block clipping", "Keeps words out of blocks: they are moved in front of walls and terrain and never placed inside the ground", d.blockClipping, () -> c.blockClipping, v -> c.blockClipping = v))
 			.option(bool("Visible through walls", "Text readable even behind blocks", d.throughWalls, () -> c.throughWalls, v -> c.throughWalls = v))
 			.build();
 

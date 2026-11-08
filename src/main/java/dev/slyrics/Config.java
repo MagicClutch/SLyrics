@@ -51,6 +51,8 @@ public class Config {
 	public float far = 8f;
 	/** Words follow you when you walk. */
 	public boolean follow = false;
+	/** Keep words out of blocks: they are moved in front of walls/terrain and never placed inside the ground. */
+	public boolean blockClipping = true;
 	/** Text size in percent. */
 	public int size = 100;
 	public int opacity = 100;
@@ -59,6 +61,14 @@ public class Config {
 	public int blur = 50;
 	public int bounce = 100;
 	public boolean flicker = false;
+	/** Sky mode: huge words far away in the sky that flash up and drift slowly like clouds. */
+	public boolean skyMode = false;
+	/** Distance of the sky words in blocks. */
+	public float skyDistance = 90f;
+	/** Preferred height above the horizon in degrees. */
+	public float skyElevation = 30f;
+	/** Height of the letters in degrees of your view. */
+	public float skyTextDeg = 8f;
 	public String glowColor = "DDE9FF";
 	public boolean throughWalls = true;
 	/** On-screen status message (e.g. when no lyrics were found). */
