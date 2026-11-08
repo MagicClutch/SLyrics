@@ -97,6 +97,15 @@ public final class ConfigScreen {
 			.option(intg("Fade (ms)", "Fade in/out duration", d.fadeMs, 0, 1000, 50, () -> c.fadeMs, v -> c.fadeMs = v))
 			.build();
 
+		var afk = ConfigCategory.createBuilder().name(t("AFK camera"))
+			.option(bool("AFK camera", "After you have been idle for a while, the camera leaves first person and slowly orbits you like a cinematic shot, with the lyrics in view. Any input ends it.", d.afkEnabled, () -> c.afkEnabled, v -> c.afkEnabled = v))
+			.option(intg("Start after (seconds)", "Idle time before the AFK camera starts", d.afkSeconds, 3, 600, 1, () -> c.afkSeconds, v -> c.afkSeconds = v))
+			.option(bool("Only while music plays", "Start only when Spotify is playing", d.afkOnlyWhilePlaying, () -> c.afkOnlyWhilePlaying, v -> c.afkOnlyWhilePlaying = v))
+			.option(flt("Orbit radius", "Distance of the camera from you, in blocks", d.afkRadius, 3f, 20f, 0.5f, () -> c.afkRadius, v -> c.afkRadius = v))
+			.option(flt("Camera height", "Height above your eyes, in blocks", d.afkHeight, 0f, 8f, 0.5f, () -> c.afkHeight, v -> c.afkHeight = v))
+			.option(flt("Orbit speed (°/s)", "How fast the camera circles you", d.afkSpeed, 2f, 60f, 1f, () -> c.afkSpeed, v -> c.afkSpeed = v))
+			.build();
+
 		var hud = ConfigCategory.createBuilder().name(t("HUD"))
 			.option(flt("Size", "Only used when holograms are off", d.scale, 0.5f, 5f, 0.1f, () -> c.scale, v -> c.scale = v))
 			.option(flt("Position X (%)", "", d.xPercent, 0f, 100f, 1f, () -> c.xPercent, v -> c.xPercent = v))
@@ -107,7 +116,7 @@ public final class ConfigScreen {
 
 		return YetAnotherConfigLib.createBuilder()
 			.title(t("SLyrics"))
-			.category(spotify).category(holo).category(text).category(hud)
+			.category(spotify).category(holo).category(text).category(afk).category(hud)
 			.save(Config::save)
 			.build().generateScreen(parent);
 	}

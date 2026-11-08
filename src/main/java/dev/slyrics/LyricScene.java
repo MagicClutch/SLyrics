@@ -153,7 +153,7 @@ public final class LyricScene {
 	}
 
 	private static Vec3 eye0(net.minecraft.world.entity.player.Player p) {
-		return p.getEyePosition();
+		return AfkCamera.eye(Minecraft.getInstance());
 	}
 
 	private void trim() {
@@ -178,7 +178,7 @@ public final class LyricScene {
 				continue;
 			}
 			Vec3 spot = pick(mc, w, q.sungAt(), q.fadeAt() - q.sungAt(), false);
-			Vec3 eye = player.getEyePosition();
+			Vec3 eye = AfkCamera.eye(mc);
 			Vec3 safe = Config.INSTANCE.blockClipping ? safeSpot(mc, eye, spot, w) : spot;
 			float shrink = (float) Math.min(1.0, safe.distanceTo(eye) / Math.max(0.01, spot.distanceTo(eye)) * 1.1);
 			place(mc, w, new long[]{q.sungAt()}, new long[]{q.heldUntil()}, safe, 2, shrink).fadeAt = q.fadeAt();
@@ -209,7 +209,8 @@ public final class LyricScene {
 
 	/** A point in the player's view, offset by yaw/pitch degrees, at the given distance. */
 	private Vec3 ahead(net.minecraft.world.entity.player.Player p, double yawOff, double dist) {
-		return p.getEyePosition().add(dirOf(p.getYRot() + yawOff, p.getXRot()).scale(dist));
+		Minecraft mc = Minecraft.getInstance();
+		return AfkCamera.eye(mc).add(dirOf(AfkCamera.yaw(mc) + yawOff, AfkCamera.pitch(mc)).scale(dist));
 	}
 
 	private static Vec3 dirOf(double yawDeg, double pitchDeg) {
@@ -238,7 +239,7 @@ public final class LyricScene {
 	private Vec3 pick(Minecraft mc, String[] words, long from, long life, boolean wholeLine) {
 		Config c = Config.INSTANCE;
 		var p = mc.player;
-		Vec3 eye = p.getEyePosition();
+		Vec3 eye = AfkCamera.eye(mc);
 		double fovH = hFov(mc), fovV = mc.options.fov().get();
 		double reachH = Math.min(fovH * 0.22, 20), reachV = Math.min(fovV * 0.18, 11);
 		int slot = wholeLine ? 0 : (slotCursor++ % 6);
@@ -257,7 +258,7 @@ public final class LyricScene {
 			double fit = Math.min(1.0, 2 * dist * Math.tan(Math.toRadians(fovH * 0.38)) / Math.max(width, 0.01));
 			double spanH = Math.toDegrees(Math.atan(width * fit / (2 * dist)));
 			double spanV = Math.toDegrees(Math.atan(9 * unit() * fit / (2 * dist)));
-			Vec3 spot = eye.add(dirOf(p.getYRot() + dx, p.getXRot() + dy).scale(dist));
+			Vec3 spot = eye.add(dirOf(AfkCamera.yaw(mc) + dx, AfkCamera.pitch(mc) + dy).scale(dist));
 			if (c.blockClipping) spot = liftFromGround(mc, spot);
 			double room = clearance(eye, spot, spanH, spanV, c.follow);
 			double score = Math.min(room, 7) * 9 - Math.hypot(dx - cx, dy - cy) * 0.35;
@@ -284,7 +285,7 @@ public final class LyricScene {
 
 	private Item place(Minecraft mc, String[] words, long[] sung, long[] held, Vec3 spot, int faceMode, float fitLimit) {
 		var p = mc.player;
-		Vec3 eye = p.getEyePosition();
+		Vec3 eye = AfkCamera.eye(mc);
 		double dist = Math.max(0.5, spot.distanceTo(eye));
 		double width = pixelWidth(mc, words) * unit();
 		float fit = (float) Math.min(fitLimit, 2 * dist * Math.tan(Math.toRadians(hFov(mc) * 0.38)) / Math.max(width, 0.01));
@@ -300,11 +301,11 @@ public final class LyricScene {
 			pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
 			roll = (rng.nextFloat() - 0.5f) * 14f * k;
 			if (words.length > 1) { // keep long lines square so their far end does not smear
-				yaw = p.getYRot() * -1f;
+				yaw = AfkCamera.yaw(mc) * -1f;
 				pitch = 0;
 			}
 		} else {
-			yaw = -p.getYRot();
+			yaw = -AfkCamera.yaw(mc);
 		}
 		Item it = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, false);
 		items.add(it);
@@ -317,9 +318,9 @@ public final class LyricScene {
 	private Item placeSky(Minecraft mc, String[] words, long[] sung, long[] held) {
 		Config c = Config.INSTANCE;
 		var p = mc.player;
-		Vec3 eye = p.getEyePosition();
+		Vec3 eye = AfkCamera.eye(mc);
 		double fovH = hFov(mc), fovV = mc.options.fov().get();
-		double viewElev = -p.getXRot();
+		double viewElev = -AfkCamera.pitch(mc);
 		int slot = skyCursor++ % 5;
 
 		Item best = null;
@@ -344,7 +345,7 @@ public final class LyricScene {
 			elev = Math.max(viewElev - room, Math.min(viewElev + room, elev));
 			elev = Math.max(6, elev);
 
-			Vec3 spot = eye.add(dirOf(p.getYRot() + dx, -elev).scale(dist));
+			Vec3 spot = eye.add(dirOf(AfkCamera.yaw(mc) + dx, -elev).scale(dist));
 			float fit = (float) (unit / unit());
 			Vec3 off = spot.subtract(eye);
 			float yaw = (float) Math.toDegrees(Math.atan2(off.z, off.x)) - 90f;
@@ -366,12 +367,12 @@ public final class LyricScene {
 	private void placeRow(Minecraft mc, String[] words, long[] start, long[] end) {
 		Config c = Config.INSTANCE;
 		var p = mc.player;
-		Vec3 eye = p.getEyePosition();
+		Vec3 eye = AfkCamera.eye(mc);
 		double dist = (c.near + c.far) / 2;
 		Vec3 centre = ahead(p, 0, dist).add(0, -0.25, 0);
 		if (c.blockClipping) centre = safeSpot(mc, eye, centre, words);
 		double d = centre.distanceTo(eye);
-		Vec3 side = dirOf(p.getYRot() + 90, 0);
+		Vec3 side = dirOf(AfkCamera.yaw(mc) + 90, 0);
 		float spaceW = mc.font.width(LyricsHud.styled(" ", c));
 		float[] w = new float[words.length];
 		float total = spaceW * (words.length - 1);

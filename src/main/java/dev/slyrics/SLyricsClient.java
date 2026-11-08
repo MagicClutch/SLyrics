@@ -25,6 +25,7 @@ public class SLyricsClient implements ClientModInitializer {
 		Config.load();
 		Spotify.start();
 		LyricsWorld.init();
+		AfkCamera.init();
 		HudElementRegistry.attachElementAfter(VanillaHudElements.CHAT, Identifier.fromNamespaceAndPath("slyrics", "lyrics"), new LyricsHud());
 
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
