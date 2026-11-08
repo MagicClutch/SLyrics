@@ -11,35 +11,26 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.Comparator;
 import java.util.List;
 
-/** Drives the scene (which line is sung now) and draws its words in the world. */
+/** Decides which line is being sung and draws the scene's words in the world. */
 public final class LyricsWorld {
 	private static final LyricScene SCENE = new LyricScene();
-	private static final int OUTLINE_COLOR = 0x070A14;
-	private static final float KARAOKE_MS = 250f;
-	private static final long HELD_NOTE_MS = 350L;
-	private static final int MIN_ALPHA = 6;
+	private static final int OUTLINE_RGB = 0x080B16;
 
-	private static final float[][] GLOW_OFFSETS = new float[16][];
-	private static final float[][] RING = new float[8][];
+	/** Unit-circle offsets used for the halo and the outline. */
+	private static final float[][] RING8 = new float[8][];
 
 	static {
-		for (int i = 0; i < 8; i++) {
-			double a = i * Math.PI / 4;
-			GLOW_OFFSETS[i * 2] = new float[]{(float) (Math.cos(a) * 0.6), (float) (Math.sin(a) * 0.6)};
-			GLOW_OFFSETS[i * 2 + 1] = new float[]{(float) (Math.cos(a) * 1.3), (float) (Math.sin(a) * 1.3)};
-			RING[i] = new float[]{(float) Math.cos(a), (float) Math.sin(a)};
-		}
+		for (int i = 0; i < 8; i++) RING8[i] = new float[]{(float) Math.cos(i * Math.PI / 4), (float) Math.sin(i * Math.PI / 4)};
 	}
 
-	private static String lastTrackId = "";
-	private static int lastIdx = -1;
-	private static boolean wasPlaying = false;
+	private static String lastTrack = "";
+	private static int lastLine = -1;
+	private static boolean wasPlaying;
 
 	private interface Sink {
-		void draw(Component text, float x, float y, int color, Font.DisplayMode mode);
+		void draw(Component text, float x, float y, int argb, Font.DisplayMode mode);
 	}
 
 	private LyricsWorld() {}
@@ -49,19 +40,38 @@ public final class LyricsWorld {
 		LevelRenderEvents.COLLECT_SUBMITS.register(LyricsWorld::render);
 	}
 
+	// ------------------------------------------------------------------ which line is sung
+
+	private static int lineAt(List<LyricLine> lines, long pos) {
+		int lo = 0, hi = lines.size() - 1, found = -1;
+		while (lo <= hi) {
+			int mid = (lo + hi) >>> 1;
+			if (lines.get(mid).timeMs() <= pos) {
+				found = mid;
+				lo = mid + 1;
+			} else {
+				hi = mid - 1;
+			}
+		}
+		return found;
+	}
+
 	private static void tick(Minecraft mc) {
 		Config c = Config.INSTANCE;
 		long now = System.currentTimeMillis();
-		Track t = Spotify.track;
-		List<LyricLine> lines = Spotify.lyrics;
-		if (mc.player == null || t == null || !c.enabled || !c.hologram) {
-			if (mc.player == null) SCENE.clear();
-			lastIdx = -1;
+		Track track = Spotify.track;
+		if (mc.player == null) {
+			SCENE.clear();
+			lastLine = -1;
 			return;
 		}
-		if (!t.id().equals(lastTrackId)) {
-			lastTrackId = t.id();
-			lastIdx = -1;
+		if (track == null || !c.enabled || !c.hologram) {
+			lastLine = -1;
+			return;
+		}
+		if (!track.id().equals(lastTrack)) {
+			lastTrack = track.id();
+			lastLine = -1;
 			SCENE.fadeAll(now);
 		}
 		if (!Spotify.playing) {
@@ -70,27 +80,25 @@ public final class LyricsWorld {
 			return;
 		}
 		wasPlaying = true;
+
+		List<LyricLine> lines = Spotify.lyrics;
 		if (lines.isEmpty()) return;
 		long pos = Spotify.positionMs() + c.offsetMs;
-		int idx = -1, lo = 0, hi = lines.size() - 1;
-		while (lo <= hi) {
-			int mid = (lo + hi) >>> 1;
-			if (lines.get(mid).timeMs() <= pos) {
-				idx = mid;
-				lo = mid + 1;
-			} else hi = mid - 1;
-		}
-		if (idx == lastIdx) return;
-		lastIdx = idx;
+		int idx = lineAt(lines, pos);
+		if (idx == lastLine) return;
+		lastLine = idx;
 		if (idx < 0) return;
-		LyricLine cur = lines.get(idx);
-		if (cur.text().isEmpty()) {
+
+		LyricLine line = lines.get(idx);
+		if (line.text().isEmpty()) {
 			SCENE.fadeAll(now);
 			return;
 		}
-		long end = idx + 1 < lines.size() ? lines.get(idx + 1).timeMs() : cur.timeMs() + 5000;
-		SCENE.setLine(mc, cur.text(), cur.timeMs(), end, pos, now);
+		long end = idx + 1 < lines.size() ? lines.get(idx + 1).timeMs() : line.timeMs() + 5000;
+		SCENE.setLine(mc, line.text(), line.timeMs(), end, pos, now);
 	}
+
+	// ------------------------------------------------------------------ drawing
 
 	private static void render(LevelRenderContext ctx) {
 		Config c = Config.INSTANCE;
@@ -98,128 +106,125 @@ public final class LyricsWorld {
 		if (mc.level == null || mc.player == null || !c.enabled || !c.hologram) return;
 		long now = System.currentTimeMillis();
 		SCENE.frame(mc, now);
-		if (SCENE.pieces.isEmpty()) return;
+		if (SCENE.items.isEmpty()) return;
 
 		PoseStack ps = ctx.poseStack();
 		Vec3 cam = ctx.levelState().cameraRenderState.pos;
 		var collector = ctx.submitNodeCollector();
-		Sink sink = (text, x, y, color, mode) ->
-			collector.submitText(ps, x, y, text.getVisualOrderText(), false, mode, LightCoordsUtil.FULL_BRIGHT, color, 0, 0);
+		Sink sink = (text, x, y, argb, mode) ->
+			collector.submitText(ps, x, y, text.getVisualOrderText(), false, mode, LightCoordsUtil.FULL_BRIGHT, argb, 0, 0);
 
-		List<LyricScene.Piece> ordered = SCENE.pieces.stream()
-			.sorted(Comparator.comparingDouble((LyricScene.Piece p) -> SCENE.worldPos(p, c.follow).distanceToSqr(cam)).reversed())
-			.toList();
-		for (LyricScene.Piece p : ordered) drawPiece(mc, ps, cam, p, now, sink);
-	}
-
-	private static float easeOutCubic(float t) {
-		return 1f - (1f - t) * (1f - t) * (1f - t);
-	}
-
-	private static float easeOutBack(float t, float s) {
-		float u = t - 1f;
-		return 1f + (s + 1f) * u * u * u + s * u * u;
+		// far to near, so near words end up on top
+		List<LyricScene.Item> order = new java.util.ArrayList<>(SCENE.items);
+		order.sort((a, b) -> Double.compare(SCENE.worldPos(b, c.follow).distanceToSqr(cam), SCENE.worldPos(a, c.follow).distanceToSqr(cam)));
+		for (LyricScene.Item it : order) drawItem(mc, ps, cam, it, now, sink);
 	}
 
 	private static float clamp01(float v) {
-		return Math.max(0f, Math.min(1f, v));
+		return v < 0f ? 0f : Math.min(v, 1f);
 	}
 
-	private static void drawPiece(Minecraft mc, PoseStack ps, Vec3 cam, LyricScene.Piece piece, long now, Sink sink) {
+	private static float smooth(float t) {
+		t = clamp01(t);
+		return t * t * (3f - 2f * t);
+	}
+
+	/** Scale curve for the pop-in: grows past 1 and settles back. */
+	private static float pop(float t) {
+		t = clamp01(t);
+		return 0.4f + 0.6f * smooth(t) + 0.18f * (float) Math.sin(Math.PI * t) * (1f - t);
+	}
+
+	private static void drawItem(Minecraft mc, PoseStack ps, Vec3 cam, LyricScene.Item it, long now, Sink sink) {
 		Config c = Config.INSTANCE;
-		long start = piece.sungAt[0];
-		if (now < start) return;
-		float appear = clamp01((now - start) / (float) LyricScene.APPEAR_MS);
-		float fade = now < piece.fadeAt ? 0f : clamp01((now - piece.fadeAt) / (float) LyricScene.FADE_MS);
-		float opacity = c.opacity / 100f;
-		float alpha = easeOutCubic(appear) * (1f - fade) * opacity;
+		if (now < it.sungAt[0]) return;
+
+		float born = clamp01((now - it.sungAt[0]) / (float) LyricScene.POP_MS);
+		float dying = now < it.fadeAt ? 0f : clamp01((now - it.fadeAt) / (float) LyricScene.FADE_MS);
+		float alpha = smooth(born) * (1f - dying) * (c.opacity / 100f);
 		if (alpha < 0.02f) return;
 
-		float blur = c.blur / 100f * Math.max(1f - appear, fade);
 		float bounce = c.bounce / 100f;
-		float pop = (1f - 0.6f * bounce * (1f - easeOutBack(appear, 2f))) * (1f - 0.15f * fade);
-		double rise = -0.4 * bounce * (1f - easeOutCubic(appear));
-		double drift = Math.sin(now / 700.0 + piece.driftSeed) * 0.05 * bounce;
+		float scaleAnim = 1f + (pop(born) - 1f) * bounce - 0.15f * dying;
+		double lift = -0.35 * bounce * (1f - smooth(born)) + Math.sin(now / 750.0 + it.seed) * 0.045 * bounce;
+		float smear = c.blur / 100f * Math.max(1f - born, dying);
 
-		Vec3 pos = SCENE.worldPos(piece, c.follow);
+		Vec3 at = SCENE.worldPos(it, c.follow);
 		ps.pushPose();
-		ps.translate((float) (pos.x - cam.x), (float) (pos.y - cam.y + rise + drift), (float) (pos.z - cam.z));
-		ps.rotateDegrees(Axis.YP, -piece.yaw);
-		ps.rotateDegrees(Axis.XP, piece.pitch);
-		ps.rotateDegrees(Axis.ZP, piece.roll);
-		float s = 0.05f * (c.size / 100f) * piece.fit * pop;
+		ps.translate((float) (at.x - cam.x), (float) (at.y - cam.y + lift), (float) (at.z - cam.z));
+		ps.rotateDegrees(Axis.YP, -it.yaw);
+		ps.rotateDegrees(Axis.XP, it.pitch);
+		ps.rotateDegrees(Axis.ZP, it.roll);
+		float s = 0.05f * (c.size / 100f) * it.fit * scaleAnim;
 		ps.scale(-s, -s, s);
 
-		boolean karaoke = piece.words.length > 1;
-		int current = -1;
-		if (karaoke) for (int i = 0; i < piece.words.length; i++) if (now >= piece.sungAt[i]) current = i;
 		Font font = mc.font;
-		Component[] texts = new Component[piece.words.length];
-		for (int i = 0; i < texts.length; i++) texts[i] = LyricsHud.styled(piece.words[i], c);
-		float space = font.width(LyricsHud.styled(" ", c));
-		float total = -space;
-		for (Component t : texts) total += font.width(t) + space;
-		float x = -total / 2f;
-		float y = -font.lineHeight / 2f;
-		int color = c.rgb();
+		int n = it.words.length;
+		Component[] texts = new Component[n];
+		float[] widths = new float[n];
+		float gap = font.width(LyricsHud.styled(" ", c));
+		float total = gap * (n - 1);
+		for (int i = 0; i < n; i++) {
+			texts[i] = LyricsHud.styled(it.words[i], c);
+			widths[i] = font.width(texts[i]);
+			total += widths[i];
+		}
 
-		for (int i = 0; i < texts.length; i++) {
-			float w = font.width(texts[i]);
-			float a = alpha;
-			float pulse = 1f;
-			boolean lit = now >= piece.sungAt[i] && (now < piece.heldUntil[i] || i == current);
-			if (karaoke && !lit) {
-				a *= now < piece.sungAt[i] ? 0.45f : 0.7f;
-			} else if (karaoke) {
-				float t = clamp01((now - piece.sungAt[i]) / KARAOKE_MS);
-				if (t < 1f) pulse += 0.12f * bounce * (float) Math.sin(t * Math.PI);
+		int current = -1;
+		for (int i = 0; i < n; i++) if (now >= it.sungAt[i]) current = i;
+		float x = -total / 2f, y = -font.lineHeight / 2f;
+		for (int i = 0; i < n; i++) {
+			float a = alpha, grow = 1f;
+			if (n > 1) {
+				boolean active = now >= it.sungAt[i] && (now < it.heldUntil[i] || i == current);
+				if (!active) a *= now < it.sungAt[i] ? 0.4f : 0.7f;
+				else grow += 0.1f * bounce * (float) Math.sin(Math.PI * clamp01((now - it.sungAt[i]) / 260f));
 			}
-			float hold = held(piece, i, now);
-			pulse *= 1f + 0.1f * bounce * hold;
+			float sustain = sustain(it, i, now);
+			grow *= 1f + 0.09f * bounce * sustain;
+
 			ps.pushPose();
-			ps.translate(x + w / 2f, 0f, 0f);
-			ps.scale(pulse, pulse, 1f);
-			drawWord(texts[i], -w / 2f, y, a, blur, color, c.flicker ? glitch(now, piece.driftSeed + i * 1.7f) : 0f, 1f + 0.8f * hold, sink);
+			ps.translate(x + widths[i] / 2f, 0f, 0f);
+			ps.scale(grow, grow, 1f);
+			float glitch = c.flicker ? glitch(now, it.seed + i * 1.9f) : 0f;
+			drawWord(texts[i], -widths[i] / 2f, y, a, smear, glitch, 1f + 0.8f * sustain, sink);
 			ps.popPose();
-			x += w + space;
+			x += widths[i] + gap;
 		}
 		ps.popPose();
 	}
 
-	/** 0 to 1: how far into a long held note word i is, easing back to 0 over 300 ms once it ends. */
-	private static float held(LyricScene.Piece piece, int i, long now) {
-		long start = piece.sungAt[i], end = piece.heldUntil[i];
-		if (end - start < HELD_NOTE_MS || now < start) return 0f;
-		if (now < end) {
-			float t = (now - start) / (float) (end - start);
-			return t * t * (3f - 2f * t);
-		}
-		return clamp01(1f - (now - end) / 300f);
+	/** 0..1 while a long note is held (eases in), then eases out for 300 ms. */
+	private static float sustain(LyricScene.Item it, int i, long now) {
+		long from = it.sungAt[i], to = it.heldUntil[i];
+		if (to - from < 350 || now < from) return 0f;
+		if (now < to) return smooth((now - from) / (float) (to - from));
+		return clamp01(1f - (now - to) / 300f);
 	}
 
-	private static void drawWord(Component text, float x0, float y, float a0, float blur, int color, float glitch, float glowBoost, Sink sink) {
+	private static void drawWord(Component text, float x, float y, float a, float smear, float glitch, float boost, Sink sink) {
 		Config c = Config.INSTANCE;
-		float x = x0, a = a0;
 		float glow = c.glow / 100f, outline = c.outline / 100f;
-		int glowColor = parseColor(c.glowColor, 0xDDE9FF);
-		Font.DisplayMode under = c.throughWalls ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL;
-		Font.DisplayMode top = c.throughWalls ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.POLYGON_OFFSET;
+		var under = c.throughWalls ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL;
+		var top = c.throughWalls ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.POLYGON_OFFSET;
 		if (glitch > 0f) {
-			x += (glitch - 0.55f) * 4f;
+			x += (glitch - 0.5f) * 4f;
 			a *= 0.55f + 0.3f * glitch;
 		}
+
 		if (glow > 0.02f) {
-			int ga = argb(a * (0.1f + 0.05f * glow) * glowBoost, glowColor);
-			float spread = (0.5f + 0.5f * glow) * (0.75f + 0.25f * glowBoost);
-			if (ga != 0) for (float[] o : GLOW_OFFSETS) sink.draw(text, x + o[0] * spread, y + o[1] * spread, ga, under);
+			int col = argb(a * (0.1f + 0.06f * glow) * boost, hex(c.glowColor, 0xDDE9FF));
+			float r = (0.6f + 0.9f * glow) * (0.8f + 0.2f * boost);
+			if (col != 0) for (float[] o : RING8) {
+				sink.draw(text, x + o[0] * r, y + o[1] * r, col, under);
+				sink.draw(text, x + o[0] * r * 2f, y + o[1] * r * 2f, col, under);
+			}
 		}
-		if (blur > 0.01f) {
-			for (int k = 1; k <= 2; k++) {
-				int ba = argb(a * 0.3f / k, color);
-				if (ba == 0) continue;
-				float dx = k * 1.6f * blur;
-				sink.draw(text, x - dx, y, ba, under);
-				sink.draw(text, x + dx, y, ba, under);
+		if (smear > 0.01f) {
+			int col = argb(a * 0.28f, c.rgb());
+			if (col != 0) for (int k = 1; k <= 2; k++) {
+				sink.draw(text, x - k * 1.6f * smear, y, col, under);
+				sink.draw(text, x + k * 1.6f * smear, y, col, under);
 			}
 		}
 		if (glitch > 0f) {
@@ -229,34 +234,28 @@ public final class LyricsWorld {
 			if (pink != 0) sink.draw(text, x + split, y, pink, under);
 		}
 		if (outline > 0.02f) {
-			int inner = argb(a * 0.34f * outline, OUTLINE_COLOR), outer = argb(a * 0.16f * outline, OUTLINE_COLOR);
-			for (float[] o : RING) {
-				if (inner != 0) sink.draw(text, x + o[0] * 0.55f, y + o[1] * 0.55f, inner, under);
-				if (outer != 0) sink.draw(text, x + o[0] * 1.1f, y + o[1] * 1.1f, outer, under);
-			}
+			int col = argb(a * 0.3f * outline, OUTLINE_RGB);
+			if (col != 0) for (float[] o : RING8) sink.draw(text, x + o[0] * 0.8f, y + o[1] * 0.8f, col, under);
 		}
-		int main = argb(a * (1f - 0.55f * blur), color);
+		int main = argb(a * (1f - 0.55f * smear), c.rgb());
 		if (main != 0) sink.draw(text, x, y, main, top);
 	}
 
-	/** 0, or a strength from 0.15 to 1 in roughly one 70 ms slot in eight. */
+	/** Occasional short glitch: 0 most of the time, 0.15..1 in about one 70 ms slot in eight. */
 	private static float glitch(long now, float seed) {
-		long h = (now / 70L) * 0x9E3779B97F4A7C15L ^ ((long) Float.floatToIntBits(seed) * 0xC2B2AE3D27D4EB4FL);
-		h ^= h >>> 29;
-		h *= 0xBF58476D1CE4E5B9L;
-		h ^= h >>> 32;
-		float u = (h & 0xFFFF) / 65536f;
+		double h = Math.sin((now / 70L) * 12.9898 + seed * 78.233) * 43758.5453;
+		float u = (float) (h - Math.floor(h));
 		return u < 0.12f ? 0.15f + u / 0.12f * 0.85f : 0f;
 	}
 
 	private static int argb(float alpha, int rgb) {
 		int a = Math.round(clamp01(alpha) * 255f);
-		return a < MIN_ALPHA ? 0 : (a << 24) | (rgb & 0xFFFFFF);
+		return a < 6 ? 0 : (a << 24) | (rgb & 0xFFFFFF); // tiny alpha would be drawn opaque by the font renderer
 	}
 
-	private static int parseColor(String hex, int def) {
+	private static int hex(String s, int def) {
 		try {
-			return Integer.parseInt(hex.replace("#", ""), 16) & 0xFFFFFF;
+			return Integer.parseInt(s.replace("#", ""), 16) & 0xFFFFFF;
 		} catch (NumberFormatException e) {
 			return def;
 		}
