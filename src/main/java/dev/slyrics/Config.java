@@ -102,6 +102,14 @@ public class Config {
 	public int blur = 50;
 	public int bounce = 100;
 	public boolean flicker = false;
+	/** Karaoke sweep: the word being sung is colored from left to right, and the color goes off when the next word starts. */
+	public boolean sweepMode = false;
+	public String sweepColor = "FFE14D";
+	/** Color the whole word at once instead of sweeping across it. */
+	public boolean sweepWhole = false;
+	/** How long the color takes to fade out once the word is over (0 = instantly). */
+	public int sweepFadeMs = 120;
+	public boolean sweepGlow = true;
 	/** 3D text: the words get a body, drawn as stacked layers behind the front face. */
 	public boolean depth3d = false;
 	/** Thickness of the 3D body in font pixels. */
