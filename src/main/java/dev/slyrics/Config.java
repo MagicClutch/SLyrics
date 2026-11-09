@@ -39,8 +39,6 @@ public class Config {
 	public String applePlayer = "";
 	/** On-screen status message (e.g. when no lyrics were found). */
 	public boolean showStatus = true;
-	/** How many GUI scale steps smaller the settings screen is drawn (0 = normal size). */
-	public int configScaleDown = 2;
 
 	// ------------------------------------------------------------------ bookkeeping (only in slyrics.json)
 

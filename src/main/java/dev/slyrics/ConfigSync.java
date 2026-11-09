@@ -15,7 +15,6 @@ import java.lang.reflect.Modifier;
 public final class ConfigSync {
 	public static final Configurator CONFIGURATOR = new Configurator("slyrics");
 	private static int ticks;
-	private static boolean scaledDown;
 
 	private ConfigSync() {}
 
@@ -86,14 +85,6 @@ public final class ConfigSync {
 	/** Called every client tick; picks up changes made in the config screen. */
 	public static void tick() {
 		if (++ticks % 5 == 0) fromRc();
-		if (scaledDown) {
-			Minecraft mc = Minecraft.getInstance();
-			var s = mc.gui.screen();
-			if (s == null || !s.getClass().getName().startsWith("com.teamresourceful")) { // settings closed: back to the normal GUI scale
-				scaledDown = false;
-				mc.resizeGui();
-			}
-		}
 	}
 
 	/** Saves a change made in code (commands) to both stores. */
@@ -103,19 +94,10 @@ public final class ConfigSync {
 		Config.save();
 	}
 
-	/** Opens the settings screen, drawn a bit smaller than the normal GUI so more fits on screen. */
+	/** Opens the settings screen. */
 	public static void openScreen() {
 		Minecraft mc = Minecraft.getInstance();
 		var parent = mc.gui.screen();
-		int down = Math.max(0, Config.INSTANCE.configScaleDown);
-		var win = mc.getWindow();
-		if (down > 0 && !scaledDown) {
-			int s = Math.max(1, win.getGuiScale() - down);
-			if (s != win.getGuiScale()) {
-				win.setGuiScale(s);
-				scaledDown = true;
-			}
-		}
 		mc.gui.setScreen(com.teamresourceful.resourcefulconfig.api.client.ResourcefulConfigScreen.make(CONFIGURATOR, RcConfig.class).withParent(parent).build());
 	}
 
