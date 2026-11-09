@@ -50,6 +50,13 @@ public class SLyricsClient implements ClientModInitializer {
 					ctx.getSource().sendFeedback(Component.literal("SLyrics: logged out."));
 					return 1;
 				}))
+				.then(ClientCommands.literal("performance").executes(ctx -> {
+					Config.INSTANCE.performanceMode = !Config.INSTANCE.performanceMode;
+					Config.settingsChanged();
+					ConfigSync.saveAll();
+					ctx.getSource().sendFeedback(Component.literal("SLyrics: performance mode " + (Config.INSTANCE.performanceMode ? "on" : "off")));
+					return 1;
+				}))
 				.then(ClientCommands.literal("toggle").executes(ctx -> {
 					Config.INSTANCE.enabled = !Config.INSTANCE.enabled;
 					ConfigSync.saveAll();

@@ -138,7 +138,7 @@ public final class LyricScene {
 	}
 
 	public void setLine(Minecraft mc, String text, long lineTimeMs, long lineEndMs, long positionMs, long now) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		var player = mc.player;
 		if (player == null) return;
 
@@ -240,14 +240,14 @@ public final class LyricScene {
 			}
 			Vec3 spot = pick(mc, w, q.sungAt(), q.fadeAt() - q.sungAt(), false);
 			Vec3 eye = AfkCamera.eye(mc);
-			Vec3 safe = Config.INSTANCE.blockClipping ? safeSpot(mc, eye, spot, w) : spot;
+			Vec3 safe = Config.live().blockClipping ? safeSpot(mc, eye, spot, w) : spot;
 			float shrink = (float) Math.min(1.0, safe.distanceTo(eye) / Math.max(0.01, spot.distanceTo(eye)) * 1.1);
 			place(mc, w, new long[]{q.sungAt()}, new long[]{q.heldUntil()}, safe, 2, shrink).fadeAt = q.fadeAt();
 		}
 		trim();
 
 		Vec3 me = player.position();
-		boolean fm = Config.INSTANCE.follow;
+		boolean fm = Config.live().follow;
 		items.removeIf(it -> now - it.fadeAt > FADE_MS || (!it.sky && worldPos(it, fm).distanceToSqr(me) > 3600)); // sky words stand far away on purpose
 	}
 
@@ -258,7 +258,7 @@ public final class LyricScene {
 	private void carryUnsung(long now) {
 		Vec3 prev = lastCarry;
 		lastCarry = follow;
-		if (prev == null || follow == null || Config.INSTANCE.follow) return;
+		if (prev == null || follow == null || Config.live().follow) return;
 		double dx = follow.x - prev.x, dz = follow.z - prev.z;
 		if (dx == 0 && dz == 0) return;
 		for (Item it : items) {
@@ -281,7 +281,7 @@ public final class LyricScene {
 	// ------------------------------------------------------------------ placement
 
 	private float unit() {
-		return 0.05f * Config.INSTANCE.size / 100f;
+		return 0.05f * Config.live().size / 100f;
 	}
 
 	/** A point in the player's view, offset by yaw/pitch degrees, at the given distance. */
@@ -302,7 +302,7 @@ public final class LyricScene {
 	}
 
 	private int pixelWidth(Minecraft mc, String[] words) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		int sum = mc.font.width(LyricsHud.styled(" ", c)) * (words.length - 1);
 		for (String w : words) sum += mc.font.width(LyricsHud.styled(w, c));
 		return sum;
@@ -314,7 +314,7 @@ public final class LyricScene {
 	 * from the words already visible wins.
 	 */
 	private Vec3 pick(Minecraft mc, String[] words, long from, long life, boolean wholeLine) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		var p = mc.player;
 		Vec3 eye = AfkCamera.eye(mc);
 		double fovH = hFov(mc), fovV = mc.options.fov().get();
@@ -408,7 +408,7 @@ public final class LyricScene {
 
 	/** Puts words huge and far away in the sky, inside the current view, without overlapping other sky words. */
 	private Item placeSky(Minecraft mc, String[] words, long[] sung, long[] held) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		var p = mc.player;
 		Vec3 eye = AfkCamera.eye(mc);
 		double fovH = hFov(mc), fovV = mc.options.fov().get();
@@ -490,7 +490,7 @@ public final class LyricScene {
 
 	/** Sticks a word flat onto a block surface in view, away from other stuck words. Returns null if no block is in sight. */
 	private Item placeStick(Minecraft mc, String[] words, long[] sung, long[] held) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		var p = mc.player;
 		if (mc.level == null) return null;
 		Vec3 eye = AfkCamera.eye(mc);
@@ -544,7 +544,7 @@ public final class LyricScene {
 
 	/** Words in a row straight ahead, each appearing as it is sung. */
 	private void placeRow(Minecraft mc, String[] words, long[] start, long[] end) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		var p = mc.player;
 		Vec3 eye = AfkCamera.eye(mc);
 		double dist = (c.near + c.far) / 2;

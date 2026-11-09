@@ -82,7 +82,7 @@ public final class AfkCamera {
 	}
 
 	private static void tick(Minecraft mc) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		long now = System.currentTimeMillis();
 		if (mc.player == null) {
 			if (active) stop(mc);
@@ -120,7 +120,7 @@ public final class AfkCamera {
 		panPitch = 0;
 		panVYaw = 0;
 		panVPitch = 0;
-		shotDurMs = Math.max(3, Config.INSTANCE.afkShotSeconds) * 1000L;
+		shotDurMs = Math.max(3, Config.live().afkShotSeconds) * 1000L;
 		saved = mc.options.getCameraType();
 		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
 		camPos = null;
@@ -138,7 +138,7 @@ public final class AfkCamera {
 	/** Called whenever a new lyric line starts. Cuts to a new shot every N lines, never in the middle of a line. */
 	public static void onLine(int idx, java.util.List<LyricLine> lines) {
 		if (!active) return;
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		linesSinceCut++;
 		int every = Math.max(1, c.afkCutEveryLines);
 		if (linesSinceCut < every) return;
@@ -184,7 +184,7 @@ public final class AfkCamera {
 	}
 
 	private static java.util.List<Shot> enabledShots() {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		java.util.List<Shot> l = new java.util.ArrayList<>();
 		if (c.afkOrbit) l.add(Shot.ORBIT);
 		if (c.afkRise) l.add(Shot.RISE);
@@ -218,7 +218,7 @@ public final class AfkCamera {
 
 	/** Starts the next shot. With glide=true the camera blends over from where it is now. */
 	private static void nextShot(long now, float refYaw, boolean glide) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		java.util.List<Shot> shots = enabledShots();
 		if (c.afkCloseUp && RNG.nextInt(100) < c.afkCloseUpPercent && !(isClose(shot) && shotIndex >= 0)) {
 			shot = CLOSE_SHOTS[RNG.nextInt(CLOSE_SHOTS.length)];
@@ -267,7 +267,7 @@ public final class AfkCamera {
 	}
 
 	private static Vec3 baseOffset(double u, double t) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		// half eased, half linear: the move never comes to a dead stop at its start or end
 		double r = c.afkRadius, h = c.afkHeight, e = 0.5 * smooth((float) u) + 0.5 * u, a = shotAngle;
 		switch (shot) {
@@ -325,7 +325,7 @@ public final class AfkCamera {
 	/** Camera pose for this frame: {x, y, z, yaw, pitch}, or null when the normal camera is used. */
 	public static double[] pose(Minecraft mc, float partialTicks) {
 		if (!active || mc.player == null || mc.level == null) return null;
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		var p = mc.player;
 		long now = System.currentTimeMillis();
 
@@ -425,7 +425,7 @@ public final class AfkCamera {
 
 	/** Current shake size, 0..~1.3, decaying fast after each kick. */
 	private static double shakeAmount(long now) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		if (!c.beatShake) {
 			kicks.clear();
 			return 0;
