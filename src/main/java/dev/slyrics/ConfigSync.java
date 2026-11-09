@@ -47,7 +47,10 @@ public final class ConfigSync {
 			var reader = new com.google.gson.stream.JsonReader(in);
 			reader.setStrictness(com.google.gson.Strictness.LENIENT);
 			var root = com.google.gson.JsonParser.parseReader(reader);
-			if (!root.isJsonObject() || !root.getAsJsonObject().has("Spotify") || root.getAsJsonObject().has("Connectivity")) return null;
+			if (!root.isJsonObject()) return null;
+			var top = root.getAsJsonObject();
+			boolean oldLayout = (top.has("Spotify") && !top.has("Connectivity")) || top.has("AFK camera"); // AFK camera moved under Modes
+			if (!oldLayout) return null;
 			return root.getAsJsonObject();
 		} catch (Exception e) {
 			SLyricsClient.LOGGER.warn("Could not migrate the old config layout", e);
@@ -72,6 +75,7 @@ public final class ConfigSync {
 				else if (t == String.class) {
 					if (v.isNumber()) cf.set(Config.INSTANCE, String.format("%06X", v.getAsInt() & 0xFFFFFF)); // colors
 					else if (e.getKey().equals("textAnim")) cf.set(Config.INSTANCE, RcConfig.TextAnim.valueOf(v.getAsString()).label);
+					else if (e.getKey().equals("musicSource")) cf.set(Config.INSTANCE, RcConfig.MusicSource.valueOf(v.getAsString()).label);
 					else cf.set(Config.INSTANCE, v.getAsString());
 				}
 			} catch (NoSuchFieldException | IllegalArgumentException ignored) {
