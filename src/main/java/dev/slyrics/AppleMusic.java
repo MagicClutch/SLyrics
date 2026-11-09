@@ -69,7 +69,10 @@ public final class AppleMusic {
 		}
 		String title = clean(str(meta.get("xesam:title")));
 		String artist = clean(first(meta.get("xesam:artist"))).replaceAll("(?i)\\s*-\\s*topic$", "");
-		if (artist.isEmpty()) { // browser tabs often put "Artist - Title" into the title
+		String url = meta.has("xesam:url") ? str(meta.get("xesam:url")) : "";
+		// plain YouTube: the "artist" is only the channel name; the real one is in the title as "Artist - Title"
+		boolean plainYoutube = url.contains("://www.youtube.com/") || url.contains("://youtube.com/") || url.contains("://m.youtube.com/");
+		if (artist.isEmpty() || plainYoutube) { // browser tabs often put "Artist - Title" into the title
 			String[] parts = title.split("\\s+[-\u2013\u2014]\\s+", 2);
 			if (parts.length == 2) {
 				artist = parts[0].trim();
