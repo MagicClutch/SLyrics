@@ -219,6 +219,7 @@ public final class AfkCamera {
 	/** Starts the next shot. With glide=true the camera blends over from where it is now. */
 	private static void nextShot(long now, float refYaw, boolean glide) {
 		Config c = Config.live();
+		if (shotIndex >= 0) LyricsWorld.fadeVisibleNow(); // a cut: words that were already sung leave with the old shot
 		java.util.List<Shot> shots = enabledShots();
 		if (c.afkCloseUp && RNG.nextInt(100) < c.afkCloseUpPercent && !(isClose(shot) && shotIndex >= 0)) {
 			shot = CLOSE_SHOTS[RNG.nextInt(CLOSE_SHOTS.length)];
