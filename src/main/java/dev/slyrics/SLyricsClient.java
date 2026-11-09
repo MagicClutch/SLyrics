@@ -26,6 +26,7 @@ public class SLyricsClient implements ClientModInitializer {
 		ConfigSync.init();
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(c -> ConfigSync.tick());
 		Spotify.start();
+		AppleMusic.start();
 		LyricsWorld.init();
 		AfkCamera.init();
 		// first start after installing: tell the user where to enter their own Spotify Client ID
