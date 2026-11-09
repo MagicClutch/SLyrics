@@ -16,6 +16,10 @@ import java.util.Random;
 public final class LyricScene {
 	public static final long POP_MS = 300L;
 	public static final long FADE_MS = 500L;
+	/** Words are placed this long before they are sung (hidden until then), so the AFK camera can swing to them in time. */
+	private static final long PLACE_LEAD_MS = 1000L;
+	/** The AFK camera starts turning toward a word this long before it appears. */
+	private static final long PAN_LEAD_MS = 750L;
 	private static final int MAX_ITEMS = 40;
 
 	/** A word, or a whole line, floating in the world. */
@@ -23,9 +27,13 @@ public final class LyricScene {
 		public final String[] words;
 		public final long[] sungAt;
 		public final long[] heldUntil;
-		public final Vec3 pos;
+		public Vec3 pos;
 		public final Vec3 anchor;
-		public final float yaw, pitch, roll;
+		public float yaw, pitch;
+		public final float roll;
+		/** Sky words in the AFK camera stay fixed relative to the camera view, so they cannot slip out of frame. */
+		public boolean camLocked;
+		public double relYaw, relPitch, dist;
 		/** Shrink factor applied to the world size so it fits the view. */
 		public final float fit;
 		/** Rough angular size in degrees, used to keep words apart. */
@@ -73,8 +81,36 @@ public final class LyricScene {
 		queue.clear();
 	}
 
+	/** Keeps camera-locked sky words at the same place in the AFK camera view while the camera moves. */
+	private void followCamera(Minecraft mc) {
+		boolean afk = AfkCamera.active();
+		for (Item it : items) {
+			if (!it.camLocked) continue;
+			if (!afk) { // the camera is back to normal: the word stays where it is
+				it.camLocked = false;
+				continue;
+			}
+			Vec3 eye = AfkCamera.eye(mc);
+			Vec3 spot = eye.add(dirOf(AfkCamera.yaw(mc) + it.relYaw, AfkCamera.pitch(mc) + it.relPitch).scale(it.dist));
+			Vec3 off = spot.subtract(eye);
+			it.pos = spot;
+			it.yaw = (float) Math.toDegrees(Math.atan2(off.z, off.x)) - 90f;
+			it.pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
+		}
+	}
+
+	/** Position of the word being sung, or of the next one shortly before it appears (the latest one within PAN_LEAD_MS), or null. */
+	public Vec3 currentWordPos(long now, boolean followMe) {
+		Item best = null;
+		for (Item it : items) {
+			if (it.sungAt[0] > now + PAN_LEAD_MS || now > it.fadeAt) continue;
+			if (best == null || it.sungAt[0] > best.sungAt[0]) best = it;
+		}
+		return best == null ? null : worldPos(best, followMe);
+	}
+
 	public Vec3 worldPos(Item it, boolean followMe) {
-		return followMe && follow != null ? it.pos.add(follow.subtract(it.anchor)) : it.pos;
+		return followMe && !it.camLocked && follow != null ? it.pos.add(follow.subtract(it.anchor)) : it.pos;
 	}
 
 	// ------------------------------------------------------------------ a new line
@@ -176,11 +212,12 @@ public final class LyricScene {
 	public void frame(Minecraft mc, long now) {
 		var player = mc.player;
 		if (player == null) return;
+		followCamera(mc);
 		smoothFollow(player.position());
 
 		for (int i = 0; i < queue.size(); i++) {
 			Queued q = queue.get(i);
-			if (now < q.sungAt() - 50) continue;
+			if (now < q.sungAt() - PLACE_LEAD_MS) continue;
 			queue.remove(i--);
 			if (now > q.fadeAt()) continue;
 			String[] w = {q.word()};
@@ -380,6 +417,12 @@ public final class LyricScene {
 					float pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
 					float roll = (rng.nextFloat() - 0.5f) * 6f;
 					best = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, true, false);
+					if (AfkCamera.active()) { // keep it in the camera view while the AFK camera moves
+						best.camLocked = true;
+						best.relYaw = dx;
+						best.relPitch = -elev - AfkCamera.pitch(mc);
+						best.dist = dist;
+					}
 				}
 			}
 			if (bestGap >= 1.0) break; // found a clear spot at this size

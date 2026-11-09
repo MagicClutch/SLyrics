@@ -1,4 +1,6 @@
 {
+	"slyrics.config.afkFollowStrength": "Follow strength (%)",
+	"slyrics.config.afkFollowWord": "Follow the sung word",
 	"slyrics.config.configScaleDown": "Settings screen: smaller by",
 	"slyrics.config.afkCloseUp": "Close-up shots",
 	"slyrics.config.afkCloseUpPercent": "Close-up chance (%)",

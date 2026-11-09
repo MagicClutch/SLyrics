@@ -2,7 +2,10 @@ package dev.slyrics;
 
 import com.teamresourceful.resourcefulconfig.api.annotations.*;
 
-/** Settings as Resourceful Config entries (generated from the old settings screen). ConfigSync mirrors them into Config. */
+/**
+ * The settings screen (Resourceful Config): one nested class per category, one static field per setting.
+ * ConfigSync mirrors the values into Config by field name, so a field here needs a field of the same name there.
+ */
 @com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Cat1.class, RcConfig.Cat2.class, RcConfig.Cat3.class, RcConfig.Cat4.class, RcConfig.Cat5.class, RcConfig.Cat6.class, RcConfig.Cat7.class, RcConfig.Cat8.class, RcConfig.Cat9.class, RcConfig.Cat10.class})
 @ConfigInfo(title = "SLyrics", description = "Spotify lyrics as floating words in the world")
 public final class RcConfig {
@@ -284,6 +287,16 @@ public final class RcConfig {
 
 	@Category("AFK camera")
 	public static final class Cat8 {
+		@ConfigEntry(id = "afkFollowWord", translation = "slyrics.config.afkFollowWord")
+		@Comment("The camera swings toward the word that is being sung, so you always look at the current word. Smooth, not a cut.")
+		public static boolean afkFollowWord = D.afkFollowWord;
+
+		@ConfigEntry(id = "afkFollowStrength", translation = "slyrics.config.afkFollowStrength")
+		@Comment("How far the camera pans toward the word: 100 puts the word in the middle, lower keeps more of the player in view.")
+		@ConfigOption.Range(min = 10, max = 100)
+		@ConfigOption.Slider
+		public static int afkFollowStrength = D.afkFollowStrength;
+
 		@ConfigEntry(id = "afkEnabled", translation = "slyrics.config.afkEnabled")
 		@Comment("After you have been idle for a while, the camera leaves first person and slowly orbits you like a cinematic shot, with the lyrics in view. Any input ends it.")
 		public static boolean afkEnabled = D.afkEnabled;

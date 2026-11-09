@@ -15,6 +15,8 @@ public final class AfkCamera {
 	private static boolean active;
 	private static long lastActivity = System.currentTimeMillis();
 	private static long startedAt;
+	private static double panYaw, panPitch, panVYaw, panVPitch;
+	private static long lastPanAt;
 	private static long lastNs;
 	private static CameraType saved = CameraType.FIRST_PERSON;
 	private static float lastYaw, lastPitch;
@@ -111,6 +113,10 @@ public final class AfkCamera {
 		linesSinceCut = 0;
 		kicks.clear();
 		shakeE = 0;
+		panYaw = 0;
+		panPitch = 0;
+		panVYaw = 0;
+		panVPitch = 0;
 		shotDurMs = Math.max(3, Config.INSTANCE.afkShotSeconds) * 1000L;
 		saved = mc.options.getCameraType();
 		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
@@ -365,6 +371,30 @@ public final class AfkCamera {
 		camPos = pos;
 		camYaw = yaw;
 		camPitch = pitch;
+
+		if (c.afkFollowWord) { // swing toward the word being sung (only the rendered view; words are still placed from the unpanned camera)
+			double tYaw = 0, tPitch = 0;
+			Vec3 w = LyricsWorld.currentWordPos(now);
+			if (w != null) {
+				Vec3 d = w.subtract(pos);
+				double k = c.afkFollowStrength / 100.0;
+				double wy = Math.toDegrees(Math.atan2(-d.x, d.z)), wp = -Math.toDegrees(Math.atan2(d.y, Math.hypot(d.x, d.z)));
+				tYaw = Math.max(-40, Math.min(40, (((wy - yaw + 540) % 360) - 180) * k));
+				tPitch = Math.max(-25, Math.min(25, (wp - pitch) * k));
+			}
+			// critically damped spring: eases in and out, no sudden jumps when the target switches to the next word
+			double dt = Math.max(0, Math.min(0.05, (now - lastPanAt) / 1000.0));
+			lastPanAt = now;
+			double om = 4.5, om2 = om * om;
+			panVYaw += (om2 * (tYaw - panYaw) - 2 * om * panVYaw) * dt;
+			panVPitch += (om2 * (tPitch - panPitch) - 2 * om * panVPitch) * dt;
+			panVYaw = Math.max(-70, Math.min(70, panVYaw)); // never faster than 70 deg/s
+			panVPitch = Math.max(-45, Math.min(45, panVPitch));
+			panYaw += panVYaw * dt;
+			panPitch += panVPitch * dt;
+			yaw += (float) panYaw;
+			pitch += (float) panPitch;
+		}
 
 		double amp = shakeAmount(now);
 		if (amp > 0.001) { // only the rendered camera shakes, not the logical one the words are placed from

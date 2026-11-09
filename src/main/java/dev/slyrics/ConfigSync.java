@@ -1,9 +1,11 @@
 package dev.slyrics;
 
 import com.teamresourceful.resourcefulconfig.api.loader.Configurator;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 
 import java.lang.reflect.Field;
+import java.nio.file.Files;
 import java.lang.reflect.Modifier;
 
 /**
@@ -19,14 +21,15 @@ public final class ConfigSync {
 
 	/** Registers the config with Resourceful Config and brings both sides in line. Call after Config.load(). */
 	public static void init() {
+		boolean hadFile = Files.exists(FabricLoader.getInstance().getConfigDir().resolve("slyrics.jsonc"));
 		CONFIGURATOR.register(RcConfig.class);
-		if (!Config.INSTANCE.rcMigrated) { // first run with Resourceful Config: take over the old settings
+		if (hadFile) {
+			// register() does not read the file; without loading it the fields keep their defaults and would overwrite the real settings
+			CONFIGURATOR.loadConfig(RcConfig.class);
+			fromRc();
+		} else { // first run with Resourceful Config: take over the settings from the old slyrics.json
 			toRc();
 			CONFIGURATOR.saveConfig(RcConfig.class);
-			Config.INSTANCE.rcMigrated = true;
-			Config.save();
-		} else {
-			fromRc();
 		}
 	}
 
