@@ -22,14 +22,64 @@ public final class ConfigSync {
 	/** Registers the config with Resourceful Config and brings both sides in line. Call after Config.load(). */
 	public static void init() {
 		boolean hadFile = Files.exists(FabricLoader.getInstance().getConfigDir().resolve("slyrics.jsonc"));
+		var old = hadFile ? readOldLayout() : null; // before anything touches the file: Resourceful Config rewrites it
 		CONFIGURATOR.register(RcConfig.class);
 		if (hadFile) {
 			// register() does not read the file; without loading it the fields keep their defaults and would overwrite the real settings
 			CONFIGURATOR.loadConfig(RcConfig.class);
 			fromRc();
+			if (old != null) {
+				applyOld(old);
+				toRc();
+				CONFIGURATOR.saveConfig(RcConfig.class);
+			}
 		} else { // first run with Resourceful Config: take over the settings from the old slyrics.json
 			toRc();
 			CONFIGURATOR.saveConfig(RcConfig.class);
+		}
+	}
+
+	/**
+	 * The categories used to be laid out differently (Spotify, World words, Effects, ...). Settings are stored per category,
+	 * so after the regrouping the old values would be lost; this reads them from the old file by name and keeps them.
+	 */
+	private static com.google.gson.JsonObject readOldLayout() {
+		try (var in = Files.newBufferedReader(FabricLoader.getInstance().getConfigDir().resolve("slyrics.jsonc"))) {
+			var reader = new com.google.gson.stream.JsonReader(in);
+			reader.setStrictness(com.google.gson.Strictness.LENIENT);
+			var root = com.google.gson.JsonParser.parseReader(reader);
+			if (!root.isJsonObject() || !root.getAsJsonObject().has("Spotify") || root.getAsJsonObject().has("Connectivity")) return null;
+			return root.getAsJsonObject();
+		} catch (Exception e) {
+			SLyricsClient.LOGGER.warn("Could not migrate the old config layout", e);
+			return null;
+		}
+	}
+
+	private static void applyOld(com.google.gson.JsonObject o) {
+		for (var e : o.entrySet()) {
+			if (e.getValue().isJsonObject()) {
+				applyOld(e.getValue().getAsJsonObject());
+				continue;
+			}
+			if (!e.getValue().isJsonPrimitive()) continue;
+			var v = e.getValue().getAsJsonPrimitive();
+			try {
+				Field cf = Config.class.getField(e.getKey());
+				Class<?> t = cf.getType();
+				if (t == boolean.class && v.isBoolean()) cf.setBoolean(Config.INSTANCE, v.getAsBoolean());
+				else if (t == int.class && v.isNumber()) cf.setInt(Config.INSTANCE, v.getAsInt());
+				else if (t == float.class && v.isNumber()) cf.setFloat(Config.INSTANCE, v.getAsFloat());
+				else if (t == String.class) {
+					if (v.isNumber()) cf.set(Config.INSTANCE, String.format("%06X", v.getAsInt() & 0xFFFFFF)); // colors
+					else if (e.getKey().equals("textAnim")) cf.set(Config.INSTANCE, RcConfig.TextAnim.valueOf(v.getAsString()).label);
+					else cf.set(Config.INSTANCE, v.getAsString());
+				}
+			} catch (NoSuchFieldException | IllegalArgumentException ignored) {
+				// not a setting of ours
+			} catch (IllegalAccessException ex) {
+				SLyricsClient.LOGGER.warn("Migration failed for {}", e.getKey(), ex);
+			}
 		}
 	}
 
