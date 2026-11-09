@@ -6,7 +6,7 @@ import com.teamresourceful.resourcefulconfig.api.annotations.*;
  * The settings screen (Resourceful Config): one nested class per category, one static field per setting.
  * ConfigSync mirrors the values into Config by field name, so a field here needs a field of the same name there.
  */
-@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Connectivity.class, RcConfig.TextSettings.class, RcConfig.SizeCat.class, RcConfig.Modes.class, RcConfig.PerformanceTab.class, RcConfig.ProfilesTab.class, RcConfig.Cat9.class, RcConfig.Cat10.class})
+@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Connectivity.class, RcConfig.TextSettings.class, RcConfig.SizeCat.class, RcConfig.Modes.class, RcConfig.ProfilesTab.class, RcConfig.Cat10.class})
 @ConfigInfo(title = "SLyrics", description = "Spotify lyrics as floating words in the world")
 public final class RcConfig {
 	private static final Config D = new Config();
@@ -105,18 +105,6 @@ public final class RcConfig {
 		@Comment("Text is typed out letter by letter")
 		public static boolean typewriter = D.typewriter;
 
-		@ConfigEntry(id = "emojis", translation = "slyrics.config.emojis")
-		@Comment("Appends symbols after keywords (love ♥, fight ⚔, ...). The word stays. You can edit the words in config/slyrics.json under emojiMap.")
-		public static boolean emojis = D.emojis;
-
-		@ConfigEntry(id = "emojiSprites", translation = "slyrics.config.emojiSprites")
-		@Comment("Use real Minecraft icons for matching words: heart for love, diamond for diamond, sword for fight, and so on. Other words keep their symbols. Edit the words in config/slyrics.json under emojiSpriteMap.")
-		public static boolean emojiSprites = D.emojiSprites;
-
-		@ConfigEntry(id = "emojiColors", translation = "slyrics.config.emojiColors")
-		@Comment("Every emoji gets its own color (red heart, gold star, ...) instead of the text color")
-		public static boolean emojiColors = D.emojiColors;
-
 	}
 
 	@Category(value = "Effects")
@@ -193,20 +181,6 @@ public final class RcConfig {
 		@ConfigOption.Color
 		public static int sweepColor = hex(D.sweepColor);
 
-		@ConfigEntry(id = "sweepWhole", translation = "slyrics.config.sweepWhole")
-		@Comment("Instead of sweeping across the word, color it completely the moment it is sung")
-		public static boolean sweepWhole = D.sweepWhole;
-
-		@ConfigEntry(id = "sweepFadeMs", translation = "slyrics.config.sweepFadeMs")
-		@Comment("How long the color takes to go off after the word is over (0 = instantly)")
-		@ConfigOption.Range(min = 0, max = 600)
-		@ConfigOption.Slider
-		public static int sweepFadeMs = D.sweepFadeMs;
-
-		@ConfigEntry(id = "sweepGlow", translation = "slyrics.config.sweepGlow")
-		@Comment("A soft halo in the sweep color around the colored part")
-		public static boolean sweepGlow = D.sweepGlow;
-
 	}
 
 	@Category(value = "Size")
@@ -267,14 +241,6 @@ public final class RcConfig {
 
 	@Category(value = "Aura")
 	public static final class AuraWords {
-		@ConfigEntry(id = "lineMode", translation = "slyrics.config.lineMode")
-		@Comment("Only when Aura is the only active mode. Off: each word appears when it is sung. On: the whole line appears and the sung word lights up")
-		public static boolean lineMode = D.lineMode;
-
-		@ConfigEntry(id = "centerLayout", translation = "slyrics.config.centerLayout")
-		@Comment("Off: words are scattered around the crosshair. On: words in a row straight ahead")
-		public static boolean centerLayout = D.centerLayout;
-
 		@ConfigEntry(id = "near", translation = "slyrics.config.near")
 		@Comment("Closest distance of the words in blocks")
 		@ConfigOption.Range(min = 2, max = 12)
@@ -361,34 +327,6 @@ public final class RcConfig {
 		@Comment("Start only when Spotify is playing")
 		public static boolean afkOnlyWhilePlaying = D.afkOnlyWhilePlaying;
 
-		@ConfigEntry(id = "afkOrbit", translation = "slyrics.config.afkOrbit")
-		@Comment("Circle around you")
-		public static boolean afkOrbit = D.afkOrbit;
-
-		@ConfigEntry(id = "afkRise", translation = "slyrics.config.afkRise")
-		@Comment("Drone shot from low to high")
-		public static boolean afkRise = D.afkRise;
-
-		@ConfigEntry(id = "afkDescend", translation = "slyrics.config.afkDescend")
-		@Comment("Drone shot from high to low")
-		public static boolean afkDescend = D.afkDescend;
-
-		@ConfigEntry(id = "afkDiagonal", translation = "slyrics.config.afkDiagonal")
-		@Comment("Sweep diagonally across while rising")
-		public static boolean afkDiagonal = D.afkDiagonal;
-
-		@ConfigEntry(id = "afkFlyby", translation = "slyrics.config.afkFlyby")
-		@Comment("Straight pass beside you")
-		public static boolean afkFlyby = D.afkFlyby;
-
-		@ConfigEntry(id = "afkPushIn", translation = "slyrics.config.afkPushIn")
-		@Comment("Move toward you")
-		public static boolean afkPushIn = D.afkPushIn;
-
-		@ConfigEntry(id = "afkPullOut", translation = "slyrics.config.afkPullOut")
-		@Comment("Move away from you")
-		public static boolean afkPullOut = D.afkPullOut;
-
 		@ConfigEntry(id = "afkCutEveryLines", translation = "slyrics.config.afkCutEveryLines")
 		@Comment("Hard cut to a new shot every this many lyric lines. Cuts only happen when a new line starts.")
 		@ConfigOption.Range(min = 1, max = 12)
@@ -406,10 +344,6 @@ public final class RcConfig {
 		@ConfigOption.Range(min = 2, max = 30)
 		@ConfigOption.Slider
 		public static float afkMaxDistance = D.afkMaxDistance;
-
-		@ConfigEntry(id = "afkCloseUp", translation = "slyrics.config.afkCloseUp")
-		@Comment("Include close-up shots: face close-ups, tilts from feet to head and tight orbits around the head")
-		public static boolean afkCloseUp = D.afkCloseUp;
 
 		@ConfigEntry(id = "afkCloseUpPercent", translation = "slyrics.config.afkCloseUpPercent")
 		@Comment("How often the next shot is a close-up")
@@ -445,49 +379,11 @@ public final class RcConfig {
 
 	}
 
-	@Category("Performance")
-	public static final class PerformanceTab {
-		@ConfigEntry(id = "performanceMode", translation = "slyrics.config.performanceMode")
-		@Comment("A compact version of the mod for PvP and weak PCs: glow, outline, blur, bounce, flicker, 3D, animations, emojis, stick-on-blocks, wall checks and camera shakes are switched off. Your own settings stay as they are; turn this off to get them back. Also: /slyrics performance")
-		public static boolean performanceMode = D.performanceMode;
-
-		@ConfigEntry(id = "perfHudOnly", translation = "slyrics.config.perfHudOnly")
-		@Comment("In performance mode, show the lyrics only as a plain line on the screen: no words in the world at all. The lightest option.")
-		public static boolean perfHudOnly = D.perfHudOnly;
-
-	}
-
 	@Category("Profiles")
 	public static final class ProfilesTab {
 		@ConfigButton(title = "Manage profiles", text = "Open")
 		@Comment("Save all your current settings under a name and load them again later. Profiles are files in config/slyrics-profiles. Your Spotify client ID is not part of them. Also: /slyrics profile save|load|delete|list <name>")
 		public static final Runnable manage = dev.slyrics.profiles.ProfilesScreen::open;
-
-	}
-
-	@Category("Experimental")
-	public static final class Cat9 {
-		@ConfigEntry(id = "beatShake", translation = "slyrics.config.beatShake")
-		@Comment("Experimental. The AFK camera shakes in time with the lyrics: at line starts, long held words and emphasized words (CAPS or !). It follows the lyrics, not the real beat of the song.")
-		public static boolean beatShake = D.beatShake;
-
-		@ConfigEntry(id = "shakeStrength", translation = "slyrics.config.shakeStrength")
-		@Comment("How strong the shakes are")
-		@ConfigOption.Range(min = 10, max = 300)
-		@ConfigOption.Slider
-		public static int shakeStrength = D.shakeStrength;
-
-		@ConfigEntry(id = "shakeOnLines", translation = "slyrics.config.shakeOnLines")
-		@Comment("A light shake whenever a new lyric line begins")
-		public static boolean shakeOnLines = D.shakeOnLines;
-
-		@ConfigEntry(id = "shakeOnLongWords", translation = "slyrics.config.shakeOnLongWords")
-		@Comment("A strong shake when a long held word starts")
-		public static boolean shakeOnLongWords = D.shakeOnLongWords;
-
-		@ConfigEntry(id = "shakeOnEmphasis", translation = "slyrics.config.shakeOnEmphasis")
-		@Comment("A shake on words in CAPS or ending with !")
-		public static boolean shakeOnEmphasis = D.shakeOnEmphasis;
 
 	}
 

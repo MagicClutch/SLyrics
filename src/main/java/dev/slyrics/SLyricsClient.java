@@ -25,6 +25,7 @@ public class SLyricsClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		Config.load();
 		ConfigSync.init();
+		dev.slyrics.profiles.Profiles.ensureDefaults();
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(c -> {
 			ConfigSync.tick();
 			dev.slyrics.font.UserFont.tick();
@@ -102,13 +103,6 @@ public class SLyricsClient implements ClientModInitializer {
 						else ctx.getSource().sendError(Component.literal("SLyrics: no profile named '" + n + "'"));
 						return 1;
 					}))))
-				.then(ClientCommands.literal("performance").executes(ctx -> {
-					Config.INSTANCE.performanceMode = !Config.INSTANCE.performanceMode;
-					Config.settingsChanged();
-					ConfigSync.saveAll();
-					ctx.getSource().sendFeedback(Component.literal("SLyrics: performance mode " + (Config.INSTANCE.performanceMode ? "on" : "off")));
-					return 1;
-				}))
 				.then(ClientCommands.literal("toggle").executes(ctx -> {
 					Config.INSTANCE.enabled = !Config.INSTANCE.enabled;
 					ConfigSync.saveAll();

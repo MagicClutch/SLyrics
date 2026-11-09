@@ -16,7 +16,7 @@ import java.util.List;
 public class LyricsHud implements HudElement {
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, DeltaTracker delta) {
-		Config c = Config.live();
+		Config c = Config.INSTANCE;
 		Minecraft mc = Minecraft.getInstance();
 		float fadeBlack = AfkCamera.fadeAlpha();
 		if (fadeBlack > 0f) g.fill(0, 0, g.guiWidth(), g.guiHeight(), Math.round(fadeBlack * 255) << 24);

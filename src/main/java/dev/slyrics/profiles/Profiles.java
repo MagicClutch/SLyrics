@@ -81,9 +81,13 @@ public final class Profiles {
 	}
 
 	private static JsonObject snapshot() throws Exception {
+		return snapshot(Config.INSTANCE);
+	}
+
+	private static JsonObject snapshot(Config cfg) throws Exception {
 		JsonObject o = new JsonObject();
 		for (Field f : settingFields()) {
-			Object v = f.get(Config.INSTANCE);
+			Object v = f.get(cfg);
 			if (v instanceof Boolean b) o.addProperty(f.getName(), b);
 			else if (v instanceof Number n) o.addProperty(f.getName(), n);
 			else if (v instanceof String s) o.addProperty(f.getName(), s);
@@ -132,7 +136,6 @@ public final class Profiles {
 			else if (t == float.class && v.isNumber()) f.setFloat(Config.INSTANCE, v.getAsFloat());
 			else if (t == String.class && v.isString()) f.set(Config.INSTANCE, v.getAsString());
 		}
-		Config.settingsChanged();
 		setActive(clean(rawName));
 		ConfigSync.saveAll();
 		return true;
@@ -193,6 +196,53 @@ public final class Profiles {
 			// reported when writing
 		}
 		return dir;
+	}
+
+	/**
+	 * Creates the built-in profiles (Aura, Sky, AFK, Performance) once. Each starts from the mod's default settings and
+	 * changes what makes that style work well. Existing files are never replaced, and a deleted one does not come back.
+	 */
+	public static void ensureDefaults() {
+		if (Config.INSTANCE.defaultProfilesVersion >= 1) return;
+		try {
+			make("Aura", c -> {
+				c.hologram = true; c.skyMode = false; c.stickMode = false; c.floating = false;
+				c.near = 5f; c.far = 8f; c.follow = false; c.blockClipping = true; c.throughWalls = true;
+				c.glow = 40; c.outline = 60; c.blur = 40; c.bounce = 100; c.textAnim = "TikTok pop"; c.sweepMode = true;
+				c.afkEnabled = false;
+			});
+			make("Sky", c -> {
+				c.hologram = false; c.skyMode = true; c.stickMode = false; c.floating = false;
+				c.skyDistance = 100f; c.skyElevation = 30f; c.skyTextDeg = 7f; c.throughWalls = true;
+				c.glow = 60; c.outline = 40; c.blur = 40; c.bounce = 60; c.textAnim = "None"; c.sweepMode = true;
+				c.afkEnabled = false;
+			});
+			make("AFK", c -> {
+				c.afkEnabled = true; c.afkSeconds = 10; c.afkOnlyWhilePlaying = true;
+				c.afkFollowWord = true; c.afkFollowStrength = 70; c.afkTextNear = 3f; c.afkTextFar = 5f;
+				c.afkCutEveryLines = 3; c.afkCloseUpPercent = 45; c.afkRadius = 7f; c.afkHeight = 1.5f; c.afkMaxDistance = 8f; c.afkSpeed = 12f;
+				c.hologram = true; c.skyMode = true; c.stickMode = false; c.floating = false; c.blockClipping = true;
+				c.glow = 50; c.outline = 60; c.blur = 40; c.bounce = 100; c.textAnim = "TikTok pop"; c.sweepMode = true;
+			});
+			make("Performance", c -> {
+				c.hologram = true; c.skyMode = false; c.stickMode = false; c.floating = false;
+				c.blockClipping = false; c.afkEnabled = false;
+				c.glow = 0; c.outline = 0; c.blur = 0; c.bounce = 0; c.depth3d = false; c.flicker = false;
+				c.textAnim = "None"; c.sweepMode = false;
+			});
+			Config.INSTANCE.defaultProfilesVersion = 1;
+			Config.save();
+		} catch (Exception e) {
+			SLyricsClient.LOGGER.warn("Could not create the built-in profiles", e);
+		}
+	}
+
+	private static void make(String name, java.util.function.Consumer<Config> tweak) throws Exception {
+		Path file = folder().resolve(name + ".json");
+		if (Files.exists(file) || list().stream().anyMatch(n -> n.equalsIgnoreCase(name))) return; // e.g. your own "SKY" profile
+		Config c = new Config();
+		tweak.accept(c);
+		Files.writeString(file, new GsonBuilder().setPrettyPrinting().create().toJson(snapshot(c)));
 	}
 
 	public static boolean delete(String rawName) {
