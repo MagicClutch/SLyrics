@@ -51,7 +51,7 @@
 	"slyrics.config.font": "Font",
 	"slyrics.config.glow": "Glow (%)",
 	"slyrics.config.glowColor": "Glow color",
-	"slyrics.config.hologram": "Enable world words",
+	"slyrics.config.hologram": "Enable Aura (words around you)",
 	"slyrics.config.lineMode": "Lines mode",
 	"slyrics.config.near": "Closest distance",
 	"slyrics.config.offsetMs": "Offset (ms): minus = earlier, plus = later",

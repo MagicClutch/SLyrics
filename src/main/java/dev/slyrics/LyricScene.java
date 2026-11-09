@@ -185,7 +185,7 @@ public final class LyricScene {
 		} else if (worldOnly && c.centerLayout) {
 			placeRow(mc, words, start, end);
 		} else {
-			// every word goes to one of the enabled modes (World words / Sky / Stick on blocks)
+			// every word goes to one of the enabled modes (Aura / Sky / Stick on blocks)
 			List<Integer> enabled = new ArrayList<>();
 			if (c.hologram) enabled.add(0);
 			if (c.skyMode) enabled.add(1);
@@ -333,17 +333,19 @@ public final class LyricScene {
 			double dy = Math.max(-reachV * 1.2, Math.min(reachV * 1.2, cy + rng.nextGaussian() * j * 0.55));
 			double dist = near + rng.nextDouble() * (far - near);
 			Vec3 dirV = dirOf(AfkCamera.yaw(mc) + dx, AfkCamera.pitch(mc) + dy);
-			if (AfkCamera.active() && p != null) { // AFK camera: the words stand close to the player, not to the far-away camera
-				double lo = Math.min(c.afkTextNear, c.afkTextFar), hi = Math.max(c.afkTextNear, c.afkTextFar);
-				dist = distToShell(eye, dirV, p.position().add(0, 0.9, 0), lo + rng.nextDouble() * (hi - lo), dist);
+			boolean afk = AfkCamera.active() && p != null;
+			Vec3 afkSpot = null;
+			if (afk) { // AFK camera: the words stand left and right of the player, close to them, never behind or in front
+				afkSpot = besideThePlayer(eye, p, wholeLine ? (rng.nextBoolean() ? 1 : -1) : (slot % 2 == 0 ? -1 : 1), c);
+				dist = Math.max(0.5, afkSpot.distanceTo(eye));
 			}
 			double fit = Math.min(1.0, 2 * dist * Math.tan(Math.toRadians(fovH * 0.38)) / Math.max(width, 0.01));
 			double spanH = Math.toDegrees(Math.atan(width * fit / (2 * dist)));
 			double spanV = Math.toDegrees(Math.atan(9 * unit() * fit / (2 * dist)));
-			Vec3 spot = eye.add(dirV.scale(dist));
+			Vec3 spot = afk ? afkSpot : eye.add(dirV.scale(dist));
 			if (c.blockClipping) spot = liftFromGround(mc, spot);
 			double room = clearance(eye, spot, spanH, spanV, c.follow);
-			double score = Math.min(room, 7) * 9 - Math.hypot(dx - cx, dy - cy) * 0.35;
+			double score = Math.min(room, 7) * 9 - (afk ? 0 : Math.hypot(dx - cx, dy - cy) * 0.35);
 			if (coversPlayer(mc, eye, spot, spanH, spanV)) score -= 200;
 			if (score > bestScore) {
 				bestScore = score;
@@ -354,14 +356,20 @@ public final class LyricScene {
 	}
 
 	/**
-	 * Distance along the ray from the eye at which it is radius blocks from the centre (the far side of the sphere);
-	 * if the ray misses the sphere, the point closest to the centre. fallback is returned for degenerate cases.
+	 * A spot to the left (sign -1) or right (+1) of the player as the AFK camera sees them: mostly sideways,
+	 * at most 30 degrees toward or away from the camera, at afkTextNear..afkTextFar blocks from the player.
 	 */
-	private static double distToShell(Vec3 eye, Vec3 dir, Vec3 centre, double radius, double fallback) {
-		Vec3 oc = eye.subtract(centre);
-		double b = oc.dot(dir), cc = oc.lengthSqr() - radius * radius, disc = b * b - cc;
-		double t = disc >= 0 ? -b + Math.sqrt(disc) : -b;
-		return t > 0.5 ? t : fallback;
+	private Vec3 besideThePlayer(Vec3 eye, net.minecraft.world.entity.player.Player p, int sign, Config c) {
+		Vec3 body = p.position().add(0, 0.9, 0);
+		Vec3 axis = new Vec3(body.x - eye.x, 0, body.z - eye.z);
+		if (axis.lengthSqr() < 0.01) axis = dirOf(AfkCamera.yaw(Minecraft.getInstance()), 0);
+		axis = axis.normalize();
+		Vec3 side = new Vec3(-axis.z, 0, axis.x);
+		double lo = Math.min(c.afkTextNear, c.afkTextFar), hi = Math.max(c.afkTextNear, c.afkTextFar);
+		double r = lo + rng.nextDouble() * (hi - lo);
+		double theta = Math.toRadians((rng.nextDouble() - 0.5) * 60);
+		Vec3 off = side.scale(sign * r * Math.cos(theta)).add(axis.scale(r * Math.sin(theta)));
+		return body.add(off).add(0, (rng.nextDouble() - 0.35) * 1.6, 0);
 	}
 
 	/** Angular room (degrees) between a spot and the nearest visible word, capped at 7. */
