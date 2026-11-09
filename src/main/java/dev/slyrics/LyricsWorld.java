@@ -42,6 +42,11 @@ public final class LyricsWorld {
 		for (int i = 0; i < 8; i++) RING8[i] = new float[]{(float) Math.cos(i * Math.PI / 4), (float) Math.sin(i * Math.PI / 4)};
 	}
 
+	/** AFK camera cut: the words of the old shot disappear now instead of jumping with the new camera. */
+	public static void fadeVisibleNow() {
+		SCENE.fadeVisible(System.currentTimeMillis());
+	}
+
 	private static boolean stickNow;
 	private static boolean behindPlayer;
 	private static String lastTrack = "";

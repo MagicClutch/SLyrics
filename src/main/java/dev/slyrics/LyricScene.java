@@ -89,14 +89,21 @@ public final class LyricScene {
 		queue.clear();
 	}
 
+	/** Fades out the words that are on screen right now (the upcoming ones stay queued). Used at AFK camera cuts. */
+	public void fadeVisible(long now) {
+		for (Item it : items) if (now >= it.sungAt[0]) it.fadeAt = Math.min(it.fadeAt, now);
+	}
+
 	/**
-	 * Sky words are placed ahead of time inside the view; until the moment they appear they follow the view so
-	 * they never land on the screen edge. Once visible they stand still in the world, also in the AFK camera.
+	 * Sky words are placed inside the view and keep their place in the view while the AFK camera moves, so they
+	 * never drift out of the picture. Outside the AFK camera they follow the view only until they appear, then
+	 * they stand still in the world.
 	 */
 	private void followCamera(Minecraft mc, long now) {
+		boolean afk = AfkCamera.active();
 		for (Item it : items) {
 			if (!it.camLocked) continue;
-			if (now >= it.sungAt[0]) {
+			if (!afk && now >= it.sungAt[0]) {
 				it.camLocked = false;
 				continue;
 			}
