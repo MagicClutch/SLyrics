@@ -70,8 +70,10 @@ public final class AfkCamera {
 	private static boolean userActive(Minecraft mc) {
 		var o = mc.options;
 		var p = mc.player;
+		// Sprint (and sneak, when set to toggle) stay "down" by themselves with toggle sprint or auto-sprint mods,
+		// so they must not count as activity; otherwise the player would never be seen as idle.
 		boolean keys = o.keyUp.isDown() || o.keyDown.isDown() || o.keyLeft.isDown() || o.keyRight.isDown() || o.keyJump.isDown()
-			|| o.keyShift.isDown() || o.keySprint.isDown() || o.keyAttack.isDown() || o.keyUse.isDown();
+			|| (o.keyShift.isDown() && !o.toggleCrouch().get()) || o.keyAttack.isDown() || o.keyUse.isDown();
 		boolean look = Math.abs(p.getYRot() - lastYaw) > 0.01f || Math.abs(p.getXRot() - lastPitch) > 0.01f;
 		lastYaw = p.getYRot();
 		lastPitch = p.getXRot();
