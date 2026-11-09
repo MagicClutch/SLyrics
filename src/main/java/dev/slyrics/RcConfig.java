@@ -24,11 +24,11 @@ public final class RcConfig {
 	}
 
 	public enum MusicSource {
-		SPOTIFY("Spotify"), APPLE_MUSIC("Apple Music");
+		SPOTIFY("Spotify"), OTHERS("Others");
 		public final String label;
 		MusicSource(String label) { this.label = label; }
 		@Override public String toString() { return label; }
-		public static MusicSource of(String s) { for (MusicSource m : values()) if (m.label.equals(s)) return m; return SPOTIFY; }
+		public static MusicSource of(String s) { for (MusicSource m : values()) if (m.label.equals(s) || (m == OTHERS && "Apple Music".equals(s))) return m; return SPOTIFY; }
 	}
 
 	@Category(value = "Connectivity", categories = {General.class, SpotifyTab.class, AppleMusicTab.class})
@@ -38,7 +38,7 @@ public final class RcConfig {
 	@Category(value = "General")
 	public static final class General {
 		@ConfigEntry(id = "musicSource", translation = "slyrics.config.musicSource")
-		@Comment("Where the current song comes from. Spotify: logs in with your Spotify account. Apple Music: reads the song from the media player on this computer (Linux only for now).")
+		@Comment("Where the current song comes from. Spotify: logs in with your Spotify account. Others: reads the song from any media player on this computer, e.g. Apple Music or YouTube Music in the browser, Cider, VLC (Linux only for now).")
 		public static MusicSource musicSource = MusicSource.of(D.musicSource);
 
 		@ConfigEntry(id = "enabled", translation = "slyrics.config.enabled")
@@ -479,10 +479,10 @@ public final class RcConfig {
 
 	}
 
-	@Category("Apple Music")
+	@Category("Others")
 	public static final class AppleMusicTab {
 		@ConfigEntry(id = "applePlayer", translation = "slyrics.config.applePlayer")
-		@Comment("Only use a media player whose name contains this text, e.g. cider or firefox. Empty = any player except Spotify. Used when the source is Apple Music.")
+		@Comment("Only use a media player whose name contains this text, e.g. cider or firefox. Empty = any player except Spotify. Used when the source is Others.")
 		public static String applePlayer = D.applePlayer;
 
 	}
