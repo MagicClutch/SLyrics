@@ -38,7 +38,15 @@ public class Config {
 	/** Word (lowercase) -> sprite: "item:diamond", "block:poppy" or "gui:hud/heart/full". */
 	public java.util.Map<String, String> emojiSpriteMap = Emojis.spriteDefaults();
 	public int emojiVersion = 0;
+	/** True once the settings were handed over to Resourceful Config. */
+	public boolean rcMigrated = false;
+	/** How many GUI scale steps smaller the settings screen is drawn (0 = normal size). */
+	public int configScaleDown = 1;
 	public boolean typewriter = true;
+	/** Viral-caption style animation for each sung word (one of ANIMS). */
+	public String textAnim = "None";
+	public int animSpeed = 100;
+	public static final java.util.List<String> ANIMS = java.util.List.of("None", "TikTok pop", "Slam", "Shake", "Wobble", "Wave", "Spin in", "Slide up");
 	/** Also show the previous/next line, small and dimmed. */
 	public boolean showNeighbors = false;
 	public boolean background = false;
@@ -95,7 +103,7 @@ public class Config {
 	/** Close-up shots (camera 2-3 blocks away at head height). */
 	public boolean afkCloseUp = true;
 	/** Chance in percent that the next shot is a close-up. */
-	public int afkCloseUpPercent = 45;
+	public int afkCloseUpPercent = 60;
 	/** Fade to black between shots instead of gliding from one to the next. */
 	public boolean afkFadeBetween = false;
 	/** Keep words out of blocks: they are moved in front of walls/terrain and never placed inside the ground. */
@@ -130,6 +138,14 @@ public class Config {
 	public float skyTextDeg = 8f;
 	public String glowColor = "DDE9FF";
 	public boolean throughWalls = true;
+	/** How long a sung word stays before it fades out, in ms (0 = automatic, depends on the song speed). */
+	public int wordHoldMs = 0;
+	/** Experimental: AFK camera shakes, timed by the lyrics (line starts, long held words, emphasized words). */
+	public boolean beatShake = false;
+	public int shakeStrength = 100;
+	public boolean shakeOnLines = true;
+	public boolean shakeOnLongWords = true;
+	public boolean shakeOnEmphasis = true;
 	/** On-screen status message (e.g. when no lyrics were found). */
 	public boolean showStatus = true;
 
@@ -147,10 +163,10 @@ public class Config {
 				Config c = GSON.fromJson(Files.readString(FILE), Config.class);
 				if (c != null) {
 					INSTANCE = c;
-					if (c.emojiVersion < 3) { // add new default words once, keep user entries
+					if (c.emojiVersion < 4) { // add new default words once, keep user entries
 						Emojis.defaults().forEach(c.emojiMap::putIfAbsent);
 						Emojis.spriteDefaults().forEach(c.emojiSpriteMap::putIfAbsent);
-						c.emojiVersion = 3;
+						c.emojiVersion = 4;
 					}
 				}
 			}

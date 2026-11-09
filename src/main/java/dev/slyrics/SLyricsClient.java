@@ -23,6 +23,8 @@ public class SLyricsClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		Config.load();
+		ConfigSync.init();
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(c -> ConfigSync.tick());
 		Spotify.start();
 		LyricsWorld.init();
 		AfkCamera.init();
@@ -40,14 +42,14 @@ public class SLyricsClient implements ClientModInitializer {
 				}))
 				.then(ClientCommands.literal("toggle").executes(ctx -> {
 					Config.INSTANCE.enabled = !Config.INSTANCE.enabled;
-					Config.save();
+					ConfigSync.saveAll();
 					ctx.getSource().sendFeedback(Component.literal("SLyrics: " + (Config.INSTANCE.enabled ? "on" : "off")));
 					return 1;
 				}))
 				.then(ClientCommands.literal("offset")
 					.then(ClientCommands.argument("ms", IntegerArgumentType.integer(-10000, 10000)).executes(ctx -> {
 						Config.INSTANCE.offsetMs = IntegerArgumentType.getInteger(ctx, "ms");
-						Config.save();
+						ConfigSync.saveAll();
 						ctx.getSource().sendFeedback(Component.literal("SLyrics: Offset " + Config.INSTANCE.offsetMs + " ms"));
 						return 1;
 					})))));
@@ -55,7 +57,7 @@ public class SLyricsClient implements ClientModInitializer {
 
 	private static int openConfig() {
 		Minecraft mc = Minecraft.getInstance();
-		mc.execute(() -> mc.gui.setScreen(ConfigScreen.create(mc.gui.screen())));
+		mc.execute(ConfigSync::openScreen);
 		return 1;
 	}
 

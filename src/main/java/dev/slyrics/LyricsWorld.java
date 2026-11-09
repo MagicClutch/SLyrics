@@ -26,6 +26,7 @@ public final class LyricsWorld {
 	}
 
 	private static boolean stickNow;
+	private static boolean behindPlayer;
 	private static String lastTrack = "";
 	private static int lastLine = -1;
 	private static boolean wasPlaying;
@@ -154,8 +155,8 @@ public final class LyricsWorld {
 		float alpha = smooth(born) * (1f - dying) * (c.opacity / 100f);
 		if (it.sky) { // flashes up: three quick pulses, then a faint shimmer
 			double sn = Math.sin(born * Math.PI * 2.5);
-			float flash = 0.25f + 0.75f * (float) (sn * sn);
-			float shimmer = 0.88f + 0.12f * (float) Math.sin(now / 900.0 + it.seed);
+			float flash = 0.7f + 0.3f * (float) (sn * sn); // pulses, but the word is always clearly readable
+			float shimmer = 0.94f + 0.06f * (float) Math.sin(now / 900.0 + it.seed);
 			alpha *= born < 1f ? flash : shimmer;
 		}
 		if (alpha < 0.02f) return;
@@ -167,6 +168,9 @@ public final class LyricsWorld {
 
 		stickNow = it.stick;
 		Vec3 at = SCENE.worldPos(it, c.follow);
+		// through-walls text would shine through the player's body: depth-test words the player stands in front of
+		behindPlayer = mc.player != null && (!mc.options.getCameraType().isFirstPerson() || AfkCamera.active())
+			&& mc.player.getBoundingBox().inflate(0.15).clip(cam, at).isPresent();
 		if (it.sky) { // slow sideways drift, like a cloud
 			Vec3 d = at.subtract(cam);
 			double len = Math.max(1.0, Math.hypot(d.x, d.z));
@@ -216,6 +220,11 @@ public final class LyricsWorld {
 			ps.pushPose();
 			ps.translate(x + widths[i] / 2f, 0f, 0f);
 			ps.scale(grow, grow, 1f);
+			boolean actNow = now >= it.sungAt[i] && (now < it.heldUntil[i] || i == current);
+			float[] an = anim(c.textAnim, now - it.sungAt[i], i, now, it.seed, actNow);
+			ps.translate(an[2], an[3], 0f);
+			ps.rotateDegrees(Axis.ZP, an[1]);
+			ps.scale(an[0], an[0], 1f);
 			float glitch = c.flicker ? glitch(now, it.seed + i * 1.9f) : 0f;
 			float sweepProg = 0f, sweepAlpha = 0f;
 			if (c.sweepMode && now >= it.sungAt[i]) {
@@ -235,6 +244,72 @@ public final class LyricsWorld {
 		ps.popPose();
 	}
 
+	/** Overshooting pop curve: 0 -> 1.3 -> 0.93 -> 1 over p = 0..1. */
+	private static float popCurve(float p) {
+		if (p < 0.55f) return smooth(p / 0.55f) * 1.3f;
+		if (p < 0.8f) return 1.3f - 0.37f * smooth((p - 0.55f) / 0.25f);
+		return 0.93f + 0.07f * smooth((p - 0.8f) / 0.2f);
+	}
+
+	private static float noise(double x) {
+		double h = Math.sin(x * 12.9898) * 43758.5453;
+		return (float) (h - Math.floor(h));
+	}
+
+	/**
+	 * Viral-caption animation of one word: {scale, rotation degrees, dx, dy} in font pixels.
+	 * tw is the time since the word was sung (negative = not sung yet).
+	 */
+	private static float[] anim(String style, long tw, int i, long now, float seed, boolean active) {
+		float spd = Config.INSTANCE.animSpeed / 100f;
+		float sc = 1f, rot = 0f, dx = 0f, dy = 0f;
+		float t = tw * spd;
+		switch (style == null ? "None" : style) {
+			case "TikTok pop" -> {
+				if (tw >= 0) {
+					float p = clamp01(t / 380f);
+					sc = popCurve(p);
+					rot = -7f * (1f - p);
+				}
+			}
+			case "Slam" -> {
+				if (tw >= 0) {
+					float p = clamp01(t / 220f);
+					sc = 2.8f - 1.8f * p * p;
+					if (t >= 220f && t < 460f) { // impact shake
+						float k = 1f - (t - 220f) / 240f;
+						dx = (noise(now / 30.0 + seed) - 0.5f) * 5f * k;
+						dy = (noise(now / 30.0 + seed + 9) - 0.5f) * 5f * k;
+					}
+				}
+			}
+			case "Shake" -> {
+				if (tw >= 0) sc = popCurve(clamp01(t / 380f));
+				if (active) {
+					dx = (noise(now / 45.0 + seed + i) - 0.5f) * 2.6f;
+					dy = (noise(now / 45.0 + seed + i + 5) - 0.5f) * 2.6f;
+				}
+			}
+			case "Wobble" -> {
+				if (tw >= 0) sc = popCurve(clamp01(t / 380f));
+				if (active) rot = (float) Math.sin(now * spd / 110.0 + seed) * 6f;
+			}
+			case "Wave" -> dy = (float) Math.sin(now * spd / 200.0 - i * 0.9) * 2.5f;
+			case "Spin in" -> {
+				if (tw >= 0) {
+					float p = clamp01(t / 450f);
+					rot = 360f * (1f - smooth(p));
+					sc = 0.2f + 0.8f * smooth(p) + 0.12f * (float) Math.sin(Math.PI * p);
+				}
+			}
+			case "Slide up" -> {
+				if (tw >= 0) dy = 14f * (1f - smooth(clamp01(t / 320f)));
+			}
+			default -> { }
+		}
+		return new float[]{Math.max(0.01f, sc), rot, dx, dy};
+	}
+
 	/** 0..1 while a long note is held (eases in), then eases out for 300 ms. */
 	private static float sustain(LyricScene.Item it, int i, long now) {
 		long from = it.sungAt[i], to = it.heldUntil[i];
@@ -246,8 +321,9 @@ public final class LyricsWorld {
 	private static void drawWord(Component text, Component colored, String raw, float x, float y, float a, float smear, float glitch, float boost, float away, float sweepProg, float sweepAlpha, Sink sink) {
 		Config c = Config.INSTANCE;
 		float glow = c.glow / 100f, outline = c.outline / 100f;
-		var under = c.throughWalls ? Font.DisplayMode.SEE_THROUGH : stickNow ? Font.DisplayMode.POLYGON_OFFSET : Font.DisplayMode.NORMAL;
-		var top = c.throughWalls ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.POLYGON_OFFSET;
+		boolean see = c.throughWalls && !behindPlayer;
+		var under = see ? Font.DisplayMode.SEE_THROUGH : stickNow ? Font.DisplayMode.POLYGON_OFFSET : Font.DisplayMode.NORMAL;
+		var top = see ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.POLYGON_OFFSET;
 		if (glitch > 0f) {
 			x += (glitch - 0.5f) * 4f;
 			a *= 0.55f + 0.3f * glitch;

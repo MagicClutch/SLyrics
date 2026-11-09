@@ -112,8 +112,10 @@ public final class LyricScene {
 		}
 
 		List<String> list = new ArrayList<>();
+		List<Boolean> emphasis = new ArrayList<>();
 		for (String w : text.trim().split("\\s+")) {
 			if (w.isEmpty()) continue;
+			emphasis.add(w.endsWith("!") || (w.length() >= 3 && w.equals(w.toUpperCase()) && w.chars().anyMatch(Character::isLetter)));
 			String d = Emojis.decorate(w, "", c);
 			list.add(c.uppercase ? d.toUpperCase() : d);
 		}
@@ -125,6 +127,14 @@ public final class LyricScene {
 		long[] start = schedule(words, songStart + lineTimeMs, duration);
 		long[] end = new long[words.length];
 		for (int i = 0; i < words.length; i++) end[i] = i + 1 < words.length ? start[i + 1] : songStart + lineEndMs;
+
+		if (c.beatShake && AfkCamera.active()) { // experimental: camera shakes timed by the lyrics
+			if (c.shakeOnLines) AfkCamera.scheduleKick(start[0] + 90, 0.55);
+			for (int i = 0; i < words.length; i++) {
+				if (c.shakeOnLongWords && end[i] - start[i] >= 700) AfkCamera.scheduleKick(start[i], 1.0);
+				else if (c.shakeOnEmphasis && emphasis.get(i)) AfkCamera.scheduleKick(start[i], 0.8);
+			}
+		}
 
 		if (follow == null || follow.distanceToSqr(player.position()) > 900) follow = player.position();
 
@@ -145,6 +155,7 @@ public final class LyricScene {
 			for (int i = 0; i < words.length; i++) {
 				int mode = enabled.get(rng.nextInt(enabled.size()));
 				long fadeAt = mode == 1 ? Math.max(start[i] + 2600, end[i] + 1400) : Math.max(Math.max(start[i] + 1200, end[i] + 500), start[i] + life);
+				if (c.wordHoldMs > 0) fadeAt = start[i] + c.wordHoldMs; // user-set: fade this long after the word is sung
 				if (fadeAt < now) continue;
 				queue.add(new Queued(words[i], start[i], end[i], fadeAt, i, mode));
 			}
@@ -355,7 +366,7 @@ public final class LyricScene {
 				double room = fovV * 0.5 - spanV - 4;
 				double elev = c.skyElevation + rng.nextGaussian() * 9;
 				elev = Math.max(viewElev - room, Math.min(viewElev + room, elev));
-				elev = Math.max(6, elev);
+				elev = Math.max(Math.min(6, viewElev + room), elev); // stays in view even when looking steeply down
 
 				Vec3 spot = eye.add(dirOf(viewYaw + dx, -elev).scale(dist));
 				double gap = skyGap(eye, spot, spanH, spanV);
@@ -423,13 +434,15 @@ public final class LyricScene {
 			var face = bhr.getDirection();
 			Vec3 n = new Vec3(face.getStepX(), face.getStepY(), face.getStepZ());
 			Vec3 spot = bhr.getLocation().add(n.scale(0.03));
+			double facing = -dir.dot(n); // only faces seen head-on
+			if (facing < 0.5) continue;
 
 			double gap = 6;
 			for (Item it : items) {
 				if (!it.stick) continue;
 				gap = Math.min(gap, spot.distanceTo(it.pos) - (halfW + it.spanH) * 1.1);
 			}
-			double score = Math.min(gap, 6) * 10 - Math.hypot(dx, dy) * 0.05;
+			double score = Math.min(gap, 6) * 10 - Math.hypot(dx, dy) * 0.05 + facing * 25;
 			double sd = Math.max(1, spot.distanceTo(eye));
 			if (coversPlayer(mc, eye, spot, Math.toDegrees(Math.atan(halfW / sd)), Math.toDegrees(Math.atan(halfH / sd)))) score -= 200;
 			if (score > bestScore) {
