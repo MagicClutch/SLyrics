@@ -16,12 +16,29 @@ import java.util.List;
 /** Decides which line is being sung and draws the scene's words in the world. */
 public final class LyricsWorld {
 	private static final LyricScene SCENE = new LyricScene();
+
+	/** Where the word being sung is, or the next one just before it appears (for the AFK camera), or null. */
+	public static net.minecraft.world.phys.Vec3 currentWordPos(long now) {
+		return SCENE.currentWordPos(now, Config.INSTANCE.follow);
+	}
 	private static final int OUTLINE_RGB = 0x080B16;
 
-	/** Unit-circle offsets used for the halo and the outline. */
+	/** Glow offsets {dx, dy, unused, weight}: four rings around the glyph, the weight falls off outward. */
+	private static final float[][] GLOW;
+	/** Unit-circle offsets used for the outline and the sweep glow. */
 	private static final float[][] RING8 = new float[8][];
 
 	static {
+		float[] radius = {0.45f, 0.9f, 1.5f, 2.3f}, weight = {0.34f, 0.26f, 0.15f, 0.08f};
+		int[] count = {8, 10, 12, 14};
+		java.util.List<float[]> g = new java.util.ArrayList<>();
+		for (int k = 0; k < 4; k++) {
+			for (int i = 0; i < count[k]; i++) {
+				double ang = (i + 0.5 * k) * 2 * Math.PI / count[k];
+				g.add(new float[]{(float) Math.cos(ang) * radius[k], (float) Math.sin(ang) * radius[k], 0f, weight[k]});
+			}
+		}
+		GLOW = g.toArray(new float[0][]);
 		for (int i = 0; i < 8; i++) RING8[i] = new float[]{(float) Math.cos(i * Math.PI / 4), (float) Math.sin(i * Math.PI / 4)};
 	}
 
@@ -177,12 +194,12 @@ public final class LyricsWorld {
 			double drift = (now - it.sungAt[0]) / 1000.0 * len * 0.006;
 			at = at.add(-d.z / len * drift, 0, d.x / len * drift);
 		}
+		float s = 0.05f * (c.size / 100f) * it.fit * scaleAnim;
 		ps.pushPose();
 		ps.translate((float) (at.x - cam.x), (float) (at.y - cam.y + lift), (float) (at.z - cam.z));
 		ps.rotateDegrees(Axis.YP, -it.yaw);
 		ps.rotateDegrees(Axis.XP, it.pitch);
 		ps.rotateDegrees(Axis.ZP, it.roll);
-		float s = 0.05f * (c.size / 100f) * it.fit * scaleAnim;
 		ps.scale(-s, -s, s);
 
 		// Which local z direction points away from the camera: the 3D body is built behind the front face.
@@ -329,12 +346,13 @@ public final class LyricsWorld {
 			a *= 0.55f + 0.3f * glitch;
 		}
 
-		if (glow > 0.02f) {
-			int col = argb(a * (0.1f + 0.06f * glow) * boost, hex(c.glowColor, 0xDDE9FF));
+		if (glow > 0.02f) { // soft halo: many tiny-offset copies on four rings, fading outward, so it reads as smooth light
+			int rgb = hex(c.glowColor, 0xDDE9FF);
 			float r = (0.6f + 0.9f * glow) * (0.8f + 0.2f * Math.min(boost, 1.6f));
-			if (col != 0) for (float[] o : RING8) {
-				sink.draw(text, x + o[0] * r, y + o[1] * r, col, under);
-				sink.draw(text, x + o[0] * r * 2f, y + o[1] * r * 2f, col, under);
+			float strength = a * Math.min(1f, 0.35f * glow + 0.1f) * Math.min(boost, 1.6f);
+			for (float[] g : GLOW) {
+				int col = argb(strength * g[3], rgb);
+				if (col != 0) sink.draw(text, x + g[0] * r, y + g[1] * r, col, under);
 			}
 		}
 		if (smear > 0.01f) {
