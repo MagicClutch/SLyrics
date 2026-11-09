@@ -1,6 +1,7 @@
 package dev.slyrics;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
@@ -50,6 +51,37 @@ public class SLyricsClient implements ClientModInitializer {
 					ctx.getSource().sendFeedback(Component.literal("SLyrics: logged out."));
 					return 1;
 				}))
+				.then(ClientCommands.literal("profile")
+					.then(ClientCommands.literal("list").executes(ctx -> {
+						var names = dev.slyrics.profiles.Profiles.list();
+						ctx.getSource().sendFeedback(Component.literal("SLyrics profiles: " + (names.isEmpty() ? "none yet" : String.join(", ", names))));
+						return 1;
+					}))
+					.then(ClientCommands.literal("save").then(ClientCommands.argument("name", StringArgumentType.greedyString()).executes(ctx -> {
+						try {
+							String n = dev.slyrics.profiles.Profiles.save(StringArgumentType.getString(ctx, "name"));
+							ctx.getSource().sendFeedback(Component.literal(n == null ? "SLyrics: invalid profile name" : "SLyrics: saved profile '" + n + "'"));
+						} catch (Exception e) {
+							ctx.getSource().sendError(Component.literal("SLyrics: could not save: " + e.getMessage()));
+						}
+						return 1;
+					})))
+					.then(ClientCommands.literal("load").then(ClientCommands.argument("name", StringArgumentType.greedyString()).executes(ctx -> {
+						try {
+							String n = StringArgumentType.getString(ctx, "name");
+							if (dev.slyrics.profiles.Profiles.load(n)) ctx.getSource().sendFeedback(Component.literal("SLyrics: loaded profile '" + n + "'"));
+							else ctx.getSource().sendError(Component.literal("SLyrics: no profile named '" + n + "'"));
+						} catch (Exception e) {
+							ctx.getSource().sendError(Component.literal("SLyrics: could not load: " + e.getMessage()));
+						}
+						return 1;
+					})))
+					.then(ClientCommands.literal("delete").then(ClientCommands.argument("name", StringArgumentType.greedyString()).executes(ctx -> {
+						String n = StringArgumentType.getString(ctx, "name");
+						if (dev.slyrics.profiles.Profiles.delete(n)) ctx.getSource().sendFeedback(Component.literal("SLyrics: deleted profile '" + n + "'"));
+						else ctx.getSource().sendError(Component.literal("SLyrics: no profile named '" + n + "'"));
+						return 1;
+					}))))
 				.then(ClientCommands.literal("performance").executes(ctx -> {
 					Config.INSTANCE.performanceMode = !Config.INSTANCE.performanceMode;
 					Config.settingsChanged();
