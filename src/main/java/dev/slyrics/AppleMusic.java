@@ -27,15 +27,15 @@ public final class AppleMusic {
 		try {
 			poll();
 		} catch (Exception e) {
-			SLyricsClient.LOGGER.debug("Apple Music poll error", e);
+			SLyricsClient.LOGGER.debug("Other-player poll error", e);
 		}
 	}
 
 	private static void poll() throws Exception {
 		Config c = Config.INSTANCE;
-		if (!c.enabled || !"Apple Music".equals(c.musicSource)) return;
+		if (!c.enabled || !"Others".equals(c.musicSource)) return;
 		if (!System.getProperty("os.name", "").toLowerCase().contains("linux")) {
-			Spotify.status = "Apple Music: only supported on Linux for now";
+			Spotify.status = "Others: only supported on Linux for now";
 			return;
 		}
 		String filter = c.applePlayer == null ? "" : c.applePlayer.trim().toLowerCase();
@@ -58,13 +58,13 @@ public final class AppleMusic {
 		}
 		if (chosen == null) {
 			Spotify.playing = false;
-			Spotify.status = "Apple Music: no player found. Start Apple Music (web player or Cider)";
+			Spotify.status = "Others: no media player found. Play something in a browser, Cider, VLC, ...";
 			return;
 		}
 		JsonObject meta = obj(propJson(chosen, "Metadata"));
 		if (meta == null || !meta.has("xesam:title")) {
 			Spotify.playing = false;
-			Spotify.status = "Apple Music: nothing is playing";
+			Spotify.status = "Others: nothing is playing";
 			return;
 		}
 		String title = clean(str(meta.get("xesam:title")));
