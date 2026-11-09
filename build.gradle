@@ -38,6 +38,7 @@ loom {
 		client {
 			// DevAuth is off by default; this logs the dev client in with your real account
 			property "devauth.enabled", "true"
+			property "devauth.account", "main"
 		}
 	}
 }
