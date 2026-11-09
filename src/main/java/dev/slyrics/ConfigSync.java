@@ -49,7 +49,8 @@ public final class ConfigSync {
 			var root = com.google.gson.JsonParser.parseReader(reader);
 			if (!root.isJsonObject()) return null;
 			var top = root.getAsJsonObject();
-			boolean oldLayout = (top.has("Spotify") && !top.has("Connectivity")) || top.has("AFK camera"); // AFK camera moved under Modes
+			boolean oldLayout = (top.has("Spotify") && !top.has("Connectivity")) || top.has("AFK camera") // AFK camera moved under Modes
+				|| (top.has("Modes") && top.getAsJsonObject("Modes").has("World words")); // World words renamed to Aura
 			if (!oldLayout) return null;
 			return root.getAsJsonObject();
 		} catch (Exception e) {

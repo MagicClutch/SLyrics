@@ -231,7 +231,7 @@ public final class RcConfig {
 
 	}
 
-	@Category(value = "Modes", categories = {PickModes.class, WorldWords.class, SkyWords.class, StickWords.class, Cat8.class})
+	@Category(value = "Modes", categories = {PickModes.class, AuraWords.class, SkyWords.class, StickWords.class, Cat8.class})
 	public static final class Modes {
 	}
 
@@ -255,10 +255,10 @@ public final class RcConfig {
 
 	}
 
-	@Category(value = "World words")
-	public static final class WorldWords {
+	@Category(value = "Aura")
+	public static final class AuraWords {
 		@ConfigEntry(id = "lineMode", translation = "slyrics.config.lineMode")
-		@Comment("Only when World words is the only active mode. Off: each word appears when it is sung. On: the whole line appears and the sung word lights up")
+		@Comment("Only when Aura is the only active mode. Off: each word appears when it is sung. On: the whole line appears and the sung word lights up")
 		public static boolean lineMode = D.lineMode;
 
 		@ConfigEntry(id = "centerLayout", translation = "slyrics.config.centerLayout")
