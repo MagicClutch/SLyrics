@@ -51,12 +51,6 @@ public final class RcConfig {
 		@ConfigOption.Slider
 		public static int offsetMs = D.offsetMs;
 
-		@ConfigEntry(id = "configScaleDown", translation = "slyrics.config.configScaleDown")
-		@Comment("Draws this settings screen smaller: how many GUI scale steps below your normal GUI scale (0 = normal size). Takes effect the next time you open it.")
-		@ConfigOption.Range(min = 0, max = 3)
-		@ConfigOption.Slider
-		public static int configScaleDown = D.configScaleDown;
-
 	}
 
 	@Category(value = "Spotify")
