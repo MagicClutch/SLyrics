@@ -34,7 +34,7 @@ public class LyricsHud implements HudElement {
 			return;
 		}
 
-		long pos = Spotify.positionMs() + c.offsetMs;
+		long pos = Spotify.positionMs() - c.offsetMs;
 		int idx = -1;
 		int lo = 0, hi = lines.size() - 1;
 		while (lo <= hi) {

@@ -54,7 +54,7 @@
 	"slyrics.config.hologram": "Enable world words",
 	"slyrics.config.lineMode": "Lines mode",
 	"slyrics.config.near": "Closest distance",
-	"slyrics.config.offsetMs": "Offset (ms)",
+	"slyrics.config.offsetMs": "Offset (ms): minus = earlier, plus = later",
 	"slyrics.config.opacity": "Opacity (%)",
 	"slyrics.config.outline": "Outline (%)",
 	"slyrics.config.scale": "Size",
