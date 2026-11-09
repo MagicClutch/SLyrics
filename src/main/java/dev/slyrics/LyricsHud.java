@@ -87,7 +87,7 @@ public class LyricsHud implements HudElement {
 	/** With colored=true every emoji gets its own color (the rest keeps the color the text is drawn with). */
 	public static MutableComponent styled(String s, Config c, boolean colored) {
 		Style base = Style.EMPTY.withBold(c.bold);
-		Identifier id = Identifier.tryParse(c.font);
+		Identifier id = dev.slyrics.font.UserFont.isSystem(c.font) ? dev.slyrics.font.UserFont.ID : Identifier.tryParse(c.font);
 		Style userStyle = id != null ? base.withFont(new FontDescription.Resource(id)) : base;
 		Style emojiStyle = base.withFont(FontDescription.DEFAULT);
 		MutableComponent out = Component.empty();
