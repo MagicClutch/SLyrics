@@ -18,6 +18,8 @@ public final class LyricScene {
 	public static final long FADE_MS = 500L;
 	/** Words are placed this long before they are sung (hidden until then), so the AFK camera can swing to them in time. */
 	private static final long PLACE_LEAD_MS = 1000L;
+	/** Without the AFK camera words are placed only this long before they are sung, so they fit the view of that moment. */
+	private static final long PLACE_LEAD_NORMAL_MS = 250L;
 	/** The AFK camera starts turning toward a word this long before it appears. */
 	private static final long PAN_LEAD_MS = 750L;
 	private static final int MAX_ITEMS = 40;
@@ -220,7 +222,7 @@ public final class LyricScene {
 
 		for (int i = 0; i < queue.size(); i++) {
 			Queued q = queue.get(i);
-			if (now < q.sungAt() - PLACE_LEAD_MS) continue;
+			if (now < q.sungAt() - (AfkCamera.active() ? PLACE_LEAD_MS : PLACE_LEAD_NORMAL_MS)) continue;
 			queue.remove(i--);
 			if (now > q.fadeAt()) continue;
 			String[] w = {q.word()};
