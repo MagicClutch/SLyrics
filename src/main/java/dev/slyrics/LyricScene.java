@@ -83,11 +83,12 @@ public final class LyricScene {
 	}
 
 	/** Keeps camera-locked sky words at the same place in the AFK camera view while the camera moves. */
-	private void followCamera(Minecraft mc) {
+	private void followCamera(Minecraft mc, long now) {
 		boolean afk = AfkCamera.active();
 		for (Item it : items) {
 			if (!it.camLocked) continue;
-			if (!afk) { // the camera is back to normal: the word stays where it is
+			// outside the AFK camera the word follows the view only until it appears, then it stays where it is
+			if (!afk && now >= it.sungAt[0]) {
 				it.camLocked = false;
 				continue;
 			}
@@ -213,7 +214,7 @@ public final class LyricScene {
 	public void frame(Minecraft mc, long now) {
 		var player = mc.player;
 		if (player == null) return;
-		followCamera(mc);
+		followCamera(mc, now);
 		smoothFollow(player.position());
 		carryUnsung(now);
 
@@ -435,12 +436,11 @@ public final class LyricScene {
 					float pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
 					float roll = (rng.nextFloat() - 0.5f) * 6f;
 					best = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, true, false);
-					if (AfkCamera.active()) { // keep it in the camera view while the AFK camera moves
-						best.camLocked = true;
-						best.relYaw = dx;
-						best.relPitch = -elev - AfkCamera.pitch(mc);
-						best.dist = dist;
-					}
+					// keep it in view while the camera moves (AFK) or until it appears (normal), so it never lands on the screen edge
+					best.camLocked = true;
+					best.relYaw = dx;
+					best.relPitch = -elev - AfkCamera.pitch(mc);
+					best.dist = dist;
 				}
 			}
 			if (bestGap >= 1.0) break; // found a clear spot at this size
