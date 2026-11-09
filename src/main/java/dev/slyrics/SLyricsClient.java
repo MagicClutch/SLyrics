@@ -29,6 +29,7 @@ public class SLyricsClient implements ClientModInitializer {
 			ConfigSync.tick();
 			dev.slyrics.font.UserFont.tick();
 		});
+		dev.slyrics.profiles.SaveProfileButton.init();
 		Spotify.start();
 		AppleMusic.start();
 		LyricsWorld.init();
@@ -59,13 +60,32 @@ public class SLyricsClient implements ClientModInitializer {
 					}))
 					.then(ClientCommands.literal("save").then(ClientCommands.argument("name", StringArgumentType.greedyString()).executes(ctx -> {
 						try {
-							String n = dev.slyrics.profiles.Profiles.save(StringArgumentType.getString(ctx, "name"));
+							String raw = StringArgumentType.getString(ctx, "name");
+							if (dev.slyrics.profiles.Profiles.exists(raw)) {
+								ctx.getSource().sendError(Component.literal("SLyrics: '" + raw + "' already exists. Use /slyrics profile update to replace the active profile"));
+								return 0;
+							}
+							String n = dev.slyrics.profiles.Profiles.save(raw);
 							ctx.getSource().sendFeedback(Component.literal(n == null ? "SLyrics: invalid profile name" : "SLyrics: saved profile '" + n + "'"));
 						} catch (Exception e) {
 							ctx.getSource().sendError(Component.literal("SLyrics: could not save: " + e.getMessage()));
 						}
 						return 1;
 					})))
+					.then(ClientCommands.literal("update").executes(ctx -> {
+						try {
+							String act = dev.slyrics.profiles.Profiles.active();
+							if (act.isEmpty() || !dev.slyrics.profiles.Profiles.exists(act)) {
+								ctx.getSource().sendError(Component.literal("SLyrics: no active profile. Load or save one first"));
+								return 0;
+							}
+							dev.slyrics.profiles.Profiles.save(act);
+							ctx.getSource().sendFeedback(Component.literal("SLyrics: updated profile '" + act + "'"));
+						} catch (Exception e) {
+							ctx.getSource().sendError(Component.literal("SLyrics: could not save: " + e.getMessage()));
+						}
+						return 1;
+					}))
 					.then(ClientCommands.literal("load").then(ClientCommands.argument("name", StringArgumentType.greedyString()).executes(ctx -> {
 						try {
 							String n = StringArgumentType.getString(ctx, "name");

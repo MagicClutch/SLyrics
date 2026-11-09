@@ -47,10 +47,11 @@ public final class ProfilesScreen extends Screen {
 
 		this.list = this.layout.addToContents(new ProfileList(this.minecraft));
 		LinearLayout footer = this.layout.addToFooter(LinearLayout.horizontal().spacing(6));
-		footer.addChild(Button.builder(Component.literal("Save"), b -> save()).width(70).build());
-		footer.addChild(Button.builder(Component.literal("Load"), b -> load()).width(70).build());
-		footer.addChild(Button.builder(Component.literal("Delete"), b -> delete()).width(70).build());
-		footer.addChild(Button.builder(CommonComponents.GUI_DONE, b -> onClose()).width(70).build());
+		footer.addChild(Button.builder(Component.literal("Save new"), b -> save()).width(62).build());
+		footer.addChild(Button.builder(Component.literal("Update"), b -> update()).width(62).build());
+		footer.addChild(Button.builder(Component.literal("Load"), b -> load()).width(62).build());
+		footer.addChild(Button.builder(Component.literal("Delete"), b -> delete()).width(62).build());
+		footer.addChild(Button.builder(CommonComponents.GUI_DONE, b -> onClose()).width(62).build());
 		this.layout.visitWidgets(this::addRenderableWidget);
 		repositionElements();
 		refill();
@@ -68,11 +69,30 @@ public final class ProfilesScreen extends Screen {
 		return Profiles.clean(name.getValue());
 	}
 
+	/** Saves under a new name; never replaces an existing profile (that is what Update is for). */
 	private void save() {
 		try {
-			String saved = Profiles.save(name.getValue());
-			message = saved == null ? "Type a name first" : "Saved '" + saved + "'";
-			refill();
+			if (chosen().isEmpty()) {
+				message = "Type a name first";
+			} else if (Profiles.exists(chosen())) {
+				message = "'" + chosen() + "' already exists. Use Update to replace it, or pick another name";
+			} else {
+				message = "Saved '" + Profiles.save(chosen()) + "'";
+				refill();
+			}
+		} catch (Exception e) {
+			message = "Could not save: " + e.getMessage();
+		}
+	}
+
+	/** Replaces the selected profile with the current settings. */
+	private void update() {
+		try {
+			if (!Profiles.exists(chosen())) {
+				message = "Pick an existing profile to update";
+			} else {
+				message = "Updated '" + Profiles.save(chosen()) + "'";
+			}
 		} catch (Exception e) {
 			message = "Could not save: " + e.getMessage();
 		}
@@ -100,6 +120,8 @@ public final class ProfilesScreen extends Screen {
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		super.extractRenderState(g, mouseX, mouseY, a);
+		String act = Profiles.active();
+		if (!act.isEmpty()) g.centeredText(this.font, Component.literal("Active profile: " + act + (Profiles.modified() ? " (changed, not saved)" : "")), this.width / 2, 22, 0xFF9FE08A);
 		if (!message.isEmpty()) g.centeredText(this.font, Component.literal(message), this.width / 2, this.height - 46, 0xFFFFE14D);
 		if (list != null && Profiles.list().isEmpty()) g.centeredText(this.font, Component.literal("No profiles yet. Type a name and press Save."), this.width / 2, this.height / 2, 0xFFAAAAAA);
 	}

@@ -42,6 +42,9 @@ public class Config {
 
 	// ------------------------------------------------------------------ bookkeeping (only in slyrics.json)
 
+	/** The profile that was last saved or loaded (empty = none). Not a setting: it is not part of any profile. */
+	public String activeProfile = "";
+
 	/** Which default emoji words were already merged into the word lists. */
 	public int emojiVersion = 0;
 

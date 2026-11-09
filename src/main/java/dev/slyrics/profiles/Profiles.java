@@ -66,10 +66,21 @@ public final class Profiles {
 		return out;
 	}
 
-	/** Saves the current settings. Returns the cleaned name, or null if the name is empty. */
-	public static String save(String rawName) throws Exception {
-		String name = clean(rawName);
-		if (name.isEmpty()) return null;
+	public static boolean exists(String rawName) {
+		String n = clean(rawName);
+		return !n.isEmpty() && Files.isRegularFile(folder().resolve(n + ".json"));
+	}
+
+	public static String active() {
+		return Config.INSTANCE.activeProfile == null ? "" : Config.INSTANCE.activeProfile;
+	}
+
+	private static void setActive(String name) {
+		Config.INSTANCE.activeProfile = name;
+		Config.save();
+	}
+
+	private static JsonObject snapshot() throws Exception {
 		JsonObject o = new JsonObject();
 		for (Field f : settingFields()) {
 			Object v = f.get(Config.INSTANCE);
@@ -77,7 +88,32 @@ public final class Profiles {
 			else if (v instanceof Number n) o.addProperty(f.getName(), n);
 			else if (v instanceof String s) o.addProperty(f.getName(), s);
 		}
-		Files.writeString(folder().resolve(name + ".json"), new GsonBuilder().setPrettyPrinting().create().toJson(o));
+		return o;
+	}
+
+	/** True if a profile is active and the current settings differ from what is saved in it. */
+	public static boolean modified() {
+		String name = active();
+		if (name.isEmpty() || !exists(name)) return false;
+		try {
+			JsonObject now = snapshot();
+			JsonObject saved = JsonParser.parseString(Files.readString(folder().resolve(clean(name) + ".json"))).getAsJsonObject();
+			for (var e : now.entrySet()) {
+				JsonElement other = saved.get(e.getKey());
+				if (other == null || !other.isJsonPrimitive() || !other.getAsString().equals(e.getValue().getAsString())) return true;
+			}
+			return false;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	/** Saves the current settings under this name (replacing a profile of the same name) and makes it the active profile. Null if the name is empty. */
+	public static String save(String rawName) throws Exception {
+		String name = clean(rawName);
+		if (name.isEmpty()) return null;
+		Files.writeString(folder().resolve(name + ".json"), new GsonBuilder().setPrettyPrinting().create().toJson(snapshot()));
+		setActive(name);
 		return name;
 	}
 
@@ -97,12 +133,14 @@ public final class Profiles {
 			else if (t == String.class && v.isString()) f.set(Config.INSTANCE, v.getAsString());
 		}
 		Config.settingsChanged();
+		setActive(clean(rawName));
 		ConfigSync.saveAll();
 		return true;
 	}
 
 	public static boolean delete(String rawName) {
 		try {
+			if (clean(rawName).equals(active())) setActive("");
 			return Files.deleteIfExists(folder().resolve(clean(rawName) + ".json"));
 		} catch (Exception e) {
 			return false;
