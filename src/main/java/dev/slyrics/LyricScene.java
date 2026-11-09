@@ -89,13 +89,14 @@ public final class LyricScene {
 		queue.clear();
 	}
 
-	/** Keeps camera-locked sky words at the same place in the AFK camera view while the camera moves. */
+	/**
+	 * Sky words are placed ahead of time inside the view; until the moment they appear they follow the view so
+	 * they never land on the screen edge. Once visible they stand still in the world, also in the AFK camera.
+	 */
 	private void followCamera(Minecraft mc, long now) {
-		boolean afk = AfkCamera.active();
 		for (Item it : items) {
 			if (!it.camLocked) continue;
-			// outside the AFK camera the word follows the view only until it appears, then it stays where it is
-			if (!afk && now >= it.sungAt[0]) {
+			if (now >= it.sungAt[0]) {
 				it.camLocked = false;
 				continue;
 			}
