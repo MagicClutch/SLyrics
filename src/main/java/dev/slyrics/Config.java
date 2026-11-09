@@ -31,7 +31,7 @@ public class Config {
 	public boolean enabled = true;
 	/** Spotify Client ID (from developer.spotify.com). */
 	public String clientId = "";
-	/** Lyrics timing offset in ms (positive = later). */
+	/** Lyrics timing offset in ms (negative = earlier, positive = later). */
 	public int offsetMs = -139;
 	/** Where the current song comes from: "Spotify" or "Others". */
 	public String musicSource = "Spotify";

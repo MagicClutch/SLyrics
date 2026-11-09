@@ -46,7 +46,7 @@ public final class RcConfig {
 		public static boolean enabled = D.enabled;
 
 		@ConfigEntry(id = "offsetMs", translation = "slyrics.config.offsetMs")
-		@Comment("Show lyrics earlier (negative) or later (positive)")
+		@Comment("Negative values show lyrics (and the word highlighting) earlier, positive values later")
 		@ConfigOption.Range(min = -3000, max = 3000)
 		@ConfigOption.Slider
 		public static int offsetMs = D.offsetMs;

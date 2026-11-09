@@ -106,7 +106,7 @@ public final class LyricsWorld {
 
 		List<LyricLine> lines = Spotify.lyrics;
 		if (lines.isEmpty()) return;
-		long pos = Spotify.positionMs() + c.offsetMs;
+		long pos = Spotify.positionMs() - c.offsetMs;
 		int idx = lineAt(lines, pos);
 		if (idx == lastLine) return;
 		lastLine = idx;
