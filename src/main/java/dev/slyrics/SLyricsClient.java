@@ -24,7 +24,10 @@ public class SLyricsClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		Config.load();
 		ConfigSync.init();
-		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(c -> ConfigSync.tick());
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(c -> {
+			ConfigSync.tick();
+			dev.slyrics.font.UserFont.tick();
+		});
 		Spotify.start();
 		AppleMusic.start();
 		LyricsWorld.init();

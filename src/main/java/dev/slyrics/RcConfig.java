@@ -77,8 +77,12 @@ public final class RcConfig {
 
 	@Category(value = "Text")
 	public static final class TextLook {
+		@ConfigButton(title = "Choose font", text = "Choose")
+		@Comment("Opens a searchable list of Minecraft's fonts and every TrueType font installed on this computer.")
+		public static final Runnable pickFont = dev.slyrics.font.FontPickerScreen::open;
+
 		@ConfigEntry(id = "font", translation = "slyrics.config.font")
-		@Comment("e.g. minecraft:default, minecraft:uniform, minecraft:alt, minecraft:illageralt or a font from a resource pack")
+		@Comment("The current font. Use the Choose button above, or type a font id such as minecraft:uniform or one from a resource pack.")
 		public static String font = D.font;
 
 		@ConfigEntry(id = "color", translation = "slyrics.config.color")
