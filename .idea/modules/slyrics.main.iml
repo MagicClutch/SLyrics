@@ -12,9 +12,6 @@
       </configuration>
     </facet>
   </component>
-  <component name="McpModuleSettings">
-    <option name="minecraftVersion" value="26.3" />
-  </component>
   <component name="NewModuleRootManager">
     <output url="file://$MODULE_DIR$/../../build/classes/java/main" />
     <exclude-output />
