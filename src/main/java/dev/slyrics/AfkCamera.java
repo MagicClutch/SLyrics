@@ -23,7 +23,7 @@ public final class AfkCamera {
 	private static float startYaw, startPitch;
 	private static boolean blendIn;
 
-	private enum Shot { ORBIT, RISE, DESCEND, DIAGONAL, FLYBY, PUSH_IN, PULL_OUT, CLOSEUP }
+	private enum Shot { ORBIT, RISE, DESCEND, DIAGONAL, FLYBY, PUSH_IN, PULL_OUT, CLOSEUP, FACE, BODY_UP, BODY_DOWN, HEAD_ORBIT }
 
 	private static Shot shot = Shot.ORBIT;
 	private static int shotIndex = -1;
@@ -109,6 +109,8 @@ public final class AfkCamera {
 		fading = false;
 		shotIndex = -1;
 		linesSinceCut = 0;
+		kicks.clear();
+		shakeE = 0;
 		shotDurMs = Math.max(3, Config.INSTANCE.afkShotSeconds) * 1000L;
 		saved = mc.options.getCameraType();
 		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
@@ -188,12 +190,29 @@ public final class AfkCamera {
 
 	private static final java.util.Random RNG = new java.util.Random();
 
+	private static final Shot[] CLOSE_SHOTS = {Shot.CLOSEUP, Shot.FACE, Shot.BODY_UP, Shot.BODY_DOWN, Shot.HEAD_ORBIT, Shot.FACE, Shot.HEAD_ORBIT};
+
+	private static boolean isClose(Shot s) {
+		return s == Shot.CLOSEUP || s == Shot.FACE || s == Shot.BODY_UP || s == Shot.BODY_DOWN || s == Shot.HEAD_ORBIT;
+	}
+
+	/** Height (relative to the eyes) of the point the camera looks at. Body shots tilt from feet to head. */
+	private static double lookY(double u) {
+		double e = 0.5 * smooth((float) u) + 0.5 * u;
+		return switch (shot) {
+			case BODY_UP -> lerp(-1.35, 0.05, e);
+			case BODY_DOWN -> lerp(0.05, -1.35, e);
+			case FACE, HEAD_ORBIT -> -0.05;
+			default -> -0.25;
+		};
+	}
+
 	/** Starts the next shot. With glide=true the camera blends over from where it is now. */
 	private static void nextShot(long now, float refYaw, boolean glide) {
 		Config c = Config.INSTANCE;
 		java.util.List<Shot> shots = enabledShots();
-		if (c.afkCloseUp && RNG.nextInt(100) < c.afkCloseUpPercent && !(shot == Shot.CLOSEUP && shotIndex >= 0)) {
-			shot = Shot.CLOSEUP;
+		if (c.afkCloseUp && RNG.nextInt(100) < c.afkCloseUpPercent && !(isClose(shot) && shotIndex >= 0)) {
+			shot = CLOSE_SHOTS[RNG.nextInt(CLOSE_SHOTS.length)];
 			if (shotIndex < 0) shotIndex = 0;
 			shotStart = now;
 			shotAngle = Math.toRadians(RNG.nextInt(360));
@@ -231,7 +250,11 @@ public final class AfkCamera {
 		// Constant slow drift on top of every shot: the camera never stands still, even after a move has finished.
 		double ang = shotSide * Math.toRadians(5.0) * t;
 		double cos = Math.cos(ang), sin = Math.sin(ang);
-		return new Vec3(v.x * cos - v.z * sin, v.y + 0.22 * Math.sin(t * 0.7), v.x * sin + v.z * cos);
+		double wobble = isClose(shot) ? 0.05 : 0.22;
+		double rot = isClose(shot) ? 0.3 : 1.0; // close shots drift less, they are already moving
+		cos = Math.cos(ang * rot);
+		sin = Math.sin(ang * rot);
+		return new Vec3(v.x * cos - v.z * sin, v.y + wobble * Math.sin(t * 0.7), v.x * sin + v.z * cos);
 	}
 
 	private static Vec3 baseOffset(double u, double t) {
@@ -260,8 +283,24 @@ public final class AfkCamera {
 				return new Vec3(Math.cos(a) * rad, lerp(h + 2, h * 0.6, e), Math.sin(a) * rad);
 			}
 			case CLOSEUP: {
-				double ang = a + shotSide * Math.toRadians(25) * u, rad = lerp(3.2, 1.9, e);
-				return new Vec3(Math.cos(ang) * rad, lerp(0.5, 0.1, e), Math.sin(ang) * rad);
+				double ang = a + shotSide * Math.toRadians(25) * u, rad = lerp(2.4, 1.5, e);
+				return new Vec3(Math.cos(ang) * rad, lerp(0.4, 0.1, e), Math.sin(ang) * rad);
+			}
+			case FACE: { // right up at the face, slowly closing in and drifting past it
+				double ang = a + shotSide * Math.toRadians(40) * e, rad = lerp(1.25, 0.8, e);
+				return new Vec3(Math.cos(ang) * rad, lerp(0.15, -0.05, e), Math.sin(ang) * rad);
+			}
+			case BODY_UP: { // tilts and rises from the feet to the head, close to the body
+				double ang = a + shotSide * Math.toRadians(55) * e, rad = lerp(1.9, 1.2, e);
+				return new Vec3(Math.cos(ang) * rad, lerp(-1.4, 0.1, e), Math.sin(ang) * rad);
+			}
+			case BODY_DOWN: { // from the head down to the feet
+				double ang = a + shotSide * Math.toRadians(55) * e, rad = lerp(1.2, 1.9, e);
+				return new Vec3(Math.cos(ang) * rad, lerp(0.1, -1.4, e), Math.sin(ang) * rad);
+			}
+			case HEAD_ORBIT: { // circles tightly around the head
+				double ang = a + shotSide * Math.toRadians(200) * e, rad = 1.3 + 0.15 * Math.sin(u * Math.PI * 2);
+				return new Vec3(Math.cos(ang) * rad, 0.12 * Math.sin(u * Math.PI * 2) + 0.1, Math.sin(ang) * rad);
 			}
 			case PULL_OUT: {
 				double rad = lerp(r * 0.6, r * 2.0, e);
@@ -310,7 +349,7 @@ public final class AfkCamera {
 			if (len > 0.01) desired = target.add(d.scale(Math.max(0.3, len - 0.3) / len));
 		}
 
-		Vec3 look = target.add(0, -0.25, 0).subtract(desired);
+		Vec3 look = target.add(0, lookY(u), 0).subtract(desired);
 		float yaw = (float) Math.toDegrees(Math.atan2(-look.x, look.z));
 		float pitch = (float) -Math.toDegrees(Math.atan2(look.y, Math.hypot(look.x, look.z)));
 
@@ -326,6 +365,46 @@ public final class AfkCamera {
 		camPos = pos;
 		camYaw = yaw;
 		camPitch = pitch;
+
+		double amp = shakeAmount(now);
+		if (amp > 0.001) { // only the rendered camera shakes, not the logical one the words are placed from
+			double a = amp * 1.6;
+			yaw += (float) (a * (Math.sin(now * 0.083) + 0.6 * Math.sin(now * 0.171 + 2.0)));
+			pitch += (float) (a * (Math.sin(now * 0.097 + 1.3) + 0.6 * Math.sin(now * 0.153)));
+			double p3 = amp * 0.06;
+			pos = pos.add(p3 * Math.sin(now * 0.11), p3 * Math.sin(now * 0.127 + 0.7), p3 * Math.sin(now * 0.09 + 1.9));
+		}
 		return new double[]{pos.x, pos.y, pos.z, yaw, pitch};
+	}
+
+	// ------------------------------------------------------------------ experimental: lyric-timed shake
+
+	private static final java.util.List<double[]> kicks = new java.util.ArrayList<>(); // {absolute time ms, strength}
+	private static double shakeE;
+	private static long shakeT;
+
+	/** Schedules a camera shake at an absolute time (ms since epoch). Ignored unless the AFK camera is running. */
+	public static void scheduleKick(long at, double strength) {
+		if (!active) return;
+		if (at < System.currentTimeMillis() - 200) return;
+		kicks.add(new double[]{at, strength});
+	}
+
+	/** Current shake size, 0..~1.3, decaying fast after each kick. */
+	private static double shakeAmount(long now) {
+		Config c = Config.INSTANCE;
+		if (!c.beatShake) {
+			kicks.clear();
+			return 0;
+		}
+		for (var it = kicks.iterator(); it.hasNext(); ) {
+			double[] k = it.next();
+			if (k[0] <= now) {
+				shakeE = Math.min(1.3, shakeE * Math.exp(-(now - shakeT) / 260.0) + k[1]);
+				shakeT = now;
+				it.remove();
+			}
+		}
+		return shakeE * Math.exp(-(now - shakeT) / 260.0) * (c.shakeStrength / 100.0);
 	}
 }

@@ -239,7 +239,54 @@ public final class Emojis {
 		sprites(m, "item:lapis_lazuli", "blue", "blau", "azul", "bleu", "blu", "blauw", "mavi");
 		sprites(m, "item:redstone", "red", "rot", "rojo", "rouge", "rosso", "vermelho", "rood", "kırmızı");
 		sprites(m, "item:quartz", "white", "weiß", "weiss", "blanco", "blanc", "bianco", "branco", "wit", "beyaz");
+		moreSprites(m);
 		return m;
+	}
+
+	/** Version 4 additions: colors as dyes, gliding, food, nature, tools and more. */
+	private static void moreSprites(Map<String, String> m) {
+		sprites(m, "item:elytra", "landing", "land", "lands", "landed", "glide", "gliding", "glided", "soar", "soaring", "landen", "gleiten", "aterrizar", "planear", "atterrir", "atterrare", "aterrissar", "inmek");
+		sprites(m, "item:brown_dye", "brown", "braun", "marrón", "marron", "brun", "bruno", "bruin", "kahverengi", "shit", "shits", "shitty", "poop", "crap", "scheiße", "scheisse", "scheiß", "kacke", "kot", "caca", "merde", "merda", "cacca", "bok");
+		sprites(m, "item:black_dye", "black", "schwarz", "negro", "noir", "nero", "preto", "zwart", "siyah");
+		sprites(m, "item:yellow_dye", "yellow", "gelb", "amarillo", "jaune", "giallo", "amarelo", "geel", "sarı");
+		sprites(m, "item:orange_dye", "orange", "naranja", "arancione", "laranja", "oranje", "turuncu");
+		sprites(m, "item:pink_dye", "pink", "roze", "pembe");
+		sprites(m, "item:purple_dye", "purple", "violet", "lila", "lilla", "violett", "púrpura", "purpura", "morado", "violeta", "paars");
+		sprites(m, "item:green_dye", "green", "grün", "grun", "verde", "vert", "groen", "yeşil");
+		sprites(m, "item:gray_dye", "gray", "grey", "grau", "gris", "grigio", "cinza", "grijs", "gri");
+		sprites(m, "item:cyan_dye", "cyan", "turquoise", "türkis", "turkis", "turquesa", "turkuaz");
+		sprites(m, "item:leather", "leather", "leder", "cuero", "cuir", "cuoio", "couro", "leer");
+		sprites(m, "item:cooked_porkchop", "pig", "pigs", "pork", "bacon", "schwein", "cerdo", "porc", "maiale", "porco", "varken");
+		sprites(m, "item:heart_of_the_sea", "treasure", "treasures", "tesoro", "trésor", "tresor", "tesouro", "schat", "hazine");
+		sprites(m, "item:iron_chestplate", "armor", "armour", "shield", "protect", "protection", "rüstung", "schutz", "armadura", "protección", "armure", "armatura", "pantser", "zırh");
+		sprites(m, "item:diamond_boots", "walk", "walking", "run", "running", "boots", "shoes", "gehen", "laufen", "rennen", "caminar", "correr", "marcher", "courir", "camminare", "correre", "andar", "lopen", "yürümek", "koşmak");
+		sprites(m, "block:cake_side", "birthday", "geburtstag", "cumpleaños", "cumpleanos", "anniversaire", "compleanno", "aniversário", "aniversario", "verjaardag", "doğum");
+		sprites(m, "block:slime_block", "jump", "jumping", "jumps", "bounce", "bouncing", "springen", "saltar", "sauter", "saltare", "pular", "zıplamak");
+		sprites(m, "item:flint_and_steel", "spark", "sparks", "ignite", "lighter", "funke", "funken", "feuerzeug", "chispa", "étincelle", "etincelle", "scintilla", "faísca", "faisca");
+		sprites(m, "item:glow_ink_sac", "glitter", "sparkle", "sparkling", "glitzer", "glitzern", "brillo", "paillettes", "brillantini", "neon", "shimmer");
+		sprites(m, "item:ink_sac", "ink", "tattoo", "tinte", "tinta", "encre", "inchiostro", "inkt", "mürekkep");
+		sprites(m, "item:sugar", "sweet", "sugar", "candy", "zucker", "süß", "suss", "süss", "azúcar", "azucar", "dulce", "sucre", "doux", "zucchero", "dolce", "açúcar", "doce", "suiker", "zoet", "şeker");
+		sprites(m, "item:sweet_berries", "berry", "berries", "strawberry", "cherry", "beere", "beeren", "baya", "bayas", "baie", "baies", "bacca", "bacche", "bessen");
+		sprites(m, "item:glass_bottle", "bottle", "bottles", "flasche", "flaschen", "botella", "bouteille", "bottiglia", "garrafa", "fles", "şişe");
+		sprites(m, "item:bucket", "bucket", "eimer", "cubo", "seau", "secchio", "balde", "emmer", "kova");
+		sprites(m, "item:ender_pearl", "teleport", "portal", "warp", "teleportieren", "teletransportar");
+		sprites(m, "item:nautilus_shell", "shell", "shells", "muschel", "muscheln", "concha", "coquille", "conchiglia", "schelp", "kabuk");
+		sprites(m, "item:painting", "art", "paint", "painting", "kunst", "malen", "arte", "pintar", "peinture", "peindre", "dipingere", "pintura", "schilderen", "resim");
+		sprites(m, "item:goat_horn", "horn", "horns", "trumpet", "hupe", "trompete", "cuerno", "corne", "corno", "hoorn", "boru");
+		sprites(m, "item:oak_sign", "sign", "signs", "schild", "letrero", "panneau", "cartello", "placa", "bord", "tabela");
+		sprites(m, "item:brush", "clean", "cleaning", "brush", "bürste", "burste", "cepillo", "brosse", "spazzola", "escova", "borstel", "fırça");
+		sprites(m, "item:tropical_fish", "tropical", "tropic", "tropisch", "tropique", "tropicale");
+		sprites(m, "item:breeze_rod", "wind", "windy", "breeze", "viento", "vent", "vento", "rüzgar", "brisa");
+		sprites(m, "block:cobweb", "web", "cobweb", "netz", "spinnennetz", "telaraña", "telarana", "toile", "ragnatela", "teia");
+		sprites(m, "block:cactus_side", "cactus", "kaktus", "cacto");
+		sprites(m, "block:sand", "sand", "desert", "wüste", "wuste", "arena", "desierto", "sable", "désert", "sabbia", "deserto", "areia", "zand", "woestijn", "çöl", "kum", "beach", "strand", "playa", "plage", "spiaggia", "praia");
+		sprites(m, "block:dirt", "dirt", "erde", "tierra", "terre", "terra", "aarde", "toprak", "ground", "boden", "suelo");
+		sprites(m, "block:ice", "ice", "eis", "hielo", "glace", "ghiaccio", "gelo", "ijs", "buz", "frozen", "freeze", "froze");
+		sprites(m, "block:crafting_table_front", "craft", "crafting", "build", "building", "built", "bauen", "basteln", "construir", "crear", "construire", "costruire", "bouwen");
+		sprites(m, "block:pumpkin_side", "halloween", "pumpkin", "kürbis", "kurbis", "calabaza", "citrouille", "zucca", "abóbora", "abobora", "pompoen", "kabak");
+		sprites(m, "block:rail", "train", "trains", "tracks", "zug", "tren", "treno", "trem", "trein");
+		sprites(m, "block:dandelion", "dandelion", "wish", "wishes", "wunsch", "wünsche", "wunsche", "deseo", "souhait", "desiderio", "desejo", "wens");
+		sprites(m, "block:red_mushroom", "mushroom", "mushrooms", "pilz", "pilze", "seta", "setas", "champignon", "fungo", "funghi", "cogumelo", "paddenstoel", "mantar");
 	}
 
 	private static void sprites(Map<String, String> m, String spec, String... words) {

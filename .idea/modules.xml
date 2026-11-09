@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/SLyrics.iml" filepath="$PROJECT_DIR$/SLyrics.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/slyrics.iml" filepath="$PROJECT_DIR$/.idea/modules/slyrics.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/slyrics.main.iml" filepath="$PROJECT_DIR$/.idea/modules/slyrics.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/slyrics.test.iml" filepath="$PROJECT_DIR$/.idea/modules/slyrics.test.iml" />
     </modules>
   </component>
 </project>

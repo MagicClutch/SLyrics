@@ -7,14 +7,22 @@ group = project.maven_group
 base.archivesName = 'slyrics'
 
 repositories {
-	maven { url = 'https://maven.isxander.dev/releases' }
+	exclusiveContent {
+		forRepository { maven { url = 'https://api.modrinth.com/maven' } }
+		filter { includeGroup 'maven.modrinth' }
+	}
+	maven { url = 'https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1' }
 }
 
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-	implementation "dev.isxander:yet-another-config-lib:${project.yacl_version}"
+	implementation "maven.modrinth:resourceful-config:${project.rconfig_version}"
+	// DevAuth: log in with your real Microsoft/Minecraft account in the dev client
+	runtimeOnly "me.djtheredstoner:DevAuth-fabric:1.2.1"
+	// Newer Minecraft no longer bundles Apache HttpClient, which DevAuth needs
+	runtimeOnly "org.apache.httpcomponents:httpclient:4.5.14"
 }
 
 processResources {
@@ -22,6 +30,15 @@ processResources {
 	inputs.property "version", modVersion
 	filesMatching("fabric.mod.json") {
 		expand "version": modVersion
+	}
+}
+
+loom {
+	runs {
+		client {
+			// DevAuth is off by default; this logs the dev client in with your real account
+			property "devauth.enabled", "true"
+		}
 	}
 }
 

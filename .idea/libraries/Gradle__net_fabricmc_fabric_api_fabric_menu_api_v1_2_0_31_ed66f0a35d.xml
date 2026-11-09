@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: net.fabricmc.fabric-api:fabric-menu-api-v1:2.0.31+ed66f0a35d" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="net.fabricmc.fabric-api" artifactId="fabric-menu-api-v1" version="2.0.31+ed66f0a35d" baseVersion="2.0.31+ed66f0a35d" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-menu-api-v1/2.0.31+ed66f0a35d/4f8ddcb7f457725fcb6572a5d0c59fcae96c1d64/fabric-menu-api-v1-2.0.31+ed66f0a35d.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
