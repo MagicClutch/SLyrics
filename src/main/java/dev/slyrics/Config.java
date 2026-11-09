@@ -62,6 +62,60 @@ public class Config {
 	public boolean blockClipping = true;
 	public boolean throughWalls = true;
 
+	// ------------------------------------------------------------------ performance
+
+	/** Compact mode: effects, animations and extras are switched off (your settings stay untouched). */
+	public boolean performanceMode = false;
+	/** In performance mode: no 3D words at all, only the plain HUD line (lightest). */
+	public boolean perfHudOnly = false;
+
+	private static Config perfView;
+
+	/** Forget the cached performance view; call after the settings changed. */
+	public static void settingsChanged() {
+		perfView = null;
+	}
+
+	/**
+	 * The settings the mod should act on: normally your settings, in performance mode a stripped-down copy of them
+	 * (your own values are never changed by it).
+	 */
+	public static Config live() {
+		if (!INSTANCE.performanceMode) return INSTANCE;
+		Config v = perfView;
+		if (v == null) {
+			v = new Config();
+			for (java.lang.reflect.Field f : Config.class.getFields()) {
+				int m = f.getModifiers();
+				if (java.lang.reflect.Modifier.isStatic(m) || java.lang.reflect.Modifier.isFinal(m)) continue;
+				try {
+					f.set(v, f.get(INSTANCE));
+				} catch (IllegalAccessException ignored) {
+					// public fields only
+				}
+			}
+			v.glow = 0;
+			v.outline = 0;
+			v.blur = 0;
+			v.bounce = 0;
+			v.flicker = false;
+			v.depth3d = false;
+			v.sweepGlow = false;
+			v.textAnim = "None";
+			v.emojis = false;
+			v.emojiSprites = false;
+			v.stickMode = false;
+			v.blockClipping = false;
+			v.beatShake = false;
+			if (v.perfHudOnly) {
+				v.hologram = false;
+				v.skyMode = false;
+			}
+			perfView = v;
+		}
+		return v;
+	}
+
 	/** True if any of the in-world modes is on (otherwise the plain HUD line is shown). */
 	public boolean anyWorld() {
 		return hologram || skyMode || stickMode;

@@ -124,6 +124,7 @@ public final class ConfigSync {
 	}
 
 	private static void copy(boolean fromRc) {
+		if (fromRc) Config.settingsChanged();
 		for (Class<?> cat : RcConfig.class.getDeclaredClasses()) {
 			for (Field rf : cat.getDeclaredFields()) {
 				if (!Modifier.isStatic(rf.getModifiers()) || Modifier.isFinal(rf.getModifiers())) continue;

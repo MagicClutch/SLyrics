@@ -6,7 +6,7 @@ import com.teamresourceful.resourcefulconfig.api.annotations.*;
  * The settings screen (Resourceful Config): one nested class per category, one static field per setting.
  * ConfigSync mirrors the values into Config by field name, so a field here needs a field of the same name there.
  */
-@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Connectivity.class, RcConfig.TextSettings.class, RcConfig.SizeCat.class, RcConfig.Modes.class, RcConfig.Cat9.class, RcConfig.Cat10.class})
+@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Connectivity.class, RcConfig.TextSettings.class, RcConfig.SizeCat.class, RcConfig.Modes.class, RcConfig.PerformanceTab.class, RcConfig.Cat9.class, RcConfig.Cat10.class})
 @ConfigInfo(title = "SLyrics", description = "Spotify lyrics as floating words in the world")
 public final class RcConfig {
 	private static final Config D = new Config();
@@ -432,6 +432,18 @@ public final class RcConfig {
 		@ConfigOption.Range(min = 2, max = 60)
 		@ConfigOption.Slider
 		public static float afkSpeed = D.afkSpeed;
+
+	}
+
+	@Category("Performance")
+	public static final class PerformanceTab {
+		@ConfigEntry(id = "performanceMode", translation = "slyrics.config.performanceMode")
+		@Comment("A compact version of the mod for PvP and weak PCs: glow, outline, blur, bounce, flicker, 3D, animations, emojis, stick-on-blocks, wall checks and camera shakes are switched off. Your own settings stay as they are; turn this off to get them back. Also: /slyrics performance")
+		public static boolean performanceMode = D.performanceMode;
+
+		@ConfigEntry(id = "perfHudOnly", translation = "slyrics.config.perfHudOnly")
+		@Comment("In performance mode, show the lyrics only as a plain line on the screen: no words in the world at all. The lightest option.")
+		public static boolean perfHudOnly = D.perfHudOnly;
 
 	}
 

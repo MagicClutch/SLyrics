@@ -19,7 +19,7 @@ public final class LyricsWorld {
 
 	/** Where the word being sung is, or the next one just before it appears (for the AFK camera), or null. */
 	public static net.minecraft.world.phys.Vec3 currentWordPos(long now) {
-		return SCENE.currentWordPos(now, Config.INSTANCE.follow);
+		return SCENE.currentWordPos(now, Config.live().follow);
 	}
 	private static final int OUTLINE_RGB = 0x080B16;
 
@@ -80,7 +80,7 @@ public final class LyricsWorld {
 	}
 
 	private static void tick(Minecraft mc) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		long now = System.currentTimeMillis();
 		Track track = Spotify.track;
 		if (mc.player == null) {
@@ -125,7 +125,7 @@ public final class LyricsWorld {
 	// ------------------------------------------------------------------ drawing
 
 	private static void render(LevelRenderContext ctx) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null || mc.player == null || !c.enabled || !c.anyWorld()) return;
 		long now = System.currentTimeMillis();
@@ -164,7 +164,7 @@ public final class LyricsWorld {
 	}
 
 	private static void drawItem(Minecraft mc, PoseStack ps, Vec3 cam, LyricScene.Item it, long now, Sink sink) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		if (now < it.sungAt[0]) return;
 
 		float born = clamp01((now - it.sungAt[0]) / (float) LyricScene.POP_MS);
@@ -278,7 +278,7 @@ public final class LyricsWorld {
 	 * tw is the time since the word was sung (negative = not sung yet).
 	 */
 	private static float[] anim(String style, long tw, int i, long now, float seed, boolean active) {
-		float spd = Config.INSTANCE.animSpeed / 100f;
+		float spd = Config.live().animSpeed / 100f;
 		float sc = 1f, rot = 0f, dx = 0f, dy = 0f;
 		float t = tw * spd;
 		switch (style == null ? "None" : style) {
@@ -336,7 +336,7 @@ public final class LyricsWorld {
 	}
 
 	private static void drawWord(Component text, Component colored, String raw, float x, float y, float a, float smear, float glitch, float boost, float away, float sweepProg, float sweepAlpha, Sink sink) {
-		Config c = Config.INSTANCE;
+		Config c = Config.live();
 		float glow = c.glow / 100f, outline = c.outline / 100f;
 		boolean see = c.throughWalls && !behindPlayer;
 		var under = see ? Font.DisplayMode.SEE_THROUGH : stickNow ? Font.DisplayMode.POLYGON_OFFSET : Font.DisplayMode.NORMAL;
