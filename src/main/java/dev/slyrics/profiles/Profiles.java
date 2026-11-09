@@ -138,6 +138,63 @@ public final class Profiles {
 		return true;
 	}
 
+	/** The profile as text that can be shared (file or clipboard). */
+	public static String exportText(String rawName, boolean pretty) throws Exception {
+		Path file = folder().resolve(clean(rawName) + ".json");
+		if (!Files.isRegularFile(file)) throw new IllegalArgumentException("No profile named '" + rawName + "'");
+		JsonObject o = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+		JsonObject out = new JsonObject();
+		out.addProperty("_profile", clean(rawName));
+		for (var e : o.entrySet()) out.add(e.getKey(), e.getValue());
+		return (pretty ? new GsonBuilder().setPrettyPrinting().create() : new GsonBuilder().create()).toJson(out);
+	}
+
+	/**
+	 * Saves shared profile text as a new profile. The name comes from rawName, or from the text itself if empty.
+	 * Only known settings are kept (never a client ID). Refuses to replace an existing profile.
+	 */
+	public static String importText(String text, String rawName) throws Exception {
+		return importText(text, rawName, "imported");
+	}
+
+	/** If rawName is empty the name is taken from the text (or fallback) and made unique ("name-2") instead of refused. */
+	public static String importText(String text, String rawName, String fallback) throws Exception {
+		JsonObject in;
+		try {
+			in = JsonParser.parseString(text.trim()).getAsJsonObject();
+		} catch (Exception e) {
+			throw new IllegalArgumentException("That is not a profile");
+		}
+		String name = clean(rawName);
+		if (name.isEmpty()) {
+			if (in.has("_profile") && in.get("_profile").isJsonPrimitive()) name = clean(in.get("_profile").getAsString());
+			if (name.isEmpty()) name = clean(fallback);
+			if (name.isEmpty()) name = "imported";
+			String base = name;
+			for (int i = 2; exists(name); i++) name = base + "-" + i;
+		} else if (exists(name)) {
+			throw new IllegalArgumentException("'" + name + "' already exists. Type another name");
+		}
+		JsonObject kept = new JsonObject();
+		for (Field f : settingFields()) {
+			JsonElement e = in.get(f.getName());
+			if (e != null && e.isJsonPrimitive()) kept.add(f.getName(), e);
+		}
+		if (kept.size() == 0) throw new IllegalArgumentException("That is not a profile");
+		Files.writeString(folder().resolve(name + ".json"), new GsonBuilder().setPrettyPrinting().create().toJson(kept));
+		return name;
+	}
+
+	public static Path exportsFolder() {
+		Path dir = folder().resolve("exports");
+		try {
+			Files.createDirectories(dir);
+		} catch (Exception ignored) {
+			// reported when writing
+		}
+		return dir;
+	}
+
 	public static boolean delete(String rawName) {
 		try {
 			if (clean(rawName).equals(active())) setActive("");
