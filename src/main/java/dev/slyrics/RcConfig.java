@@ -241,6 +241,16 @@ public final class RcConfig {
 		@Comment("On: lyrics can be seen through blocks and houses. Off: blocks hide them, so you only see words that are not behind terrain or buildings. Applies to all modes.")
 		public static boolean throughWalls = D.throughWalls;
 
+		@ConfigEntry(id = "floating", translation = "slyrics.config.floating")
+		@Comment("Floating mode: words don't stay where they appear but keep drifting through the world, word by word, and fade out on the way. Works with Aura, Sky and the AFK camera (not with stick-on-blocks).")
+		public static boolean floating = D.floating;
+
+		@ConfigEntry(id = "floatSpeed", translation = "slyrics.config.floatSpeed")
+		@Comment("How fast floating words travel across your view, in degrees per second")
+		@ConfigOption.Range(min = 3, max = 60)
+		@ConfigOption.Slider
+		public static int floatSpeed = D.floatSpeed;
+
 		@ConfigEntry(id = "hologram", translation = "slyrics.config.hologram")
 		@Comment("Words float in front of you, scattered around the crosshair. If every world mode is off, the lyrics show as a plain HUD line")
 		public static boolean hologram = D.hologram;

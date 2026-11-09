@@ -116,6 +116,11 @@ public class Config {
 		return v;
 	}
 
+	/** Floating mode: words keep drifting through the world instead of staying where they appeared (not for stick-on-blocks). */
+	public boolean floating = false;
+	/** How fast floating words travel across your view, in degrees per second. */
+	public int floatSpeed = 12;
+
 	/** True if any of the in-world modes is on (otherwise the plain HUD line is shown). */
 	public boolean anyWorld() {
 		return hologram || skyMode || stickMode;
