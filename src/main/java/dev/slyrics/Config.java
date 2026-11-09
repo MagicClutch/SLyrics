@@ -33,6 +33,10 @@ public class Config {
 	public String clientId = "";
 	/** Lyrics timing offset in ms (positive = later). */
 	public int offsetMs = 0;
+	/** Where the current song comes from: "Spotify" or "Apple Music". */
+	public String musicSource = "Spotify";
+	/** Apple Music: only use media players whose name contains this (empty = any except Spotify). */
+	public String applePlayer = "";
 	/** On-screen status message (e.g. when no lyrics were found). */
 	public boolean showStatus = true;
 	/** How many GUI scale steps smaller the settings screen is drawn (0 = normal size). */

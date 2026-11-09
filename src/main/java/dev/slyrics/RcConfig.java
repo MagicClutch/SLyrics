@@ -23,12 +23,24 @@ public final class RcConfig {
 		public static TextAnim of(String s) { for (TextAnim a : values()) if (a.label.equals(s)) return a; return NONE; }
 	}
 
-	@Category(value = "Connectivity", categories = {General.class, SpotifyTab.class})
+	public enum MusicSource {
+		SPOTIFY("Spotify"), APPLE_MUSIC("Apple Music");
+		public final String label;
+		MusicSource(String label) { this.label = label; }
+		@Override public String toString() { return label; }
+		public static MusicSource of(String s) { for (MusicSource m : values()) if (m.label.equals(s)) return m; return SPOTIFY; }
+	}
+
+	@Category(value = "Connectivity", categories = {General.class, SpotifyTab.class, AppleMusicTab.class})
 	public static final class Connectivity {
 	}
 
 	@Category(value = "General")
 	public static final class General {
+		@ConfigEntry(id = "musicSource", translation = "slyrics.config.musicSource")
+		@Comment("Where the current song comes from. Spotify: logs in with your Spotify account. Apple Music: reads the song from the media player on this computer (Linux only for now).")
+		public static MusicSource musicSource = MusicSource.of(D.musicSource);
+
 		@ConfigEntry(id = "enabled", translation = "slyrics.config.enabled")
 		@Comment("Turn the mod on or off")
 		public static boolean enabled = D.enabled;
@@ -464,6 +476,14 @@ public final class RcConfig {
 		@ConfigEntry(id = "showStatus", translation = "slyrics.config.showStatus")
 		@Comment("Status message when nothing is playing or no lyrics were found")
 		public static boolean showStatus = D.showStatus;
+
+	}
+
+	@Category("Apple Music")
+	public static final class AppleMusicTab {
+		@ConfigEntry(id = "applePlayer", translation = "slyrics.config.applePlayer")
+		@Comment("Only use a media player whose name contains this text, e.g. cider or firefox. Empty = any player except Spotify. Used when the source is Apple Music.")
+		public static String applePlayer = D.applePlayer;
 
 	}
 

@@ -158,6 +158,7 @@ public final class ConfigSync {
 	private static Object toConfig(Object v, Class<?> target) {
 		if (target == String.class && v instanceof Integer i) return String.format("%06X", i & 0xFFFFFF); // color
 		if (target == String.class && v instanceof RcConfig.TextAnim a) return a.label;
+		if (target == String.class && v instanceof RcConfig.MusicSource m) return m.label;
 		return v;
 	}
 
@@ -170,6 +171,7 @@ public final class ConfigSync {
 			}
 		}
 		if (target == RcConfig.TextAnim.class && v instanceof String s) return RcConfig.TextAnim.of(s);
+		if (target == RcConfig.MusicSource.class && v instanceof String s) return RcConfig.MusicSource.of(s);
 		return v;
 	}
 }

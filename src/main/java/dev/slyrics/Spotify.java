@@ -193,7 +193,7 @@ public final class Spotify {
 	}
 
 	private static void poll() throws Exception {
-		if (refreshToken == null || !Config.INSTANCE.enabled) return;
+		if (refreshToken == null || !Config.INSTANCE.enabled || !"Spotify".equals(Config.INSTANCE.musicSource)) return;
 		if (System.currentTimeMillis() < pausedUntil) return;
 		if (accessToken == null || System.currentTimeMillis() > accessExpiresAt) refresh();
 
@@ -235,6 +235,11 @@ public final class Spotify {
 		fetchedAtNanos = System.nanoTime();
 		playing = isPlaying;
 
+		setTrack(t);
+	}
+
+	/** Makes t the current song (shared by all music sources) and looks up its lyrics when it changed. */
+	static void setTrack(Track t) {
 		Track old = track;
 		if (old == null || !old.id().equals(t.id())) {
 			track = t;
@@ -250,6 +255,17 @@ public final class Spotify {
 				}
 			});
 		}
+	}
+
+	/** For other music sources: the song is at progressMs right now. */
+	static void setProgress(long progressMs, boolean isPlaying) {
+		progressAtFetch = progressMs;
+		fetchedAtNanos = System.nanoTime();
+		playing = isPlaying;
+	}
+
+	static ScheduledExecutorService executor() {
+		return EXEC;
 	}
 
 	private static String enc(String s) {
