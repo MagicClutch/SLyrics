@@ -44,6 +44,9 @@ public final class LyricScene {
 		public final boolean sky;
 		public final boolean stick;
 		public long fadeAt = Long.MAX_VALUE;
+		/** Floating mode: travel speed in blocks per second, and how far it has travelled so far. */
+		public Vec3 vel, drift;
+		public boolean floatInit;
 
 		Item(String[] words, long[] sungAt, long[] heldUntil, Vec3 pos, Vec3 anchor, float yaw, float pitch, float roll,
 			 float fit, double spanH, double spanV, float seed, boolean sky, boolean stick) {
@@ -73,6 +76,8 @@ public final class LyricScene {
 	private long followNs;
 	private int slotCursor;
 	private Vec3 lastCarry;
+	/** Floating mode: which way the current line flows across the view (alternates per line). */
+	private int floatSign = 1;
 
 	public void clear() {
 		items.clear();
@@ -114,7 +119,8 @@ public final class LyricScene {
 	}
 
 	public Vec3 worldPos(Item it, boolean followMe) {
-		return followMe && !it.camLocked && follow != null ? it.pos.add(follow.subtract(it.anchor)) : it.pos;
+		Vec3 base = followMe && !it.camLocked && follow != null ? it.pos.add(follow.subtract(it.anchor)) : it.pos;
+		return it.drift == null ? base : base.add(it.drift);
 	}
 
 	// ------------------------------------------------------------------ a new line
@@ -177,6 +183,7 @@ public final class LyricScene {
 		}
 
 		if (follow == null || follow.distanceToSqr(player.position()) > 900) follow = player.position();
+		floatSign = -floatSign;
 
 		if (worldOnly && c.lineMode) {
 			Vec3 spot = c.centerLayout ? ahead(player, 0, 4) : pick(mc, words, start[0], 4000, true);
@@ -195,6 +202,7 @@ public final class LyricScene {
 			for (int i = 0; i < words.length; i++) {
 				int mode = enabled.get(rng.nextInt(enabled.size()));
 				long fadeAt = mode == 1 ? Math.max(start[i] + 2600, end[i] + 1400) : Math.max(Math.max(start[i] + 1200, end[i] + 500), start[i] + life);
+				if (c.floating && mode != 2) fadeAt = Math.max(fadeAt, start[i] + 3200); // floating words need time to travel
 				if (c.wordHoldMs > 0) fadeAt = start[i] + c.wordHoldMs; // user-set: fade this long after the word is sung
 				if (fadeAt < now) continue;
 				queue.add(new Queued(words[i], start[i], end[i], fadeAt, i, mode));
@@ -245,6 +253,7 @@ public final class LyricScene {
 			place(mc, w, new long[]{q.sungAt()}, new long[]{q.heldUntil()}, safe, 2, shrink).fadeAt = q.fadeAt();
 		}
 		trim();
+		updateFloating(mc, now);
 
 		Vec3 me = player.position();
 		boolean fm = Config.live().follow;
@@ -264,6 +273,27 @@ public final class LyricScene {
 		for (Item it : items) {
 			if (it.sky || it.stick || it.camLocked || now > it.sungAt[it.sungAt.length - 1]) continue;
 			it.pos = it.pos.add(dx, 0, dz);
+		}
+	}
+
+	/** Floating mode: gives new words a velocity across the view and moves all floating words along. */
+	private void updateFloating(Minecraft mc, long now) {
+		Config c = Config.live();
+		Vec3 eye = null;
+		for (Item it : items) {
+			if (!it.floatInit) {
+				it.floatInit = true;
+				if (c.floating && !it.stick) {
+					if (eye == null) eye = AfkCamera.eye(mc);
+					Vec3 off = it.pos.subtract(eye);
+					double dist = Math.max(1.0, off.length());
+					double flat = Math.max(0.001, Math.hypot(off.x, off.z));
+					Vec3 side = new Vec3(-off.z / flat, 0, off.x / flat);
+					double perSec = Math.toRadians(c.floatSpeed) * dist; // same angular speed near and far
+					it.vel = side.scale(floatSign * perSec).add(0, perSec * 0.12, 0);
+				}
+			}
+			if (it.vel != null) it.drift = it.vel.scale(Math.max(0, now - it.sungAt[0]) / 1000.0);
 		}
 	}
 

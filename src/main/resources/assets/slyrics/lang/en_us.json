@@ -37,6 +37,8 @@
 	"slyrics.config.afkTextFar": "Words: farthest from you",
 	"slyrics.config.performanceMode": "Performance mode",
 	"slyrics.config.perfHudOnly": "Performance: HUD line only",
+	"slyrics.config.floating": "Floating mode",
+	"slyrics.config.floatSpeed": "Floating speed (degrees/s)",
 	"slyrics.config.connect": "Connect to Spotify",
 	"slyrics.config.depth3d": "3D text",
 	"slyrics.config.depthSize": "3D thickness",
