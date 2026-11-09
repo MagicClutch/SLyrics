@@ -70,6 +70,7 @@ public final class LyricScene {
 	private Vec3 follow;
 	private long followNs;
 	private int slotCursor;
+	private Vec3 lastCarry;
 
 	public void clear() {
 		items.clear();
@@ -214,6 +215,7 @@ public final class LyricScene {
 		if (player == null) return;
 		followCamera(mc);
 		smoothFollow(player.position());
+		carryUnsung(now);
 
 		for (int i = 0; i < queue.size(); i++) {
 			Queued q = queue.get(i);
@@ -244,6 +246,22 @@ public final class LyricScene {
 		Vec3 me = player.position();
 		boolean fm = Config.INSTANCE.follow;
 		items.removeIf(it -> now - it.fadeAt > FADE_MS || (!it.sky && worldPos(it, fm).distanceToSqr(me) > 3600)); // sky words stand far away on purpose
+	}
+
+	/**
+	 * Words that are placed ahead of time (and the rest of a long line) travel with the player sideways and forwards,
+	 * so when they are sung they are still the set distance in front of you, however fast you run.
+	 */
+	private void carryUnsung(long now) {
+		Vec3 prev = lastCarry;
+		lastCarry = follow;
+		if (prev == null || follow == null || Config.INSTANCE.follow) return;
+		double dx = follow.x - prev.x, dz = follow.z - prev.z;
+		if (dx == 0 && dz == 0) return;
+		for (Item it : items) {
+			if (it.sky || it.stick || it.camLocked || now > it.sungAt[it.sungAt.length - 1]) continue;
+			it.pos = it.pos.add(dx, 0, dz);
+		}
 	}
 
 	private void smoothFollow(Vec3 target) {
