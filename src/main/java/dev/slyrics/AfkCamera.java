@@ -77,7 +77,8 @@ public final class AfkCamera {
 		boolean look = Math.abs(p.getYRot() - lastYaw) > 0.01f || Math.abs(p.getXRot() - lastPitch) > 0.01f;
 		lastYaw = p.getYRot();
 		lastPitch = p.getXRot();
-		return keys || look || mc.gui.screen() != null;
+		// open screens (chat, pause menu, inventory) do not count: only moving or looking around in the game ends the AFK camera
+		return keys || look;
 	}
 
 	private static void tick(Minecraft mc) {
