@@ -82,7 +82,7 @@ public final class AfkCamera {
 	}
 
 	private static void tick(Minecraft mc) {
-		Config c = Config.live();
+		Config c = Config.INSTANCE;
 		long now = System.currentTimeMillis();
 		if (mc.player == null) {
 			if (active) stop(mc);
@@ -114,13 +114,11 @@ public final class AfkCamera {
 		fading = false;
 		shotIndex = -1;
 		linesSinceCut = 0;
-		kicks.clear();
-		shakeE = 0;
 		panYaw = 0;
 		panPitch = 0;
 		panVYaw = 0;
 		panVPitch = 0;
-		shotDurMs = Math.max(3, Config.live().afkShotSeconds) * 1000L;
+		shotDurMs = Math.max(3, Config.INSTANCE.afkShotSeconds) * 1000L;
 		saved = mc.options.getCameraType();
 		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
 		camPos = null;
@@ -138,7 +136,7 @@ public final class AfkCamera {
 	/** Called whenever a new lyric line starts. Cuts to a new shot every N lines, never in the middle of a line. */
 	public static void onLine(int idx, java.util.List<LyricLine> lines) {
 		if (!active) return;
-		Config c = Config.live();
+		Config c = Config.INSTANCE;
 		linesSinceCut++;
 		int every = Math.max(1, c.afkCutEveryLines);
 		if (linesSinceCut < every) return;
@@ -184,17 +182,7 @@ public final class AfkCamera {
 	}
 
 	private static java.util.List<Shot> enabledShots() {
-		Config c = Config.live();
-		java.util.List<Shot> l = new java.util.ArrayList<>();
-		if (c.afkOrbit) l.add(Shot.ORBIT);
-		if (c.afkRise) l.add(Shot.RISE);
-		if (c.afkDescend) l.add(Shot.DESCEND);
-		if (c.afkDiagonal) l.add(Shot.DIAGONAL);
-		if (c.afkFlyby) l.add(Shot.FLYBY);
-		if (c.afkPushIn) l.add(Shot.PUSH_IN);
-		if (c.afkPullOut) l.add(Shot.PULL_OUT);
-		if (l.isEmpty()) l.add(Shot.ORBIT);
-		return l;
+		return java.util.List.of(Shot.ORBIT, Shot.RISE, Shot.DESCEND, Shot.DIAGONAL, Shot.FLYBY, Shot.PUSH_IN, Shot.PULL_OUT);
 	}
 
 	private static final java.util.Random RNG = new java.util.Random();
@@ -218,10 +206,10 @@ public final class AfkCamera {
 
 	/** Starts the next shot. With glide=true the camera blends over from where it is now. */
 	private static void nextShot(long now, float refYaw, boolean glide) {
-		Config c = Config.live();
+		Config c = Config.INSTANCE;
 		if (shotIndex >= 0) LyricsWorld.fadeVisibleNow(); // a cut: words that were already sung leave with the old shot
 		java.util.List<Shot> shots = enabledShots();
-		if (c.afkCloseUp && RNG.nextInt(100) < c.afkCloseUpPercent && !(isClose(shot) && shotIndex >= 0)) {
+		if (RNG.nextInt(100) < c.afkCloseUpPercent && !(isClose(shot) && shotIndex >= 0)) {
 			shot = CLOSE_SHOTS[RNG.nextInt(CLOSE_SHOTS.length)];
 			if (shotIndex < 0) shotIndex = 0;
 			shotStart = now;
@@ -268,7 +256,7 @@ public final class AfkCamera {
 	}
 
 	private static Vec3 baseOffset(double u, double t) {
-		Config c = Config.live();
+		Config c = Config.INSTANCE;
 		// half eased, half linear: the move never comes to a dead stop at its start or end
 		double r = c.afkRadius, h = c.afkHeight, e = 0.5 * smooth((float) u) + 0.5 * u, a = shotAngle;
 		switch (shot) {
@@ -326,7 +314,7 @@ public final class AfkCamera {
 	/** Camera pose for this frame: {x, y, z, yaw, pitch}, or null when the normal camera is used. */
 	public static double[] pose(Minecraft mc, float partialTicks) {
 		if (!active || mc.player == null || mc.level == null) return null;
-		Config c = Config.live();
+		Config c = Config.INSTANCE;
 		var p = mc.player;
 		long now = System.currentTimeMillis();
 
@@ -400,45 +388,6 @@ public final class AfkCamera {
 			pitch += (float) panPitch;
 		}
 
-		double amp = shakeAmount(now);
-		if (amp > 0.001) { // only the rendered camera shakes, not the logical one the words are placed from
-			double a = amp * 1.6;
-			yaw += (float) (a * (Math.sin(now * 0.083) + 0.6 * Math.sin(now * 0.171 + 2.0)));
-			pitch += (float) (a * (Math.sin(now * 0.097 + 1.3) + 0.6 * Math.sin(now * 0.153)));
-			double p3 = amp * 0.06;
-			pos = pos.add(p3 * Math.sin(now * 0.11), p3 * Math.sin(now * 0.127 + 0.7), p3 * Math.sin(now * 0.09 + 1.9));
-		}
 		return new double[]{pos.x, pos.y, pos.z, yaw, pitch};
-	}
-
-	// ------------------------------------------------------------------ experimental: lyric-timed shake
-
-	private static final java.util.List<double[]> kicks = new java.util.ArrayList<>(); // {absolute time ms, strength}
-	private static double shakeE;
-	private static long shakeT;
-
-	/** Schedules a camera shake at an absolute time (ms since epoch). Ignored unless the AFK camera is running. */
-	public static void scheduleKick(long at, double strength) {
-		if (!active) return;
-		if (at < System.currentTimeMillis() - 200) return;
-		kicks.add(new double[]{at, strength});
-	}
-
-	/** Current shake size, 0..~1.3, decaying fast after each kick. */
-	private static double shakeAmount(long now) {
-		Config c = Config.live();
-		if (!c.beatShake) {
-			kicks.clear();
-			return 0;
-		}
-		for (var it = kicks.iterator(); it.hasNext(); ) {
-			double[] k = it.next();
-			if (k[0] <= now) {
-				shakeE = Math.min(1.3, shakeE * Math.exp(-(now - shakeT) / 260.0) + k[1]);
-				shakeT = now;
-				it.remove();
-			}
-		}
-		return shakeE * Math.exp(-(now - shakeT) / 260.0) * (c.shakeStrength / 100.0);
 	}
 }

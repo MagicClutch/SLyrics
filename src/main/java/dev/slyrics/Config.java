@@ -45,6 +45,9 @@ public class Config {
 	/** The profile that was last saved or loaded (empty = none). Not a setting: it is not part of any profile. */
 	public String activeProfile = "";
 
+	/** Which built-in profiles were already created (so deleted ones do not come back). */
+	public int defaultProfilesVersion = 0;
+
 	/** Which default emoji words were already merged into the word lists. */
 	public int emojiVersion = 0;
 
@@ -52,10 +55,6 @@ public class Config {
 
 	/** Words float in the world, scattered around the crosshair. */
 	public boolean hologram = false;
-	/** false = words (each on its own), true = lines (whole line, the current word lights up). */
-	public boolean lineMode = false;
-	/** false = scattered around the crosshair, true = in a row straight ahead. */
-	public boolean centerLayout = false;
 	/** Closest / farthest distance of the words in blocks. */
 	public float near = 7.5f;
 	public float far = 9.5f;
@@ -64,60 +63,6 @@ public class Config {
 	/** Keep words out of blocks: they are moved in front of walls/terrain and never placed inside the ground. */
 	public boolean blockClipping = true;
 	public boolean throughWalls = true;
-
-	// ------------------------------------------------------------------ performance
-
-	/** Compact mode: effects, animations and extras are switched off (your settings stay untouched). */
-	public boolean performanceMode = false;
-	/** In performance mode: no 3D words at all, only the plain HUD line (lightest). */
-	public boolean perfHudOnly = false;
-
-	private static Config perfView;
-
-	/** Forget the cached performance view; call after the settings changed. */
-	public static void settingsChanged() {
-		perfView = null;
-	}
-
-	/**
-	 * The settings the mod should act on: normally your settings, in performance mode a stripped-down copy of them
-	 * (your own values are never changed by it).
-	 */
-	public static Config live() {
-		if (!INSTANCE.performanceMode) return INSTANCE;
-		Config v = perfView;
-		if (v == null) {
-			v = new Config();
-			for (java.lang.reflect.Field f : Config.class.getFields()) {
-				int m = f.getModifiers();
-				if (java.lang.reflect.Modifier.isStatic(m) || java.lang.reflect.Modifier.isFinal(m)) continue;
-				try {
-					f.set(v, f.get(INSTANCE));
-				} catch (IllegalAccessException ignored) {
-					// public fields only
-				}
-			}
-			v.glow = 0;
-			v.outline = 0;
-			v.blur = 0;
-			v.bounce = 0;
-			v.flicker = false;
-			v.depth3d = false;
-			v.sweepGlow = false;
-			v.textAnim = "None";
-			v.emojis = false;
-			v.emojiSprites = false;
-			v.stickMode = false;
-			v.blockClipping = false;
-			v.beatShake = false;
-			if (v.perfHudOnly) {
-				v.hologram = false;
-				v.skyMode = false;
-			}
-			perfView = v;
-		}
-		return v;
-	}
 
 	/** Floating mode: words keep drifting through the world instead of staying where they appeared (not for stick-on-blocks). */
 	public boolean floating = false;
@@ -223,16 +168,6 @@ public class Config {
 	/** In the AFK camera the lyric words stand this far from the player (min / max, in blocks). */
 	public float afkTextNear = 3f;
 	public float afkTextFar = 5f;
-	/** Which camera shots may be used. */
-	public boolean afkOrbit = true;
-	public boolean afkRise = true;
-	public boolean afkDescend = true;
-	public boolean afkDiagonal = true;
-	public boolean afkFlyby = true;
-	public boolean afkPushIn = true;
-	public boolean afkPullOut = true;
-	/** Close-up shots: face, feet-to-head tilts and tight orbits around the head. */
-	public boolean afkCloseUp = true;
 	/** Chance in percent that the next shot is a close-up. */
 	public int afkCloseUpPercent = 45;
 	/** Pick the next shot at random (otherwise in a fixed order). */
@@ -250,12 +185,6 @@ public class Config {
 
 	// ------------------------------------------------------------------ experimental
 
-	/** AFK camera shakes, timed by the lyrics (line starts, long held words, emphasized words). */
-	public boolean beatShake = false;
-	public int shakeStrength = 100;
-	public boolean shakeOnLines = true;
-	public boolean shakeOnLongWords = true;
-	public boolean shakeOnEmphasis = true;
 
 	// ------------------------------------------------------------------ HUD line (when no world mode is on)
 
