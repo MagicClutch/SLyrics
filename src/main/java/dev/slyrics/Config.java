@@ -158,6 +158,9 @@ public class Config {
 	public float afkSpeed = 12f;
 	/** The camera never gets farther than this from the player, in blocks. */
 	public float afkMaxDistance = 8f;
+	/** In the AFK camera the lyric words stand this far from the player (min / max, in blocks). */
+	public float afkTextNear = 3f;
+	public float afkTextFar = 5f;
 	/** Which camera shots may be used. */
 	public boolean afkOrbit = true;
 	public boolean afkRise = true;

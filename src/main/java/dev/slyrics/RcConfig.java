@@ -6,7 +6,7 @@ import com.teamresourceful.resourcefulconfig.api.annotations.*;
  * The settings screen (Resourceful Config): one nested class per category, one static field per setting.
  * ConfigSync mirrors the values into Config by field name, so a field here needs a field of the same name there.
  */
-@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Connectivity.class, RcConfig.TextSettings.class, RcConfig.SizeCat.class, RcConfig.Modes.class, RcConfig.Cat8.class, RcConfig.Cat9.class, RcConfig.Cat10.class})
+@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Connectivity.class, RcConfig.TextSettings.class, RcConfig.SizeCat.class, RcConfig.Modes.class, RcConfig.Cat9.class, RcConfig.Cat10.class})
 @ConfigInfo(title = "SLyrics", description = "Spotify lyrics as floating words in the world")
 public final class RcConfig {
 	private static final Config D = new Config();
@@ -231,7 +231,7 @@ public final class RcConfig {
 
 	}
 
-	@Category(value = "Modes", categories = {PickModes.class, WorldWords.class, SkyWords.class, StickWords.class})
+	@Category(value = "Modes", categories = {PickModes.class, WorldWords.class, SkyWords.class, StickWords.class, Cat8.class})
 	public static final class Modes {
 	}
 
@@ -315,6 +315,18 @@ public final class RcConfig {
 
 	@Category("AFK camera")
 	public static final class Cat8 {
+		@ConfigEntry(id = "afkTextNear", translation = "slyrics.config.afkTextNear")
+		@Comment("In the AFK camera, the closest the lyric words stand to you, in blocks")
+		@ConfigOption.Range(min = 1, max = 12)
+		@ConfigOption.Slider
+		public static float afkTextNear = D.afkTextNear;
+
+		@ConfigEntry(id = "afkTextFar", translation = "slyrics.config.afkTextFar")
+		@Comment("In the AFK camera, the farthest the lyric words stand from you, in blocks")
+		@ConfigOption.Range(min = 1, max = 16)
+		@ConfigOption.Slider
+		public static float afkTextFar = D.afkTextFar;
+
 		@ConfigEntry(id = "afkFollowWord", translation = "slyrics.config.afkFollowWord")
 		@Comment("The camera swings toward the word that is being sung, so you always look at the current word. Smooth, not a cut.")
 		public static boolean afkFollowWord = D.afkFollowWord;

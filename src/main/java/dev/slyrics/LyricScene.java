@@ -332,10 +332,15 @@ public final class LyricScene {
 			double dx = Math.max(-reachH * 1.2, Math.min(reachH * 1.2, cx + rng.nextGaussian() * j));
 			double dy = Math.max(-reachV * 1.2, Math.min(reachV * 1.2, cy + rng.nextGaussian() * j * 0.55));
 			double dist = near + rng.nextDouble() * (far - near);
+			Vec3 dirV = dirOf(AfkCamera.yaw(mc) + dx, AfkCamera.pitch(mc) + dy);
+			if (AfkCamera.active() && p != null) { // AFK camera: the words stand close to the player, not to the far-away camera
+				double lo = Math.min(c.afkTextNear, c.afkTextFar), hi = Math.max(c.afkTextNear, c.afkTextFar);
+				dist = distToShell(eye, dirV, p.position().add(0, 0.9, 0), lo + rng.nextDouble() * (hi - lo), dist);
+			}
 			double fit = Math.min(1.0, 2 * dist * Math.tan(Math.toRadians(fovH * 0.38)) / Math.max(width, 0.01));
 			double spanH = Math.toDegrees(Math.atan(width * fit / (2 * dist)));
 			double spanV = Math.toDegrees(Math.atan(9 * unit() * fit / (2 * dist)));
-			Vec3 spot = eye.add(dirOf(AfkCamera.yaw(mc) + dx, AfkCamera.pitch(mc) + dy).scale(dist));
+			Vec3 spot = eye.add(dirV.scale(dist));
 			if (c.blockClipping) spot = liftFromGround(mc, spot);
 			double room = clearance(eye, spot, spanH, spanV, c.follow);
 			double score = Math.min(room, 7) * 9 - Math.hypot(dx - cx, dy - cy) * 0.35;
@@ -346,6 +351,17 @@ public final class LyricScene {
 			}
 		}
 		return best != null ? best : ahead(p, 0, (near + far) / 2);
+	}
+
+	/**
+	 * Distance along the ray from the eye at which it is radius blocks from the centre (the far side of the sphere);
+	 * if the ray misses the sphere, the point closest to the centre. fallback is returned for degenerate cases.
+	 */
+	private static double distToShell(Vec3 eye, Vec3 dir, Vec3 centre, double radius, double fallback) {
+		Vec3 oc = eye.subtract(centre);
+		double b = oc.dot(dir), cc = oc.lengthSqr() - radius * radius, disc = b * b - cc;
+		double t = disc >= 0 ? -b + Math.sqrt(disc) : -b;
+		return t > 0.5 ? t : fallback;
 	}
 
 	/** Angular room (degrees) between a spot and the nearest visible word, capped at 7. */

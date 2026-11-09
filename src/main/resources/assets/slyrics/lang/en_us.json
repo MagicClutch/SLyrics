@@ -33,6 +33,8 @@
 	"slyrics.config.color": "Color",
 	"slyrics.config.musicSource": "Music source",
 	"slyrics.config.applePlayer": "Player name filter",
+	"slyrics.config.afkTextNear": "Words: closest to you",
+	"slyrics.config.afkTextFar": "Words: farthest from you",
 	"slyrics.config.connect": "Connect to Spotify",
 	"slyrics.config.depth3d": "3D text",
 	"slyrics.config.depthSize": "3D thickness",
