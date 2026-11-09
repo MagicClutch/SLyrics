@@ -239,6 +239,10 @@ public final class RcConfig {
 
 	@Category(value = "Select modes")
 	public static final class PickModes {
+		@ConfigEntry(id = "throughWalls", translation = "slyrics.config.throughWalls")
+		@Comment("On: lyrics can be seen through blocks and houses. Off: blocks hide them, so you only see words that are not behind terrain or buildings. Applies to all modes.")
+		public static boolean throughWalls = D.throughWalls;
+
 		@ConfigEntry(id = "hologram", translation = "slyrics.config.hologram")
 		@Comment("Words float in front of you, scattered around the crosshair. If every world mode is off, the lyrics show as a plain HUD line")
 		public static boolean hologram = D.hologram;
@@ -282,10 +286,6 @@ public final class RcConfig {
 		@ConfigEntry(id = "blockClipping", translation = "slyrics.config.blockClipping")
 		@Comment("Keeps words out of blocks: they are moved in front of walls and terrain and never placed inside the ground")
 		public static boolean blockClipping = D.blockClipping;
-
-		@ConfigEntry(id = "throughWalls", translation = "slyrics.config.throughWalls")
-		@Comment("Text readable even behind blocks")
-		public static boolean throughWalls = D.throughWalls;
 
 	}
 

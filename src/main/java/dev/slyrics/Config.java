@@ -32,7 +32,7 @@ public class Config {
 	/** Spotify Client ID (from developer.spotify.com). */
 	public String clientId = "";
 	/** Lyrics timing offset in ms (positive = later). */
-	public int offsetMs = 0;
+	public int offsetMs = -139;
 	/** Where the current song comes from: "Spotify" or "Others". */
 	public String musicSource = "Spotify";
 	/** Others: only use media players whose name contains this (empty = any except Spotify). */
@@ -40,7 +40,7 @@ public class Config {
 	/** On-screen status message (e.g. when no lyrics were found). */
 	public boolean showStatus = true;
 	/** How many GUI scale steps smaller the settings screen is drawn (0 = normal size). */
-	public int configScaleDown = 1;
+	public int configScaleDown = 2;
 
 	// ------------------------------------------------------------------ bookkeeping (only in slyrics.json)
 
@@ -50,14 +50,14 @@ public class Config {
 	// ------------------------------------------------------------------ world words
 
 	/** Words float in the world, scattered around the crosshair. */
-	public boolean hologram = true;
+	public boolean hologram = false;
 	/** false = words (each on its own), true = lines (whole line, the current word lights up). */
 	public boolean lineMode = false;
 	/** false = scattered around the crosshair, true = in a row straight ahead. */
 	public boolean centerLayout = false;
 	/** Closest / farthest distance of the words in blocks. */
-	public float near = 4f;
-	public float far = 8f;
+	public float near = 7.5f;
+	public float far = 9.5f;
 	/** Words follow you when you walk. */
 	public boolean follow = false;
 	/** Keep words out of blocks: they are moved in front of walls/terrain and never placed inside the ground. */
@@ -72,13 +72,13 @@ public class Config {
 	// ------------------------------------------------------------------ sky mode
 
 	/** Huge words far away in the sky that flash up and drift slowly like clouds. */
-	public boolean skyMode = false;
+	public boolean skyMode = true;
 	/** Distance of the sky words in blocks. */
-	public float skyDistance = 90f;
+	public float skyDistance = 106.6204f;
 	/** Preferred height above the horizon in degrees. */
 	public float skyElevation = 30f;
 	/** Height of the letters in degrees of your view. */
-	public float skyTextDeg = 8f;
+	public float skyTextDeg = 6.3174f;
 
 	// ------------------------------------------------------------------ stick on blocks
 
@@ -94,7 +94,7 @@ public class Config {
 	/** Text size in percent. */
 	public int size = 100;
 	public int opacity = 100;
-	public int glow = 60;
+	public int glow = 0;
 	public int outline = 60;
 	public int blur = 50;
 	public int bounce = 100;
@@ -109,20 +109,20 @@ public class Config {
 	/** Font as identifier, e.g. minecraft:default, minecraft:uniform, minecraft:alt or a custom one from a resource pack. */
 	public String font = "minecraft:default";
 	/** Colors as RGB hex without alpha. */
-	public String color = "FF5FB0";
+	public String color = "FFFFFF";
 	public String glowColor = "DDE9FF";
-	public boolean uppercase = false;
+	public boolean uppercase = true;
 	public boolean bold = true;
-	public boolean shadow = true;
+	public boolean shadow = false;
 	public boolean typewriter = true;
 	public boolean background = false;
 	/** Fade in/out time in ms. */
-	public int fadeMs = 250;
+	public int fadeMs = 38;
 	/** How long a sung word stays before it fades out, in ms (0 = automatic, depends on the song speed). */
 	public int wordHoldMs = 0;
 	/** Viral-caption style animation of each sung word (see RcConfig.TextAnim). */
-	public String textAnim = "None";
-	public int animSpeed = 100;
+	public String textAnim = "TikTok pop";
+	public int animSpeed = 237;
 
 	// ------------------------------------------------------------------ emojis
 
@@ -140,18 +140,18 @@ public class Config {
 	// ------------------------------------------------------------------ karaoke sweep
 
 	/** The word being sung is colored from left to right, and the color goes off when the next word starts. */
-	public boolean sweepMode = false;
-	public String sweepColor = "FFE14D";
+	public boolean sweepMode = true;
+	public String sweepColor = "FF4D4D";
 	/** Color the whole word at once instead of sweeping across it. */
 	public boolean sweepWhole = false;
 	/** How long the color takes to fade out once the word is over (0 = instantly). */
-	public int sweepFadeMs = 120;
-	public boolean sweepGlow = true;
+	public int sweepFadeMs = 76;
+	public boolean sweepGlow = false;
 
 	// ------------------------------------------------------------------ AFK camera
 
 	/** After afkSeconds without input the camera leaves first person and plays cinematic shots around the player. */
-	public boolean afkEnabled = false;
+	public boolean afkEnabled = true;
 	public int afkSeconds = 10;
 	public boolean afkOnlyWhilePlaying = true;
 	/** Orbit radius in blocks, height above the eyes in blocks, speed in degrees per second. */
@@ -171,7 +171,7 @@ public class Config {
 	/** Close-up shots: face, feet-to-head tilts and tight orbits around the head. */
 	public boolean afkCloseUp = true;
 	/** Chance in percent that the next shot is a close-up. */
-	public int afkCloseUpPercent = 60;
+	public int afkCloseUpPercent = 45;
 	/** Pick the next shot at random (otherwise in a fixed order). */
 	public boolean afkRandomOrder = true;
 	/** Hard cut to a new shot every this many lyric lines (cuts only happen on line changes). */
@@ -196,7 +196,7 @@ public class Config {
 
 	// ------------------------------------------------------------------ HUD line (when no world mode is on)
 
-	public float scale = 1.5f;
+	public float scale = 2.9202f;
 	/** Text position in percent of screen width/height (center of the text). */
 	public float xPercent = 50f;
 	public float yPercent = 75f;

@@ -76,7 +76,7 @@
 	"slyrics.config.sweepMode": "Enable karaoke sweep",
 	"slyrics.config.sweepWhole": "Color the whole word at once",
 	"slyrics.config.textAnim": "Word animation",
-	"slyrics.config.throughWalls": "Visible through walls",
+	"slyrics.config.throughWalls": "Lyrics clipping (see through blocks)",
 	"slyrics.config.typewriter": "Typewriter",
 	"slyrics.config.uppercase": "Uppercase",
 	"slyrics.config.wordHoldMs": "Word stays (ms)",
