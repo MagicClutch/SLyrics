@@ -6,7 +6,7 @@ import com.teamresourceful.resourcefulconfig.api.annotations.*;
  * The settings screen (Resourceful Config): one nested class per category, one static field per setting.
  * ConfigSync mirrors the values into Config by field name, so a field here needs a field of the same name there.
  */
-@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Cat1.class, RcConfig.Cat2.class, RcConfig.Cat3.class, RcConfig.Cat4.class, RcConfig.Cat5.class, RcConfig.Cat6.class, RcConfig.Cat7.class, RcConfig.Cat8.class, RcConfig.Cat9.class, RcConfig.Cat10.class})
+@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Connectivity.class, RcConfig.TextSettings.class, RcConfig.SizeCat.class, RcConfig.Modes.class, RcConfig.Cat8.class, RcConfig.Cat9.class, RcConfig.Cat10.class})
 @ConfigInfo(title = "SLyrics", description = "Spotify lyrics as floating words in the world")
 public final class RcConfig {
 	private static final Config D = new Config();
@@ -23,22 +23,12 @@ public final class RcConfig {
 		public static TextAnim of(String s) { for (TextAnim a : values()) if (a.label.equals(s)) return a; return NONE; }
 	}
 
-	@Category("Spotify")
-	public static final class Cat1 {
-		@ConfigButton(title = "Connect to Spotify", text = "Connect")
-		@Comment("Saves and starts the login. The link appears in chat.")
-		public static final Runnable connect = ConfigSync::connectSpotify;
+	@Category(value = "Connectivity", categories = {General.class, SpotifyTab.class})
+	public static final class Connectivity {
+	}
 
-		@ConfigEntry(id = "configScaleDown", translation = "slyrics.config.configScaleDown")
-		@Comment("Draws this settings screen smaller: how many GUI scale steps below your normal GUI scale (0 = normal size). Takes effect the next time you open it.")
-		@ConfigOption.Range(min = 0, max = 3)
-		@ConfigOption.Slider
-		public static int configScaleDown = D.configScaleDown;
-
-		@ConfigEntry(id = "clientId", translation = "slyrics.config.clientId")
-		@Comment("Client ID of your app from developer.spotify.com. Redirect URI: http://127.0.0.1:8888/callback")
-		public static String clientId = D.clientId;
-
+	@Category(value = "General")
+	public static final class General {
 		@ConfigEntry(id = "enabled", translation = "slyrics.config.enabled")
 		@Comment("Turn the mod on or off")
 		public static boolean enabled = D.enabled;
@@ -49,14 +39,210 @@ public final class RcConfig {
 		@ConfigOption.Slider
 		public static int offsetMs = D.offsetMs;
 
+		@ConfigEntry(id = "configScaleDown", translation = "slyrics.config.configScaleDown")
+		@Comment("Draws this settings screen smaller: how many GUI scale steps below your normal GUI scale (0 = normal size). Takes effect the next time you open it.")
+		@ConfigOption.Range(min = 0, max = 3)
+		@ConfigOption.Slider
+		public static int configScaleDown = D.configScaleDown;
+
 	}
 
-	@Category("World words")
-	public static final class Cat2 {
+	@Category(value = "Spotify")
+	public static final class SpotifyTab {
+		@ConfigButton(title = "Connect to Spotify", text = "Connect")
+		@Comment("Saves and starts the login. The link appears in chat.")
+		public static final Runnable connect = ConfigSync::connectSpotify;
+
+		@ConfigEntry(id = "clientId", translation = "slyrics.config.clientId")
+		@Comment("Client ID of your app from developer.spotify.com. Redirect URI: http://127.0.0.1:8888/callback")
+		public static String clientId = D.clientId;
+
+	}
+
+	@Category(value = "Text Settings", categories = {TextLook.class, Effects.class, Animations.class, Sweep.class})
+	public static final class TextSettings {
+	}
+
+	@Category(value = "Text")
+	public static final class TextLook {
+		@ConfigEntry(id = "font", translation = "slyrics.config.font")
+		@Comment("e.g. minecraft:default, minecraft:uniform, minecraft:alt, minecraft:illageralt or a font from a resource pack")
+		public static String font = D.font;
+
+		@ConfigEntry(id = "color", translation = "slyrics.config.color")
+		@Comment("Text color")
+		@ConfigOption.Color
+		public static int color = hex(D.color);
+
+		@ConfigEntry(id = "opacity", translation = "slyrics.config.opacity")
+		@ConfigOption.Range(min = 10, max = 100)
+		@ConfigOption.Slider
+		public static int opacity = D.opacity;
+
+		@ConfigEntry(id = "uppercase", translation = "slyrics.config.uppercase")
+		public static boolean uppercase = D.uppercase;
+
+		@ConfigEntry(id = "bold", translation = "slyrics.config.bold")
+		public static boolean bold = D.bold;
+
+		@ConfigEntry(id = "shadow", translation = "slyrics.config.shadow")
+		public static boolean shadow = D.shadow;
+
+		@ConfigEntry(id = "background", translation = "slyrics.config.background")
+		public static boolean background = D.background;
+
+		@ConfigEntry(id = "typewriter", translation = "slyrics.config.typewriter")
+		@Comment("Text is typed out letter by letter")
+		public static boolean typewriter = D.typewriter;
+
+		@ConfigEntry(id = "emojis", translation = "slyrics.config.emojis")
+		@Comment("Appends symbols after keywords (love ♥, fight ⚔, ...). The word stays. You can edit the words in config/slyrics.json under emojiMap.")
+		public static boolean emojis = D.emojis;
+
+		@ConfigEntry(id = "emojiSprites", translation = "slyrics.config.emojiSprites")
+		@Comment("Use real Minecraft icons for matching words: heart for love, diamond for diamond, sword for fight, and so on. Other words keep their symbols. Edit the words in config/slyrics.json under emojiSpriteMap.")
+		public static boolean emojiSprites = D.emojiSprites;
+
+		@ConfigEntry(id = "emojiColors", translation = "slyrics.config.emojiColors")
+		@Comment("Every emoji gets its own color (red heart, gold star, ...) instead of the text color")
+		public static boolean emojiColors = D.emojiColors;
+
+	}
+
+	@Category(value = "Effects")
+	public static final class Effects {
+		@ConfigEntry(id = "glow", translation = "slyrics.config.glow")
+		@Comment("Soft halo around the words")
+		@ConfigOption.Range(min = 0, max = 100)
+		@ConfigOption.Slider
+		public static int glow = D.glow;
+
+		@ConfigEntry(id = "glowColor", translation = "slyrics.config.glowColor")
+		@Comment("Color of the soft halo around the words")
+		@ConfigOption.Color
+		public static int glowColor = hex(D.glowColor);
+
+		@ConfigEntry(id = "outline", translation = "slyrics.config.outline")
+		@Comment("Dark outline so words stay readable on bright backgrounds")
+		@ConfigOption.Range(min = 0, max = 100)
+		@ConfigOption.Slider
+		public static int outline = D.outline;
+
+		@ConfigEntry(id = "depth3d", translation = "slyrics.config.depth3d")
+		@Comment("Gives the words a body: stacked layers behind the front face, visible from the side")
+		public static boolean depth3d = D.depth3d;
+
+	}
+
+	@Category(value = "Animations")
+	public static final class Animations {
+		@ConfigEntry(id = "textAnim", translation = "slyrics.config.textAnim")
+		@Comment("Viral caption style for every sung word. TikTok pop: bouncy pop-in. Slam: drops in big and hits. Shake: jitters while sung. Wobble: tilts back and forth. Wave: words bob up and down. Spin in: spins into place. Slide up: slides up into place.")
+		public static TextAnim textAnim = TextAnim.of(D.textAnim);
+
+		@ConfigEntry(id = "animSpeed", translation = "slyrics.config.animSpeed")
+		@Comment("How fast the word animation plays")
+		@ConfigOption.Range(min = 50, max = 250)
+		@ConfigOption.Slider
+		public static int animSpeed = D.animSpeed;
+
+		@ConfigEntry(id = "bounce", translation = "slyrics.config.bounce")
+		@Comment("Words spring into place and float slightly")
+		@ConfigOption.Range(min = 0, max = 100)
+		@ConfigOption.Slider
+		public static int bounce = D.bounce;
+
+		@ConfigEntry(id = "blur", translation = "slyrics.config.blur")
+		@Comment("Smear while a word appears and fades")
+		@ConfigOption.Range(min = 0, max = 100)
+		@ConfigOption.Slider
+		public static int blur = D.blur;
+
+		@ConfigEntry(id = "fadeMs", translation = "slyrics.config.fadeMs")
+		@Comment("Fade in/out duration")
+		@ConfigOption.Range(min = 0, max = 1000)
+		@ConfigOption.Slider
+		public static int fadeMs = D.fadeMs;
+
+		@ConfigEntry(id = "wordHoldMs", translation = "slyrics.config.wordHoldMs")
+		@Comment("How long a sung word stays before it fades out, counted from the moment it is sung. 0 = automatic (depends on the song speed). Works in all world modes and in the AFK camera.")
+		@ConfigOption.Range(min = 0, max = 8000)
+		@ConfigOption.Slider
+		public static int wordHoldMs = D.wordHoldMs;
+
+	}
+
+	@Category(value = "Karaoke sweep")
+	public static final class Sweep {
+		@ConfigEntry(id = "sweepMode", translation = "slyrics.config.sweepMode")
+		@Comment("The word being sung is colored from left to right in time with the singing. When the next word starts, the color goes off again.")
+		public static boolean sweepMode = D.sweepMode;
+
+		@ConfigEntry(id = "sweepColor", translation = "slyrics.config.sweepColor")
+		@Comment("Color of the sweep")
+		@ConfigOption.Color
+		public static int sweepColor = hex(D.sweepColor);
+
+		@ConfigEntry(id = "sweepWhole", translation = "slyrics.config.sweepWhole")
+		@Comment("Instead of sweeping across the word, color it completely the moment it is sung")
+		public static boolean sweepWhole = D.sweepWhole;
+
+		@ConfigEntry(id = "sweepFadeMs", translation = "slyrics.config.sweepFadeMs")
+		@Comment("How long the color takes to go off after the word is over (0 = instantly)")
+		@ConfigOption.Range(min = 0, max = 600)
+		@ConfigOption.Slider
+		public static int sweepFadeMs = D.sweepFadeMs;
+
+		@ConfigEntry(id = "sweepGlow", translation = "slyrics.config.sweepGlow")
+		@Comment("A soft halo in the sweep color around the colored part")
+		public static boolean sweepGlow = D.sweepGlow;
+
+	}
+
+	@Category(value = "Size")
+	public static final class SizeCat {
+		@ConfigEntry(id = "size", translation = "slyrics.config.size")
+		@Comment("Size of the text in the world")
+		@ConfigOption.Range(min = 50, max = 250)
+		@ConfigOption.Slider
+		public static int size = D.size;
+
+		@ConfigEntry(id = "skyTextDeg", translation = "slyrics.config.skyTextDeg")
+		@Comment("Height of the letters as seen from your view")
+		@ConfigOption.Range(min = 3, max = 20)
+		@ConfigOption.Slider
+		public static float skyTextDeg = D.skyTextDeg;
+
+		@ConfigEntry(id = "stickSize", translation = "slyrics.config.stickSize")
+		@Comment("Size of the stuck words")
+		@ConfigOption.Range(min = 30, max = 300)
+		@ConfigOption.Slider
+		public static int stickSize = D.stickSize;
+
+	}
+
+	@Category(value = "Modes", categories = {PickModes.class, WorldWords.class, SkyWords.class, StickWords.class})
+	public static final class Modes {
+	}
+
+	@Category(value = "Select modes")
+	public static final class PickModes {
 		@ConfigEntry(id = "hologram", translation = "slyrics.config.hologram")
 		@Comment("Words float in front of you, scattered around the crosshair. If every world mode is off, the lyrics show as a plain HUD line")
 		public static boolean hologram = D.hologram;
 
+		@ConfigEntry(id = "skyMode", translation = "slyrics.config.skyMode")
+		@Comment("Huge words far away in the sky that flash up and drift slowly like clouds")
+		public static boolean skyMode = D.skyMode;
+
+		@ConfigEntry(id = "stickMode", translation = "slyrics.config.stickMode")
+		@Comment("Words stick flat onto the blocks you look at, like stickers on walls and floors")
+		public static boolean stickMode = D.stickMode;
+
+	}
+
+	@Category(value = "World words")
+	public static final class WorldWords {
 		@ConfigEntry(id = "lineMode", translation = "slyrics.config.lineMode")
 		@Comment("Only when World words is the only active mode. Off: each word appears when it is sung. On: the whole line appears and the sung word lights up")
 		public static boolean lineMode = D.lineMode;
@@ -91,12 +277,8 @@ public final class RcConfig {
 
 	}
 
-	@Category("Sky")
-	public static final class Cat3 {
-		@ConfigEntry(id = "skyMode", translation = "slyrics.config.skyMode")
-		@Comment("Huge words far away in the sky that flash up and drift slowly like clouds")
-		public static boolean skyMode = D.skyMode;
-
+	@Category(value = "Sky")
+	public static final class SkyWords {
 		@ConfigEntry(id = "skyDistance", translation = "slyrics.config.skyDistance")
 		@Comment("How far away the sky words are, in blocks")
 		@ConfigOption.Range(min = 30, max = 200)
@@ -109,179 +291,15 @@ public final class RcConfig {
 		@ConfigOption.Slider
 		public static float skyElevation = D.skyElevation;
 
-		@ConfigEntry(id = "skyTextDeg", translation = "slyrics.config.skyTextDeg")
-		@Comment("Height of the letters as seen from your view")
-		@ConfigOption.Range(min = 3, max = 20)
-		@ConfigOption.Slider
-		public static float skyTextDeg = D.skyTextDeg;
-
 	}
 
-	@Category("Stick on blocks")
-	public static final class Cat4 {
-		@ConfigEntry(id = "stickMode", translation = "slyrics.config.stickMode")
-		@Comment("Words stick flat onto the blocks you look at, like stickers on walls and floors")
-		public static boolean stickMode = D.stickMode;
-
+	@Category(value = "Stick on blocks")
+	public static final class StickWords {
 		@ConfigEntry(id = "stickRange", translation = "slyrics.config.stickRange")
 		@Comment("How far away blocks may be to get a word, in blocks")
 		@ConfigOption.Range(min = 3, max = 40)
 		@ConfigOption.Slider
 		public static float stickRange = D.stickRange;
-
-		@ConfigEntry(id = "stickSize", translation = "slyrics.config.stickSize")
-		@Comment("Size of the stuck words")
-		@ConfigOption.Range(min = 30, max = 300)
-		@ConfigOption.Slider
-		public static int stickSize = D.stickSize;
-
-	}
-
-	@Category("Effects")
-	public static final class Cat5 {
-		@ConfigEntry(id = "size", translation = "slyrics.config.size")
-		@Comment("Size of the text in the world")
-		@ConfigOption.Range(min = 50, max = 250)
-		@ConfigOption.Slider
-		public static int size = D.size;
-
-		@ConfigEntry(id = "opacity", translation = "slyrics.config.opacity")
-		@ConfigOption.Range(min = 10, max = 100)
-		@ConfigOption.Slider
-		public static int opacity = D.opacity;
-
-		@ConfigEntry(id = "glow", translation = "slyrics.config.glow")
-		@Comment("Soft halo around the words")
-		@ConfigOption.Range(min = 0, max = 100)
-		@ConfigOption.Slider
-		public static int glow = D.glow;
-
-		@ConfigEntry(id = "outline", translation = "slyrics.config.outline")
-		@Comment("Dark outline so words stay readable on bright backgrounds")
-		@ConfigOption.Range(min = 0, max = 100)
-		@ConfigOption.Slider
-		public static int outline = D.outline;
-
-		@ConfigEntry(id = "blur", translation = "slyrics.config.blur")
-		@Comment("Smear while a word appears and fades")
-		@ConfigOption.Range(min = 0, max = 100)
-		@ConfigOption.Slider
-		public static int blur = D.blur;
-
-		@ConfigEntry(id = "bounce", translation = "slyrics.config.bounce")
-		@Comment("Words spring into place and float slightly")
-		@ConfigOption.Range(min = 0, max = 100)
-		@ConfigOption.Slider
-		public static int bounce = D.bounce;
-
-		@ConfigEntry(id = "flicker", translation = "slyrics.config.flicker")
-		@Comment("Occasional glitch effect")
-		public static boolean flicker = D.flicker;
-
-		@ConfigEntry(id = "depth3d", translation = "slyrics.config.depth3d")
-		@Comment("Gives the words a body: stacked layers behind the front face, visible from the side")
-		public static boolean depth3d = D.depth3d;
-
-		@ConfigEntry(id = "depthSize", translation = "slyrics.config.depthSize")
-		@Comment("Thickness of the 3D body in font pixels")
-		@ConfigOption.Range(min = 1, max = 8)
-		@ConfigOption.Slider
-		public static float depthSize = D.depthSize;
-
-	}
-
-	@Category("Text")
-	public static final class Cat6 {
-		@ConfigEntry(id = "font", translation = "slyrics.config.font")
-		@Comment("e.g. minecraft:default, minecraft:uniform, minecraft:alt, minecraft:illageralt or a font from a resource pack")
-		public static String font = D.font;
-
-		@ConfigEntry(id = "color", translation = "slyrics.config.color")
-		@Comment("Text color")
-		@ConfigOption.Color
-		public static int color = hex(D.color);
-
-		@ConfigEntry(id = "glowColor", translation = "slyrics.config.glowColor")
-		@Comment("Color of the soft halo around the words")
-		@ConfigOption.Color
-		public static int glowColor = hex(D.glowColor);
-
-		@ConfigEntry(id = "textAnim", translation = "slyrics.config.textAnim")
-		@Comment("Viral caption style for every sung word. TikTok pop: bouncy pop-in. Slam: drops in big and hits. Shake: jitters while sung. Wobble: tilts back and forth. Wave: words bob up and down. Spin in: spins into place. Slide up: slides up into place.")
-		public static TextAnim textAnim = TextAnim.of(D.textAnim);
-
-		@ConfigEntry(id = "emojis", translation = "slyrics.config.emojis")
-		@Comment("Appends symbols after keywords (love ♥, fight ⚔, ...). The word stays. You can edit the words in config/slyrics.json under emojiMap.")
-		public static boolean emojis = D.emojis;
-
-		@ConfigEntry(id = "emojiSprites", translation = "slyrics.config.emojiSprites")
-		@Comment("Use real Minecraft icons for matching words: heart for love, diamond for diamond, sword for fight, and so on. Other words keep their symbols. Edit the words in config/slyrics.json under emojiSpriteMap.")
-		public static boolean emojiSprites = D.emojiSprites;
-
-		@ConfigEntry(id = "emojiColors", translation = "slyrics.config.emojiColors")
-		@Comment("Every emoji gets its own color (red heart, gold star, ...) instead of the text color")
-		public static boolean emojiColors = D.emojiColors;
-
-		@ConfigEntry(id = "uppercase", translation = "slyrics.config.uppercase")
-		public static boolean uppercase = D.uppercase;
-
-		@ConfigEntry(id = "bold", translation = "slyrics.config.bold")
-		public static boolean bold = D.bold;
-
-		@ConfigEntry(id = "shadow", translation = "slyrics.config.shadow")
-		public static boolean shadow = D.shadow;
-
-		@ConfigEntry(id = "typewriter", translation = "slyrics.config.typewriter")
-		@Comment("Text is typed out letter by letter")
-		public static boolean typewriter = D.typewriter;
-
-		@ConfigEntry(id = "animSpeed", translation = "slyrics.config.animSpeed")
-		@Comment("How fast the word animation plays")
-		@ConfigOption.Range(min = 50, max = 250)
-		@ConfigOption.Slider
-		public static int animSpeed = D.animSpeed;
-
-		@ConfigEntry(id = "background", translation = "slyrics.config.background")
-		public static boolean background = D.background;
-
-		@ConfigEntry(id = "fadeMs", translation = "slyrics.config.fadeMs")
-		@Comment("Fade in/out duration")
-		@ConfigOption.Range(min = 0, max = 1000)
-		@ConfigOption.Slider
-		public static int fadeMs = D.fadeMs;
-
-		@ConfigEntry(id = "wordHoldMs", translation = "slyrics.config.wordHoldMs")
-		@Comment("How long a sung word stays before it fades out, counted from the moment it is sung. 0 = automatic (depends on the song speed). Works in all world modes and in the AFK camera.")
-		@ConfigOption.Range(min = 0, max = 8000)
-		@ConfigOption.Slider
-		public static int wordHoldMs = D.wordHoldMs;
-
-	}
-
-	@Category("Karaoke sweep")
-	public static final class Cat7 {
-		@ConfigEntry(id = "sweepColor", translation = "slyrics.config.sweepColor")
-		@Comment("Color of the sweep")
-		@ConfigOption.Color
-		public static int sweepColor = hex(D.sweepColor);
-
-		@ConfigEntry(id = "sweepMode", translation = "slyrics.config.sweepMode")
-		@Comment("The word being sung is colored from left to right in time with the singing. When the next word starts, the color goes off again.")
-		public static boolean sweepMode = D.sweepMode;
-
-		@ConfigEntry(id = "sweepWhole", translation = "slyrics.config.sweepWhole")
-		@Comment("Instead of sweeping across the word, color it completely the moment it is sung")
-		public static boolean sweepWhole = D.sweepWhole;
-
-		@ConfigEntry(id = "sweepFadeMs", translation = "slyrics.config.sweepFadeMs")
-		@Comment("How long the color takes to go off after the word is over (0 = instantly)")
-		@ConfigOption.Range(min = 0, max = 600)
-		@ConfigOption.Slider
-		public static int sweepFadeMs = D.sweepFadeMs;
-
-		@ConfigEntry(id = "sweepGlow", translation = "slyrics.config.sweepGlow")
-		@Comment("A soft halo in the sweep color around the colored part")
-		public static boolean sweepGlow = D.sweepGlow;
 
 	}
 
