@@ -41,14 +41,18 @@ public final class AppleMusic {
 		String filter = c.applePlayer == null ? "" : c.applePlayer.trim().toLowerCase();
 		String chosen = null;
 		String chosenState = "";
+		int chosenScore = -1;
 		for (String name : players()) {
 			String lower = name.toLowerCase();
 			if (lower.contains("spotify")) continue; // that one is the Spotify source
 			if (!filter.isEmpty() && !lower.contains(filter)) continue;
 			String state = prop(name, "PlaybackStatus");
 			if (state == null) continue;
-			if (chosen == null || ("Playing".equals(state) && !"Playing".equals(chosenState))) {
+			// a playing player beats a paused one; among those, one that knows the artist (clean metadata) wins
+			int score = ("Playing".equals(state) ? 2 : 0) + (hasArtist(name) ? 1 : 0);
+			if (score > chosenScore) {
 				chosen = name;
+				chosenScore = score;
 				chosenState = state;
 			}
 		}
@@ -63,8 +67,15 @@ public final class AppleMusic {
 			Spotify.status = "Apple Music: nothing is playing";
 			return;
 		}
-		String title = str(meta.get("xesam:title"));
-		String artist = first(meta.get("xesam:artist"));
+		String title = clean(str(meta.get("xesam:title")));
+		String artist = clean(first(meta.get("xesam:artist"))).replaceAll("(?i)\\s*-\\s*topic$", "");
+		if (artist.isEmpty()) { // browser tabs often put "Artist - Title" into the title
+			String[] parts = title.split("\\s+[-\u2013\u2014]\\s+", 2);
+			if (parts.length == 2) {
+				artist = parts[0].trim();
+				title = parts[1].trim();
+			}
+		}
 		String album = meta.has("xesam:album") ? str(meta.get("xesam:album")) : "";
 		long lengthMs = meta.has("mpris:length") ? num(meta.get("mpris:length")) / 1000L : 0;
 		long posMs = 0;
@@ -73,6 +84,23 @@ public final class AppleMusic {
 
 		Spotify.setProgress(posMs, "Playing".equals(chosenState));
 		Spotify.setTrack(new Track(artist + " - " + title, title, artist, album, lengthMs));
+	}
+
+	private static boolean hasArtist(String bus) {
+		try {
+			JsonObject m = obj(propJson(bus, "Metadata"));
+			return m != null && !first(m.get("xesam:artist")).isBlank();
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	/** Removes what web players add to titles: invisible marks, " - YouTube", " - Apple Music", "(Official Video)", "[Lyrics]". */
+	static String clean(String s) {
+		String t = s.replaceAll("[\\u200E\\u200F\\u202A-\\u202E]", "").trim();
+		t = t.replaceAll("(?i)\\s*[-\u2013\u2014|]\\s*(youtube music|youtube|apple music|soundcloud|tidal|deezer)\\s*$", "");
+		t = t.replaceAll("(?i)\\s*[\\(\\[](official[^\\)\\]]*|lyrics?[^\\)\\]]*|audio[^\\)\\]]*|video[^\\)\\]]*|hd|hq|4k)[\\)\\]]", "");
+		return t.trim();
 	}
 
 	// ---------------------------------------------------------------- busctl helpers
