@@ -202,9 +202,9 @@ public final class LyricsWorld {
 		float s = 0.05f * (c.size / 100f) * it.fit * scaleAnim;
 		ps.pushPose();
 		ps.translate((float) (at.x - cam.x), (float) (at.y - cam.y + lift), (float) (at.z - cam.z));
-		ps.rotateDegrees(Axis.YP, -it.yaw);
-		ps.rotateDegrees(Axis.XP, it.pitch);
-		ps.rotateDegrees(Axis.ZP, it.roll);
+		ps.mulPose(Axis.YP.rotationDegrees(-it.yaw));
+		ps.mulPose(Axis.XP.rotationDegrees(it.pitch));
+		ps.mulPose(Axis.ZP.rotationDegrees(it.roll));
 		ps.scale(-s, -s, s);
 
 		// Which local z direction points away from the camera: the 3D body is built behind the front face.
@@ -245,7 +245,7 @@ public final class LyricsWorld {
 			boolean actNow = now >= it.sungAt[i] && (now < it.heldUntil[i] || i == current);
 			float[] an = anim(c.textAnim, now - it.sungAt[i], i, now, it.seed, actNow);
 			ps.translate(an[2], an[3], 0f);
-			ps.rotateDegrees(Axis.ZP, an[1]);
+			ps.mulPose(Axis.ZP.rotationDegrees(an[1]));
 			ps.scale(an[0], an[0], 1f);
 			float glitch = c.flicker ? glitch(now, it.seed + i * 1.9f) : 0f;
 			float sweepProg = 0f, sweepAlpha = 0f;
