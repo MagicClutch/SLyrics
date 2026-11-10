@@ -237,6 +237,10 @@ public final class RcConfig {
 		@Comment("Words stick flat onto the blocks you look at, like stickers on walls and floors")
 		public static boolean stickMode = D.stickMode;
 
+		@ConfigEntry(id = "afkEnabled", translation = "slyrics.config.afkEnabled")
+		@Comment("AFK camera: after you have been idle for a while, the camera leaves first person and slowly orbits you like a cinematic shot, with the lyrics in view. Any input ends it. Settings are in Modes > AFK camera.")
+		public static boolean afkEnabled = D.afkEnabled;
+
 	}
 
 	@Category(value = "Aura")
@@ -312,10 +316,6 @@ public final class RcConfig {
 		@ConfigOption.Range(min = 10, max = 100)
 		@ConfigOption.Slider
 		public static int afkFollowStrength = D.afkFollowStrength;
-
-		@ConfigEntry(id = "afkEnabled", translation = "slyrics.config.afkEnabled")
-		@Comment("After you have been idle for a while, the camera leaves first person and slowly orbits you like a cinematic shot, with the lyrics in view. Any input ends it.")
-		public static boolean afkEnabled = D.afkEnabled;
 
 		@ConfigEntry(id = "afkSeconds", translation = "slyrics.config.afkSeconds")
 		@Comment("Idle time before the AFK camera starts")
