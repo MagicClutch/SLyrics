@@ -205,7 +205,7 @@ public final class RcConfig {
 
 	}
 
-	@Category(value = "Modes", categories = {PickModes.class, AuraWords.class, SkyWords.class, StickWords.class, Cat8.class})
+	@Category(value = "Modes", categories = {PickModes.class, AuraWords.class, SkyWords.class, StickWords.class, HudModeCat.class, Cat8.class})
 	public static final class Modes {
 	}
 
@@ -293,6 +293,31 @@ public final class RcConfig {
 
 	}
 
+	@Category("HUD mode")
+	public static final class HudModeCat {
+		@ConfigEntry(id = "hudMode", translation = "slyrics.config.hudMode")
+		@Comment("A small panel on the screen with the previous, the current and the next line. The current line fills in while it is sung, so you can sing along. Uses your font, colors and karaoke color, and can be combined with the other modes.")
+		public static boolean hudMode = D.hudMode;
+
+		@ConfigEntry(id = "hudX", translation = "slyrics.config.hudX")
+		@Comment("Horizontal position of the panel's left edge, in percent of the screen width")
+		@ConfigOption.Range(min = 0, max = 100)
+		@ConfigOption.Slider
+		public static float hudX = D.hudX;
+
+		@ConfigEntry(id = "hudY", translation = "slyrics.config.hudY")
+		@Comment("Vertical position of the panel's top edge, in percent of the screen height")
+		@ConfigOption.Range(min = 0, max = 100)
+		@ConfigOption.Slider
+		public static float hudY = D.hudY;
+
+		@ConfigEntry(id = "hudScale", translation = "slyrics.config.hudScale")
+		@Comment("Size of the panel text in percent")
+		@ConfigOption.Range(min = 40, max = 300)
+		@ConfigOption.Slider
+		public static int hudScale = D.hudScale;
+	}
+
 	@Category("AFK camera")
 	public static final class Cat8 {
 		@ConfigEntry(id = "afkTextNear", translation = "slyrics.config.afkTextNear")
@@ -324,7 +349,7 @@ public final class RcConfig {
 		public static int afkSeconds = D.afkSeconds;
 
 		@ConfigEntry(id = "afkOnlyWhilePlaying", translation = "slyrics.config.afkOnlyWhilePlaying")
-		@Comment("Start only when Spotify is playing")
+		@Comment("Start only when music is playing (Spotify or another player)")
 		public static boolean afkOnlyWhilePlaying = D.afkOnlyWhilePlaying;
 
 		@ConfigEntry(id = "afkCutEveryLines", translation = "slyrics.config.afkCutEveryLines")

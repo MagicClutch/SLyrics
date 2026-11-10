@@ -4,10 +4,21 @@ Shows the synced lyrics of the song currently playing on Spotify as floating tex
 holograms in front of you, words scattered in the sky, or a plain HUD line.
 
 ## Setup
+Install [Fabric API](https://modrinth.com/mod/fabric-api) and [Resourceful Config](https://modrinth.com/mod/resourceful-config) first, then pick a music source in `/slyrics config` -> Connectivity.
+
+### Spotify
 1. Create an app at https://developer.spotify.com/dashboard (API: **Web API**) with the redirect URI `http://127.0.0.1:8888/callback`.
-2. Install [Fabric API](https://modrinth.com/mod/fabric-api) and [YACL](https://modrinth.com/mod/yacl) (YetAnotherConfigLib).
-3. In game: `/slyrics config` -> enter your Client ID, then run `/slyrics login` and click the link in chat.
-4. Play a song in Spotify. Lyrics come from [LRCLIB](https://lrclib.net) (free, no key); not every song has synced lyrics.
+2. In game: `/slyrics config` -> enter your Client ID, then run `/slyrics login` and click the link in chat.
+3. Play a song in Spotify. Lyrics come from [LRCLIB](https://lrclib.net) (free, no key); not every song has synced lyrics.
+
+### Other players (no Spotify needed, Linux only)
+Set the music source to **Others**. SLyrics reads the playing song from any media player that shows up in your desktop's media controls (MPRIS): Cider, YouTube / YouTube Music / Apple Music / SoundCloud in a browser, VLC, Tidal clients, ... No account and no login. To use one specific player, enter part of its name (e.g. `cider`) in the player field.
+
+**Prism Launcher as Flatpak (e.g. installed from Bazaar / Flathub):** the sandbox hides your media players from Minecraft. Allow it once, then restart Prism completely:
+
+    flatpak override --user --talk-name='org.mpris.MediaPlayer2.*' org.prismlauncher.PrismLauncher
+
+or, without a terminal, open **Flatseal**, pick Prism Launcher and add `org.mpris.MediaPlayer2.*` under *Session Bus -> Talk*. Not needed for a normal (non-Flatpak) Prism.
 
 ## Commands
 `/slyrics config | login | logout | toggle | offset <ms>`
@@ -25,7 +36,7 @@ holograms in front of you, words scattered in the sky, or a plain HUD line.
 - Distance, size, opacity, glow, outline, motion blur, bounce, flicker, follow-me, walls protection, uppercase.
 - Custom font: `minecraft:default`, `minecraft:uniform`, `minecraft:alt`, `minecraft:illageralt`, or any font from a resource pack (`assets/<namespace>/font/<name>.json` -> `<namespace>:<name>`).
 - Emojis: real Minecraft icons (heart, diamond, sword, apple, ...) or colorful symbols, added after matching keywords in many languages; adds a symbol after keywords in many languages (love ♥, fight ⚔, ...) without replacing the word. Toggle in the config; edit the word list via `emojiMap` in `config/slyrics.json`.
-- Words fade out when Spotify is paused.
+- Words fade out when the music is paused.
 
 ## Build
 `./gradlew build` (26.3). For 26.2:

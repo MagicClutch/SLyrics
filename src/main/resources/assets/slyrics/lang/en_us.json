@@ -85,6 +85,10 @@
 	"slyrics.config.typewriter": "Typewriter",
 	"slyrics.config.uppercase": "Uppercase",
 	"slyrics.config.wordHoldMs": "Word stays (ms)",
+	"slyrics.config.hudMode": "Enable HUD mode",
+	"slyrics.config.hudScale": "Size (%)",
+	"slyrics.config.hudX": "Position X (%)",
+	"slyrics.config.hudY": "Position Y (%)",
 	"slyrics.config.xPercent": "Position X (%)",
 	"slyrics.config.yPercent": "Position Y (%)"
 }
