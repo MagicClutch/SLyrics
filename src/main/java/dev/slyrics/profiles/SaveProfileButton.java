@@ -31,7 +31,24 @@ public final class SaveProfileButton {
 
 	private static boolean isSettingsScreen(Screen screen) {
 		String n = screen.getClass().getName();
-		return n.startsWith("com.teamresourceful.resourcefulconfig.") && n.endsWith("ConfigScreen");
+		return n.startsWith("com.teamresourceful.resourcefulconfig.") && n.endsWith("ConfigScreen") && isOurs(screen);
+	}
+
+	/** Resourceful Config screens exist for every mod that uses it; only ours may get the button. */
+	private static boolean isOurs(Screen screen) {
+		for (Class<?> c = screen.getClass(); c != null; c = c.getSuperclass()) {
+			for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+				if (!com.teamresourceful.resourcefulconfig.api.types.ResourcefulConfig.class.isAssignableFrom(f.getType())) continue;
+				try {
+					f.setAccessible(true);
+					var cfg = (com.teamresourceful.resourcefulconfig.api.types.ResourcefulConfig) f.get(screen);
+					return cfg != null && "slyrics".equals(cfg.id());
+				} catch (ReflectiveOperationException | RuntimeException e) {
+					return false;
+				}
+			}
+		}
+		return false;
 	}
 
 	private static void save() {

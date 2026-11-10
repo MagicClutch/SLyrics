@@ -16,6 +16,6 @@
 		"minecraft": ">=26.2",
 		"java": ">=25",
 		"fabric-api": "*",
-		"resourcefulconfig": ">=6.0.0"
+		"resourcefulconfig": ">=5.0.0"
 	}
 }
