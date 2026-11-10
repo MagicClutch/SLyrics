@@ -37,3 +37,7 @@ run/
 
 ### IDE ###
 .idea/workspace.xml
+
+### IDE project files (machine specific, e.g. Gradle JVM / SDK paths) ###
+.idea/
+*.iml
