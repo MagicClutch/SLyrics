@@ -195,6 +195,16 @@ public class Config {
 	/** Also show the previous/next line, small and dimmed. */
 	public boolean showNeighbors = false;
 
+	// ------------------------------------------------------------------ HUD mode (karaoke panel)
+
+	/** A small panel with the previous, current and next line; the current line fills in while it is sung. */
+	public boolean hudMode = false;
+	/** Top-left corner of the panel in percent of screen width/height. */
+	public float hudX = 1.5f;
+	public float hudY = 2f;
+	/** Panel text size in percent. */
+	public int hudScale = 100;
+
 	// ------------------------------------------------------------------ helpers
 
 	public int rgb() {

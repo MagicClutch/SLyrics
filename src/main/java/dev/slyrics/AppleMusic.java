@@ -58,7 +58,10 @@ public final class AppleMusic {
 		}
 		if (chosen == null) {
 			Spotify.playing = false;
-			Spotify.status = "Others: no media player found. Play something in a browser, Cider, VLC, ...";
+			boolean flatpak = java.nio.file.Files.exists(java.nio.file.Path.of("/.flatpak-info"));
+			Spotify.status = flatpak && useGdbus
+				? "Others: no media player found. Prism runs in Flatpak: run  flatpak override --user --talk-name='org.mpris.MediaPlayer2.*' org.prismlauncher.PrismLauncher  and restart it (see README)"
+				: "Others: no media player found. Play something in a browser, Cider, VLC, ...";
 			return;
 		}
 		JsonObject meta = obj(propJson(chosen, "Metadata"));
@@ -108,19 +111,134 @@ public final class AppleMusic {
 
 	// ---------------------------------------------------------------- busctl helpers
 
+	/** busctl is not inside a Flatpak sandbox (e.g. Prism from Bazaar); gdbus is, so it is the fallback. */
+	private static volatile boolean useGdbus = false;
+
 	private static List<String> players() throws Exception {
 		List<String> out = new ArrayList<>();
-		String json = run("busctl", "--user", "--json=short", "list");
-		if (json == null) return out;
-		for (JsonElement e : JsonParser.parseString(json).getAsJsonArray()) {
-			String n = e.getAsJsonObject().get("name").getAsString();
+		JsonElement names = null;
+		if (!useGdbus) {
+			try {
+				String json = run("busctl", "--user", "--json=short", "list");
+				if (json != null) {
+					for (JsonElement e : JsonParser.parseString(json).getAsJsonArray()) {
+						String n = e.getAsJsonObject().get("name").getAsString();
+						if (n.startsWith(PREFIX)) out.add(n);
+					}
+				}
+				return out;
+			} catch (java.io.IOException noBusctl) {
+				useGdbus = true;
+			}
+		}
+		String g = run("gdbus", "call", "--session", "--dest", "org.freedesktop.DBus", "--object-path", "/org/freedesktop/DBus",
+			"--method", "org.freedesktop.DBus.ListNames");
+		if (g == null) return out;
+		names = new GVariantText(g).parse();
+		if (names.isJsonArray()) names = names.getAsJsonArray().get(0);
+		for (JsonElement e : names.getAsJsonArray()) {
+			String n = e.getAsString();
 			if (n.startsWith(PREFIX)) out.add(n);
 		}
 		return out;
 	}
 
 	private static String propJson(String bus, String property) throws Exception {
-		return run("busctl", "--user", "--json=short", "get-property", bus, "/org/mpris/MediaPlayer2", PLAYER_IF, property);
+		if (!useGdbus) {
+			try {
+				return run("busctl", "--user", "--json=short", "get-property", bus, "/org/mpris/MediaPlayer2", PLAYER_IF, property);
+			} catch (java.io.IOException noBusctl) {
+				useGdbus = true;
+			}
+		}
+		String g = run("gdbus", "call", "--session", "--dest", bus, "--object-path", "/org/mpris/MediaPlayer2",
+			"--method", "org.freedesktop.DBus.Properties.Get", PLAYER_IF, property);
+		if (g == null) return null;
+		JsonElement v = new GVariantText(g).parse(); // ( <value> , )  ->  [value]
+		if (v.isJsonArray()) v = v.getAsJsonArray().get(0);
+		JsonObject o = new JsonObject();
+		o.add("data", v);
+		return o.toString();
+	}
+
+	/** Minimal reader for gdbus' text output: tuples and arrays become JSON arrays, dictionaries objects, variants are unwrapped. */
+	private static final class GVariantText {
+		private final String t;
+		private int i;
+
+		GVariantText(String t) { this.t = t.trim(); }
+
+		JsonElement parse() { return value(); }
+
+		private void ws() { while (i < t.length() && Character.isWhitespace(t.charAt(i))) i++; }
+
+		private JsonElement value() {
+			ws();
+			char c = t.charAt(i);
+			if (c == '(' || c == '[') {
+				char close = c == '(' ? ')' : ']';
+				i++;
+				com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+				for (;;) {
+					ws();
+					if (t.charAt(i) == close) { i++; return a; }
+					if (t.charAt(i) == ',') { i++; continue; }
+					a.add(value());
+				}
+			}
+			if (c == '{') {
+				i++;
+				JsonObject o = new JsonObject();
+				for (;;) {
+					ws();
+					if (t.charAt(i) == '}') { i++; return o; }
+					if (t.charAt(i) == ',') { i++; continue; }
+					String k = value().getAsString();
+					ws();
+					if (t.charAt(i) == ':') i++;
+					o.add(k, value());
+				}
+			}
+			if (c == '<') {
+				i++;
+				JsonElement v = value();
+				ws();
+				if (t.charAt(i) == '>') i++;
+				return v;
+			}
+			if (c == '\'' || c == '"') {
+				i++;
+				StringBuilder sb = new StringBuilder();
+				while (t.charAt(i) != c) {
+					char ch = t.charAt(i++);
+					if (ch == '\\') {
+						char n = t.charAt(i++);
+						sb.append(n == 'n' ? '\n' : n == 't' ? '\t' : n);
+					} else sb.append(ch);
+				}
+				i++;
+				return new com.google.gson.JsonPrimitive(sb.toString());
+			}
+			if (c == '@') { // type annotation like @as [] or @a{sv} {}
+				while (!Character.isWhitespace(t.charAt(i))) i++;
+				return value();
+			}
+			int st = i;
+			while (i < t.length() && ",)]}>:".indexOf(t.charAt(i)) < 0) i++;
+			String word = t.substring(st, i).trim();
+			int sp = word.lastIndexOf(' '); // "uint64 5" -> "5"
+			if (sp >= 0) word = word.substring(sp + 1);
+			if (word.equals("true") || word.equals("false")) return new com.google.gson.JsonPrimitive(Boolean.parseBoolean(word));
+			try {
+				return new com.google.gson.JsonPrimitive(Long.parseLong(word));
+			} catch (NumberFormatException e) {
+				try {
+					return new com.google.gson.JsonPrimitive(Double.parseDouble(word));
+				} catch (NumberFormatException e2) {
+					return new com.google.gson.JsonPrimitive(word);
+				}
+			}
+		}
 	}
 
 	private static String prop(String bus, String property) throws Exception {

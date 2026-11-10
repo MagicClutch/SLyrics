@@ -37,7 +37,7 @@ public class SLyricsClient implements ClientModInitializer {
 		AfkCamera.init();
 		// first start after installing: tell the user where to enter their own Spotify Client ID
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
-			if (Config.INSTANCE.clientId.isBlank()) {
+			if ("Spotify".equals(Config.INSTANCE.musicSource) && Config.INSTANCE.clientId.isBlank()) {
 				if (client.player != null) client.player.sendSystemMessage(Component.literal("SLyrics: enter your Spotify Client ID in /slyrics config (Spotify), then run /slyrics login. Redirect URI: " + Spotify.REDIRECT));
 			}
 		}));
