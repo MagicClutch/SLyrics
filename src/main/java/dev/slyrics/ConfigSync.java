@@ -22,6 +22,7 @@ public final class ConfigSync {
 	public static void init() {
 		boolean hadFile = Files.exists(FabricLoader.getInstance().getConfigDir().resolve("slyrics.jsonc"));
 		var old = hadFile ? readOldLayout() : null; // before anything touches the file: Resourceful Config rewrites it
+		var renamed = hadFile && Config.INSTANCE.mediaVersion < 2 ? readRenamedSections() : null;
 		CONFIGURATOR.register(RcConfig.class);
 		if (hadFile) {
 			// register() does not read the file; without loading it the fields keep their defaults and would overwrite the real settings
@@ -36,19 +37,47 @@ public final class ConfigSync {
 			toRc();
 			CONFIGURATOR.saveConfig(RcConfig.class);
 		}
+		if (renamed != null) { // "HUD mode" became "Karaoke mode", "Karaoke sweep" became "Word sweep": take the values along
+			for (var o : renamed) applyOld(o);
+			toRc();
+			CONFIGURATOR.saveConfig(RcConfig.class);
+		}
 		migrateMedia();
+	}
+
+	/** The sections that were renamed, as they are in the file now (before Resourceful Config rewrites it). */
+	private static java.util.List<com.google.gson.JsonObject> readRenamedSections() {
+		try (var in = Files.newBufferedReader(FabricLoader.getInstance().getConfigDir().resolve("slyrics.jsonc"))) {
+			var reader = new com.google.gson.stream.JsonReader(in);
+			reader.setStrictness(com.google.gson.Strictness.LENIENT);
+			var root = com.google.gson.JsonParser.parseReader(reader);
+			var out = new java.util.ArrayList<com.google.gson.JsonObject>();
+			if (root.isJsonObject()) {
+				var top = root.getAsJsonObject();
+				var modes = top.has("Modes") && top.get("Modes").isJsonObject() ? top.getAsJsonObject("Modes") : null;
+				if (modes != null && modes.has("HUD mode") && modes.get("HUD mode").isJsonObject()) out.add(modes.getAsJsonObject("HUD mode"));
+				var text = top.has("Text Settings") && top.get("Text Settings").isJsonObject() ? top.getAsJsonObject("Text Settings") : null;
+				if (text != null && text.has("Karaoke sweep") && text.get("Karaoke sweep").isJsonObject()) out.add(text.getAsJsonObject("Karaoke sweep"));
+			}
+			return out;
+		} catch (Exception e) {
+			SLyricsClient.LOGGER.warn("Could not read the renamed sections", e);
+			return null;
+		}
 	}
 
 	/** Once: switch to the Auto music source (Spotify first) and move the media player from its old default spot into the corner. */
 	private static void migrateMedia() {
 		Config c = Config.INSTANCE;
-		if (c.mediaVersion >= 1) return;
-		c.mediaVersion = 1;
-		c.musicSource = "Auto";
-		if (c.mediaX == 1.5f && c.mediaY == 2f) {
-			c.mediaX = 0.4f;
-			c.mediaY = 0.6f;
+		if (c.mediaVersion >= 2) return;
+		if (c.mediaVersion < 1) {
+			c.musicSource = "Auto";
+			if (c.mediaX == 1.5f && c.mediaY == 2f) {
+				c.mediaX = 0.4f;
+				c.mediaY = 0.6f;
+			}
 		}
+		c.mediaVersion = 2;
 		toRc();
 		CONFIGURATOR.saveConfig(RcConfig.class);
 		Config.save();

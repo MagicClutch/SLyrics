@@ -21,13 +21,16 @@ Set the music source to **Others**. SLyrics reads the playing song from any medi
 or, without a terminal, open **Flatseal**, pick Prism Launcher and add `org.mpris.MediaPlayer2.*` under *Session Bus -> Talk*. Not needed for a normal (non-Flatpak) Prism.
 
 ## Commands
-`/slyrics config | login | logout | toggle | offset <ms>`
+`/slyrics config | hud | login | logout | toggle | offset <ms>`
 
 ## Features
 - **Words mode:** each word pops up around your crosshair the moment it is sung, glowing, tilted a little toward you, and fades shortly after. Words avoid overlapping each other.
 - **Lines mode:** the whole line appears and the word being sung lights up. Optional **Center layout** puts the words in a row straight ahead.
 - **Modes you can combine:** World words, Sky mode and Stick on blocks each have their own tab and switch. With several on, every word is sent to one of them at random.
-- **Karaoke sweep:** the word being sung is colored from left to right in time with the singing; the color goes off when the next word starts (color, whole-word mode and fade-out are configurable).
+- **Karaoke mode:** a small panel with the previous, the current and the next line; the current line fills in while it is sung, so you can sing along.
+- **Media player:** a small window with cover, title, progress and previous / play-pause / next. Click the buttons (open chat or the pause menu for the cursor) or bind keys; hold the progress bar to scrub and let go to jump. Needs Spotify Premium for Spotify, other players are controlled through MPRIS. The source **Auto** shows Spotify first, otherwise any other player.
+- **HUD editor** (`/slyrics hud`): drag the media player and the karaoke panel where you want them, scroll over one to resize it. They never overlap.
+- **Word sweep:** the word being sung is colored from left to right in time with the singing; the color goes off when the next word starts (color, whole-word mode and fade-out are configurable).
 - **Stick on blocks:** words stick flat onto the walls and floors you look at, like stickers.
 - **Sky mode:** huge words far away in the sky that flash up and drift slowly like clouds (distance, height and letter size are configurable).
 - **Prevent block clipping** (on by default): words are moved in front of walls and terrain and never sit inside blocks.

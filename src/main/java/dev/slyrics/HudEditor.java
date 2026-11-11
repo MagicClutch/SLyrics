@@ -127,7 +127,7 @@ public final class HudEditor extends Screen {
 			float[] b = box(m);
 			int col = m == hover ? 0xFFFFFFFF : 0x66FFFFFF;
 			g.outline(Math.round(b[0]) - 1, Math.round(b[1]) - 1, Math.round(b[2]) + 2, Math.round(b[3]) + 2, col);
-			String label = (m == PLAYER ? "Media player " + c.mediaScale : "Lyrics " + c.hudScale + (c.hudMode ? "" : " (HUD mode is off)")) + (m == PLAYER ? "%" : m == LYRICS && c.hudMode ? "%" : "");
+			String label = (m == PLAYER ? "Media player " + c.mediaScale : "Karaoke " + c.hudScale + (c.hudMode ? "" : " (karaoke mode is off)")) + (m == PLAYER ? "%" : m == LYRICS && c.hudMode ? "%" : "");
 			g.text(this.font, label, Math.round(b[0]), Math.max(0, Math.round(b[1]) - 10), col, true);
 		}
 	}

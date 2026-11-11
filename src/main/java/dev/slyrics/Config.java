@@ -145,7 +145,7 @@ public class Config {
 	/** Word (lowercase) -> sprite: "item:diamond", "block:poppy" or "gui:hud/heart/full". Can be edited in slyrics.json. */
 	public Map<String, String> emojiSpriteMap = Emojis.spriteDefaults();
 
-	// ------------------------------------------------------------------ karaoke sweep
+	// ------------------------------------------------------------------ word sweep
 
 	/** The word being sung is colored from left to right, and the color goes off when the next word starts. */
 	public boolean sweepMode = true;
@@ -198,7 +198,7 @@ public class Config {
 	/** Also show the previous/next line, small and dimmed. */
 	public boolean showNeighbors = false;
 
-	// ------------------------------------------------------------------ HUD mode (karaoke panel)
+	// ------------------------------------------------------------------ karaoke mode (lyrics panel)
 
 	/** A small panel with the previous, current and next line; the current line fills in while it is sung. */
 	public boolean hudMode = false;
