@@ -299,23 +299,10 @@ public final class RcConfig {
 		@Comment("A small panel on the screen with the previous, the current and the next line. The current line fills in while it is sung, so you can sing along. Uses your font, colors and karaoke color, and can be combined with the other modes.")
 		public static boolean hudMode = D.hudMode;
 
-		@ConfigEntry(id = "hudX", translation = "slyrics.config.hudX")
-		@Comment("Horizontal position of the panel's left edge, in percent of the screen width")
-		@ConfigOption.Range(min = 0, max = 100)
-		@ConfigOption.Slider
-		public static float hudX = D.hudX;
+		@ConfigButton(title = "Edit HUD layout", text = "Open")
+		@Comment("Opens the HUD editor: drag the lyrics panel and the media player with the mouse, scroll over one to resize it. Also: /slyrics hud")
+		public static final Runnable editHud = HudEditor::open;
 
-		@ConfigEntry(id = "hudY", translation = "slyrics.config.hudY")
-		@Comment("Vertical position of the panel's top edge, in percent of the screen height")
-		@ConfigOption.Range(min = 0, max = 100)
-		@ConfigOption.Slider
-		public static float hudY = D.hudY;
-
-		@ConfigEntry(id = "hudScale", translation = "slyrics.config.hudScale")
-		@Comment("Size of the panel text in percent")
-		@ConfigOption.Range(min = 40, max = 300)
-		@ConfigOption.Slider
-		public static int hudScale = D.hudScale;
 	}
 
 	@Category("AFK camera")
@@ -410,27 +397,9 @@ public final class RcConfig {
 		@Comment("A small player window on the screen with cover, title, progress and previous / play-pause / next buttons. Open chat or the pause menu to get the mouse cursor and click the buttons, or bind keys in Options > Controls > SLyrics. Works with Spotify (needs Premium and a new /slyrics login) and with the Others source.")
 		public static boolean mediaPlayer = D.mediaPlayer;
 
-		@ConfigButton(title = "Edit position", text = "Open")
-		@Comment("Opens the editor: drag the player with the mouse, scroll to make it bigger or smaller")
-		public static final Runnable editPlayer = MediaPlayerEditor::open;
-
-		@ConfigEntry(id = "mediaX", translation = "slyrics.config.mediaX")
-		@Comment("Horizontal position of the window's left edge, in percent of the screen width")
-		@ConfigOption.Range(min = 0, max = 100)
-		@ConfigOption.Slider
-		public static float mediaX = D.mediaX;
-
-		@ConfigEntry(id = "mediaY", translation = "slyrics.config.mediaY")
-		@Comment("Vertical position of the window's top edge, in percent of the screen height")
-		@ConfigOption.Range(min = 0, max = 100)
-		@ConfigOption.Slider
-		public static float mediaY = D.mediaY;
-
-		@ConfigEntry(id = "mediaScale", translation = "slyrics.config.mediaScale")
-		@Comment("Size of the window in percent")
-		@ConfigOption.Range(min = 50, max = 300)
-		@ConfigOption.Slider
-		public static int mediaScale = D.mediaScale;
+		@ConfigButton(title = "Edit HUD layout", text = "Open")
+		@Comment("Opens the HUD editor: drag the media player and the lyrics panel with the mouse, scroll over one to make it bigger or smaller. Also: /slyrics hud")
+		public static final Runnable editHud = HudEditor::open;
 
 		@ConfigEntry(id = "mediaOpacity", translation = "slyrics.config.mediaOpacity")
 		@Comment("How opaque the window is")

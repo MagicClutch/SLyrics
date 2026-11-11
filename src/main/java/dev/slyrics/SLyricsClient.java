@@ -49,8 +49,8 @@ public class SLyricsClient implements ClientModInitializer {
 			ClientCommands.literal("slyrics")
 				.executes(ctx -> openConfig())
 				.then(ClientCommands.literal("config").executes(ctx -> openConfig()))
-				.then(ClientCommands.literal("player").executes(ctx -> {
-					MediaPlayerEditor.open();
+				.then(ClientCommands.literal("hud").executes(ctx -> {
+					HudEditor.open();
 					return 1;
 				}))
 				.then(ClientCommands.literal("login").executes(ctx -> login(ctx.getSource())))
