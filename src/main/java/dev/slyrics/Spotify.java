@@ -44,6 +44,9 @@ public final class Spotify {
 	private static volatile String accessToken;
 	private static volatile long accessExpiresAt;
 	private static volatile String refreshToken;
+	/** Permissions of the current login (from Spotify's token answer); empty = not known yet. */
+	private static volatile String grantedScope = "";
+	private static boolean loginHinted;
 	private static volatile long pausedUntil;
 	private static String verifier;
 
@@ -163,6 +166,7 @@ public final class Spotify {
 		accessToken = o.get("access_token").getAsString();
 		accessExpiresAt = System.currentTimeMillis() + o.get("expires_in").getAsLong() * 1000L - 60_000L;
 		if (o.has("refresh_token")) refreshToken = o.get("refresh_token").getAsString();
+		if (o.has("scope")) grantedScope = o.get("scope").getAsString();
 		saveAuth();
 		status = "Connected. Waiting for playback...";
 	}
@@ -258,6 +262,25 @@ public final class Spotify {
 		setTrack(t);
 	}
 
+	private static HttpResponse<String> send(String method, String path) throws Exception {
+		HttpRequest req = HttpRequest.newBuilder(URI.create("https://api.spotify.com/v1/me/player/" + path))
+			.header("Authorization", "Bearer " + accessToken).timeout(Duration.ofSeconds(8))
+			.method(method, HttpRequest.BodyPublishers.noBody()).build();
+		return HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+	}
+
+	/** The saved login was made before the player buttons existed and lacks the permission to control playback. */
+	private static void needsLogin() {
+		MediaPlayer.notice("Spotify: run /slyrics login again");
+		if (loginHinted) return;
+		loginHinted = true;
+		var mc = net.minecraft.client.Minecraft.getInstance();
+		mc.execute(() -> {
+			if (mc.player != null) mc.player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+				"SLyrics: the player buttons need one more Spotify permission. Run /slyrics login once more and approve it (Spotify Premium is required to control playback)."));
+		});
+	}
+
 	/** Auto source: a paused Spotify must not push aside another player that is playing. */
 	private static boolean yieldToOthers() {
 		return "Auto".equals(Config.INSTANCE.musicSource) && othersActive;
@@ -297,6 +320,10 @@ public final class Spotify {
 					return;
 				}
 				if (accessToken == null || System.currentTimeMillis() > accessExpiresAt) refresh();
+				if (!grantedScope.isEmpty() && !grantedScope.contains("user-modify-playback-state")) {
+					needsLogin();
+					return;
+				}
 				String path;
 				String method = "PUT";
 				switch (action) {
@@ -307,12 +334,18 @@ public final class Spotify {
 					case "seek" -> path = "seek?position_ms=" + Math.max(0, arg);
 					default -> { return; }
 				}
-				HttpRequest req = HttpRequest.newBuilder(URI.create("https://api.spotify.com/v1/me/player/" + path))
-					.header("Authorization", "Bearer " + accessToken).timeout(Duration.ofSeconds(8))
-					.method(method, HttpRequest.BodyPublishers.noBody()).build();
-				int code = HTTP.send(req, HttpResponse.BodyHandlers.discarding()).statusCode();
-				if (code == 401) accessToken = null;
-				if (code == 403) MediaPlayer.notice("Needs Spotify Premium and a new /slyrics login");
+				HttpResponse<String> res = send(method, path);
+				if (res.statusCode() == 401) { // expired token: get a new one and try once more
+					refresh();
+					res = send(method, path);
+				}
+				int code = res.statusCode();
+				if (code == 401 || code == 403 && res.body().toLowerCase().contains("scope")) {
+					SLyricsClient.LOGGER.warn("Spotify control refused: {} {}", code, res.body());
+					needsLogin();
+					return;
+				}
+				if (code == 403) MediaPlayer.notice("Spotify Premium is required");
 				else if (code == 404) MediaPlayer.notice("No active Spotify device");
 				else if (code == 429) MediaPlayer.notice("Spotify: too many requests");
 				else if (code >= 400) MediaPlayer.notice("Spotify error " + code);
