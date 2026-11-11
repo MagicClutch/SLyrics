@@ -33,7 +33,7 @@ import java.time.Duration;
  * Clicking works while a screen is open (chat, pause menu); keys can be bound in the controls menu.
  */
 public final class MediaPlayer implements HudElement {
-	private static final int W = 160, H = 46, COVER = 36;
+	static final int W = 160, H = 60, COVER = 36;
 	/** Local (unscaled) button boxes: x, y, w, h. */
 	private static final int[][] BUTTONS = {{44, 24, 16, 12}, {64, 24, 16, 12}, {84, 24, 16, 12}};
 
@@ -44,6 +44,8 @@ public final class MediaPlayer implements HudElement {
 	// where the window was drawn last frame (screen coordinates), for the mouse
 	private static volatile float lastX, lastY, lastScale;
 	private static volatile boolean shown;
+	/** True while the position editor is open: the editor draws the window itself. */
+	static volatile boolean editing;
 
 	private static volatile String notice = "";
 	private static volatile long noticeUntil;
@@ -80,8 +82,22 @@ public final class MediaPlayer implements HudElement {
 		noticeUntil = System.currentTimeMillis() + 4000;
 	}
 
+	/** True if the song on screen comes from Spotify (in Auto mode: whichever source is showing right now). */
 	private static boolean spotify() {
-		return "Spotify".equals(Config.INSTANCE.musicSource);
+		String src = Config.INSTANCE.musicSource;
+		return "Spotify".equals(src) || ("Auto".equals(src) && Spotify.fromSpotify);
+	}
+
+	/** Jumps to a position in the current song. */
+	public static void seek(long ms) {
+		if (spotify()) Spotify.seek(ms);
+		else AppleMusic.seek(ms);
+	}
+
+	private static boolean onBar(double mx, double my) {
+		float s = lastScale;
+		double x = lastX + 4 * s, y = lastY + (H - 10) * s;
+		return mx >= x && mx < x + (W - 8) * s && my >= y && my < y + 10 * s;
 	}
 
 	public static void togglePlay() {
@@ -102,6 +118,12 @@ public final class MediaPlayer implements HudElement {
 	/** Returns true if the click hit one of the buttons (and was used). */
 	private static boolean click(double mx, double my) {
 		if (!shown) return false;
+		Track t = Spotify.track;
+		if (t != null && t.durationMs() > 0 && onBar(mx, my)) {
+			double f = (mx - (lastX + 6 * lastScale)) / ((W - 12) * lastScale);
+			seek((long) (Math.max(0, Math.min(1, f)) * t.durationMs()));
+			return true;
+		}
 		for (int i = 0; i < BUTTONS.length; i++) {
 			if (!inside(mx, my, BUTTONS[i])) continue;
 			switch (i) {
@@ -122,26 +144,35 @@ public final class MediaPlayer implements HudElement {
 
 	// ------------------------------------------------------------------ drawing
 
+	/** Top-left corner and scale of the window for a screen of this size: {x, y, scale}. */
+	static float[] place(int guiW, int guiH) {
+		Config c = Config.INSTANCE;
+		float scale = c.mediaScale / 100f;
+		float x = Math.max(0, Math.min(guiW * c.mediaX / 100f, guiW - W * scale));
+		float y = Math.max(0, Math.min(guiH * c.mediaY / 100f, guiH - H * scale));
+		return new float[]{x, y, scale};
+	}
+
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, DeltaTracker delta) {
 		Config c = Config.INSTANCE;
 		Track t = Spotify.track;
 		shown = false;
-		if (!c.enabled || !c.mediaPlayer || t == null) return;
+		if (editing || !c.enabled || !c.mediaPlayer || t == null) return;
+		float[] p = place(g.guiWidth(), g.guiHeight());
+		lastX = p[0];
+		lastY = p[1];
+		lastScale = p[2];
+		shown = true;
+		draw(g, t, Spotify.positionMs(), p[0], p[1], p[2], Minecraft.getInstance().gui.screen() != null);
+	}
+
+	/** Draws the window with its top-left corner at (x0, y0). With cursor=true the buttons light up under the mouse. */
+	static void draw(GuiGraphicsExtractor g, Track t, long posNow, float x0, float y0, float scale, boolean cursor) {
+		Config c = Config.INSTANCE;
 		Minecraft mc = Minecraft.getInstance();
 		Font font = mc.font;
-
-		float scale = c.mediaScale / 100f;
-		float x0 = g.guiWidth() * c.mediaX / 100f, y0 = g.guiHeight() * c.mediaY / 100f;
-		x0 = Math.max(0, Math.min(x0, g.guiWidth() - W * scale));
-		y0 = Math.max(0, Math.min(y0, g.guiHeight() - H * scale));
-		lastX = x0;
-		lastY = y0;
-		lastScale = scale;
-		shown = true;
-
 		int a = Math.round(c.mediaOpacity / 100f * 255);
-		boolean cursor = mc.gui.screen() != null;
 		double mx = mc.mouseHandler.getScaledXPos(mc.getWindow()), my = mc.mouseHandler.getScaledYPos(mc.getWindow());
 
 		g.pose().pushMatrix();
@@ -182,12 +213,21 @@ public final class MediaPlayer implements HudElement {
 			}
 		}
 
-		// time + progress
-		long dur = Math.max(0, t.durationMs()), pos = Math.max(0, Math.min(dur > 0 ? dur : Long.MAX_VALUE, Spotify.positionMs()));
-		String time = mmss(pos) + (dur > 0 ? " / " + mmss(dur) : "");
-		g.text(font, time, W - 5 - font.width(time), 27, (a << 24) | 0xB0B0B8, false);
-		g.fill(6, H - 7, W - 6, H - 5, (a * 110 / 255) << 24 | 0xFFFFFF);
-		if (dur > 0) g.fill(6, H - 7, 6 + Math.round((W - 12) * (pos / (float) dur)), H - 5, (a << 24) | 0x1ED760);
+		// time row below the buttons (elapsed left, length right) and the progress bar
+		long dur = Math.max(0, t.durationMs()), pos = Math.max(0, Math.min(dur > 0 ? dur : Long.MAX_VALUE, posNow));
+		g.text(font, mmss(pos), 6, 42, (a << 24) | 0xB0B0B8, false);
+		if (dur > 0) {
+			String total = mmss(dur);
+			g.text(font, total, W - 6 - font.width(total), 42, (a << 24) | 0xB0B0B8, false);
+		}
+		boolean overBar = cursor && dur > 0 && mx >= x0 + 4 * scale && mx < x0 + (W - 4) * scale && my >= y0 + (H - 10) * scale && my < y0 + H * scale;
+		int by = H - 7;
+		g.fill(6, by, W - 6, by + (overBar ? 3 : 2), (a * 110 / 255) << 24 | 0xFFFFFF);
+		if (dur > 0) {
+			int fillX = 6 + Math.round((W - 12) * (pos / (float) dur));
+			g.fill(6, by, fillX, by + (overBar ? 3 : 2), (a << 24) | 0x1ED760);
+			if (overBar) g.fill(fillX - 1, by - 2, fillX + 2, by + 5, (a << 24) | 0xFFFFFF);
+		}
 
 		g.pose().popMatrix();
 	}

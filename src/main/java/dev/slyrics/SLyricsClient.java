@@ -38,6 +38,7 @@ public class SLyricsClient implements ClientModInitializer {
 		MediaPlayer.init();
 		// first start after installing: tell the user where to enter their own Spotify Client ID
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
+			Spotify.resetNoLyricsTimer();
 			if ("Spotify".equals(Config.INSTANCE.musicSource) && Config.INSTANCE.clientId.isBlank()) {
 				if (client.player != null) client.player.sendSystemMessage(Component.literal("SLyrics: enter your Spotify Client ID in /slyrics config (Spotify), then run /slyrics login. Redirect URI: " + Spotify.REDIRECT));
 			}
@@ -48,6 +49,10 @@ public class SLyricsClient implements ClientModInitializer {
 			ClientCommands.literal("slyrics")
 				.executes(ctx -> openConfig())
 				.then(ClientCommands.literal("config").executes(ctx -> openConfig()))
+				.then(ClientCommands.literal("player").executes(ctx -> {
+					MediaPlayerEditor.open();
+					return 1;
+				}))
 				.then(ClientCommands.literal("login").executes(ctx -> login(ctx.getSource())))
 				.then(ClientCommands.literal("logout").executes(ctx -> {
 					Spotify.logout();

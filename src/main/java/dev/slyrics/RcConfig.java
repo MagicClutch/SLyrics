@@ -24,11 +24,11 @@ public final class RcConfig {
 	}
 
 	public enum MusicSource {
-		SPOTIFY("Spotify"), OTHERS("Others");
+		AUTO("Auto"), SPOTIFY("Spotify"), OTHERS("Others");
 		public final String label;
 		MusicSource(String label) { this.label = label; }
 		@Override public String toString() { return label; }
-		public static MusicSource of(String s) { for (MusicSource m : values()) if (m.label.equals(s) || (m == OTHERS && "Apple Music".equals(s))) return m; return SPOTIFY; }
+		public static MusicSource of(String s) { for (MusicSource m : values()) if (m.label.equals(s) || (m == OTHERS && "Apple Music".equals(s))) return m; return AUTO; }
 	}
 
 	@Category(value = "Connectivity", categories = {General.class, SpotifyTab.class, AppleMusicTab.class})
@@ -38,7 +38,7 @@ public final class RcConfig {
 	@Category(value = "General")
 	public static final class General {
 		@ConfigEntry(id = "musicSource", translation = "slyrics.config.musicSource")
-		@Comment("Where the current song comes from. Spotify: logs in with your Spotify account. Others: reads the song from any media player on this computer, e.g. Apple Music or YouTube Music in the browser, Cider, VLC (Linux only for now).")
+		@Comment("Where the current song comes from. Auto: Spotify when it plays, otherwise any other player on this computer. Spotify: logs in with your Spotify account. Others: reads the song from any media player on this computer, e.g. Apple Music or YouTube Music in the browser, Cider, VLC (Linux only for now).")
 		public static MusicSource musicSource = MusicSource.of(D.musicSource);
 
 		@ConfigEntry(id = "enabled", translation = "slyrics.config.enabled")
@@ -409,6 +409,10 @@ public final class RcConfig {
 		@ConfigEntry(id = "mediaPlayer", translation = "slyrics.config.mediaPlayer")
 		@Comment("A small player window on the screen with cover, title, progress and previous / play-pause / next buttons. Open chat or the pause menu to get the mouse cursor and click the buttons, or bind keys in Options > Controls > SLyrics. Works with Spotify (needs Premium and a new /slyrics login) and with the Others source.")
 		public static boolean mediaPlayer = D.mediaPlayer;
+
+		@ConfigButton(title = "Edit position", text = "Open")
+		@Comment("Opens the editor: drag the player with the mouse, scroll to make it bigger or smaller")
+		public static final Runnable editPlayer = MediaPlayerEditor::open;
 
 		@ConfigEntry(id = "mediaX", translation = "slyrics.config.mediaX")
 		@Comment("Horizontal position of the window's left edge, in percent of the screen width")
