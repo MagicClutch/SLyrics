@@ -54,6 +54,8 @@
 	"slyrics.config.glow": "Glow (%)",
 	"slyrics.config.glowColor": "Glow color",
 	"slyrics.config.hologram": "Enable Aura (words around you)",
+	"slyrics.config.lineScroll": "Scrolling line",
+	"slyrics.config.lineMaxWords": "Max words at once (0 = whole line)",
 	"slyrics.config.lineMode": "Lines mode",
 	"slyrics.config.near": "Closest distance",
 	"slyrics.config.offsetMs": "Offset (ms): minus = earlier, plus = later",
