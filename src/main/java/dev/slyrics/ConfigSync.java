@@ -22,7 +22,7 @@ public final class ConfigSync {
 	public static void init() {
 		boolean hadFile = Files.exists(FabricLoader.getInstance().getConfigDir().resolve("slyrics.jsonc"));
 		var old = hadFile ? readOldLayout() : null; // before anything touches the file: Resourceful Config rewrites it
-		var renamed = hadFile && Config.INSTANCE.mediaVersion < 2 ? readRenamedSections() : null;
+		var renamed = hadFile && Config.INSTANCE.mediaVersion < 3 ? readRenamedSections() : null;
 		CONFIGURATOR.register(RcConfig.class);
 		if (hadFile) {
 			// register() does not read the file; without loading it the fields keep their defaults and would overwrite the real settings
@@ -37,7 +37,7 @@ public final class ConfigSync {
 			toRc();
 			CONFIGURATOR.saveConfig(RcConfig.class);
 		}
-		if (renamed != null) { // "HUD mode" became "Karaoke mode", "Karaoke sweep" became "Word sweep": take the values along
+		if (renamed != null) { // categories were renamed or moved: take the values along
 			for (var o : renamed) applyOld(o);
 			toRc();
 			CONFIGURATOR.saveConfig(RcConfig.class);
@@ -45,7 +45,10 @@ public final class ConfigSync {
 		migrateMedia();
 	}
 
-	/** The sections that were renamed, as they are in the file now (before Resourceful Config rewrites it). */
+	/**
+	 * The sections whose place in the file changed (Modes -> Features, Media player and Size moved, HUD -> HUD editor), as they
+	 * are now: Resourceful Config stores settings per category, so their values are read by name and taken along once.
+	 */
 	private static java.util.List<com.google.gson.JsonObject> readRenamedSections() {
 		try (var in = Files.newBufferedReader(FabricLoader.getInstance().getConfigDir().resolve("slyrics.jsonc"))) {
 			var reader = new com.google.gson.stream.JsonReader(in);
@@ -54,14 +57,13 @@ public final class ConfigSync {
 			var out = new java.util.ArrayList<com.google.gson.JsonObject>();
 			if (root.isJsonObject()) {
 				var top = root.getAsJsonObject();
-				var modes = top.has("Modes") && top.get("Modes").isJsonObject() ? top.getAsJsonObject("Modes") : null;
-				if (modes != null && modes.has("HUD mode") && modes.get("HUD mode").isJsonObject()) out.add(modes.getAsJsonObject("HUD mode"));
-				var text = top.has("Text Settings") && top.get("Text Settings").isJsonObject() ? top.getAsJsonObject("Text Settings") : null;
-				if (text != null && text.has("Karaoke sweep") && text.get("Karaoke sweep").isJsonObject()) out.add(text.getAsJsonObject("Karaoke sweep"));
+				for (String name : new String[]{"Modes", "Media player", "HUD", "Size", "Text Settings"}) {
+					if (top.has(name) && top.get(name).isJsonObject()) out.add(top.getAsJsonObject(name));
+				}
 			}
 			return out;
 		} catch (Exception e) {
-			SLyricsClient.LOGGER.warn("Could not read the renamed sections", e);
+			SLyricsClient.LOGGER.warn("Could not read the moved sections", e);
 			return null;
 		}
 	}
@@ -69,7 +71,7 @@ public final class ConfigSync {
 	/** Once: switch to the Auto music source (Spotify first) and move the media player from its old default spot into the corner. */
 	private static void migrateMedia() {
 		Config c = Config.INSTANCE;
-		if (c.mediaVersion >= 2) return;
+		if (c.mediaVersion >= 3) return;
 		if (c.mediaVersion < 1) {
 			c.musicSource = "Auto";
 			if (c.mediaX == 1.5f && c.mediaY == 2f) {
@@ -77,7 +79,7 @@ public final class ConfigSync {
 				c.mediaY = 0.6f;
 			}
 		}
-		c.mediaVersion = 2;
+		c.mediaVersion = 3;
 		toRc();
 		CONFIGURATOR.saveConfig(RcConfig.class);
 		Config.save();
