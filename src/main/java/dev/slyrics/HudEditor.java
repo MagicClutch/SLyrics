@@ -22,6 +22,9 @@ public final class HudEditor extends Screen {
 	private double offX, offY;
 	/** The size shown for a moment after scrolling, like the action bar above the hotbar. */
 	private String toast = "";
+	private static final float MARGIN = 6f, SNAP = 5f;
+	/** Screen position of the guide line to draw while a module is snapped (x for a vertical line, y for a horizontal one), -1 = none. */
+	private float guideX = -1, guideY = -1;
 	private long toastUntil;
 
 	private final Screen parent;
@@ -139,6 +142,26 @@ public final class HudEditor extends Screen {
 		}
 	}
 
+	/** Snaps a box at (x, y) to the screen center and to the edges (with a margin) when it comes close, and remembers the guide lines to show. */
+	private float[] snap(float x, float y, float w, float h) {
+		guideX = guideY = -1;
+		float[] xs = {MARGIN, (this.width - w) / 2f, this.width - w - MARGIN};
+		float[] xl = {MARGIN, this.width / 2f, this.width - MARGIN};
+		float[] ys = {MARGIN, (this.height - h) / 2f, this.height - h - MARGIN};
+		float[] yl = {MARGIN, this.height / 2f, this.height - MARGIN};
+		float bestX = SNAP, bestY = SNAP;
+		for (int i = 0; i < 3; i++) {
+			if (Math.abs(x - xs[i]) < bestX) { bestX = Math.abs(x - xs[i]); guideX = xl[i]; }
+			if (Math.abs(y - ys[i]) < bestY) { bestY = Math.abs(y - ys[i]); guideY = yl[i]; }
+		}
+		float nx = x, ny = y;
+		for (int i = 0; i < 3; i++) {
+			if (guideX == xl[i] && Math.abs(x - xs[i]) < SNAP) nx = xs[i];
+			if (guideY == yl[i] && Math.abs(y - ys[i]) < SNAP) ny = ys[i];
+		}
+		return new float[]{nx, ny};
+	}
+
 	private boolean overlapsAny(int m) {
 		float[] b = box(m);
 		for (int o = 0; o < COUNT; o++) {
@@ -191,7 +214,7 @@ public final class HudEditor extends Screen {
 		return switch (m) {
 			case PLAYER -> "Media player " + c.mediaScale + "%";
 			case KARAOKE -> "Karaoke " + c.hudScale + "%" + (c.hudMode ? "" : " (karaoke mode is off)");
-			default -> "Lyric line " + Math.round(c.scale * 100) + "%" + (c.anyWorld() ? " (hidden while a world mode is on)" : "");
+			default -> "Lyric line " + Math.round(c.scale * 100) + "%" + (c.lineMode ? "" : " (lyric line mode is off)");
 		};
 	}
 
@@ -220,6 +243,8 @@ public final class HudEditor extends Screen {
 			int col = m == hover ? 0xFFFFFFFF : 0x66FFFFFF;
 			g.outline(Math.round(b[0]) - 1, Math.round(b[1]) - 1, Math.round(b[2]) + 2, Math.round(b[3]) + 2, col);
 		}
+		if (guideX >= 0) g.fill(Math.round(guideX), 0, Math.round(guideX) + 1, this.height, 0xCC55E6FF);
+		if (guideY >= 0) g.fill(0, Math.round(guideY), this.width, Math.round(guideY) + 1, 0xCC55E6FF);
 		long left = toastUntil - System.currentTimeMillis();
 		if (left > 0 && !toast.isEmpty()) {
 			int alpha = (int) Math.max(8, Math.min(255, left * 255 / 400)); // fades out during the last 0.4 s
@@ -244,13 +269,19 @@ public final class HudEditor extends Screen {
 	@Override
 	public boolean mouseDragged(MouseButtonEvent e, double dx, double dy) {
 		if (dragging < 0) return super.mouseDragged(e, dx, dy);
-		moveTo(dragging, (float) (e.x() - offX), (float) (e.y() - offY));
+		float[] b = box(dragging);
+		float[] at = snap((float) (e.x() - offX), (float) (e.y() - offY), b[2], b[3]);
+		moveTo(dragging, at[0], at[1]);
+		float[] after = box(dragging);
+		if (Math.abs(after[0] - at[0]) > 0.6f) guideX = -1; // pushed away by another module: not really snapped
+		if (Math.abs(after[1] - at[1]) > 0.6f) guideY = -1;
 		return true;
 	}
 
 	@Override
 	public boolean mouseReleased(MouseButtonEvent e) {
 		dragging = -1;
+		guideX = guideY = -1;
 		return super.mouseReleased(e);
 	}
 

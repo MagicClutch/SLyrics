@@ -22,7 +22,7 @@ public final class ConfigSync {
 	public static void init() {
 		boolean hadFile = Files.exists(FabricLoader.getInstance().getConfigDir().resolve("slyrics.jsonc"));
 		var old = hadFile ? readOldLayout() : null; // before anything touches the file: Resourceful Config rewrites it
-		var renamed = hadFile && Config.INSTANCE.mediaVersion < 4 ? readRenamedSections() : null;
+		var renamed = hadFile && Config.INSTANCE.mediaVersion < 5 ? readRenamedSections() : null;
 		CONFIGURATOR.register(RcConfig.class);
 		if (hadFile) {
 			// register() does not read the file; without loading it the fields keep their defaults and would overwrite the real settings
@@ -71,7 +71,7 @@ public final class ConfigSync {
 	/** Once: switch to the Auto music source (Spotify first) and move the media player from its old default spot into the corner. */
 	private static void migrateMedia() {
 		Config c = Config.INSTANCE;
-		if (c.mediaVersion >= 4) return;
+		if (c.mediaVersion >= 5) return;
 		if (c.mediaVersion < 1) {
 			c.musicSource = "Auto";
 			if (c.mediaX == 1.5f && c.mediaY == 2f) {
@@ -79,7 +79,8 @@ public final class ConfigSync {
 				c.mediaY = 0.6f;
 			}
 		}
-		c.mediaVersion = 4;
+		if (c.mediaVersion < 5) c.lineMode = !c.anyWorld(); // the lyric line used to show only while no world mode was on
+		c.mediaVersion = 5;
 		toRc();
 		CONFIGURATOR.saveConfig(RcConfig.class);
 		Config.save();

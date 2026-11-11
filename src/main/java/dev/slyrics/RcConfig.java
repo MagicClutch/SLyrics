@@ -71,14 +71,6 @@ public final class RcConfig {
 
 	@Category(value = "Text")
 	public static final class TextLook {
-		@ConfigEntry(id = "showNeighbors", translation = "slyrics.config.showNeighbors")
-		@Comment("Show the previous/next line, dimmed")
-		public static boolean showNeighbors = D.showNeighbors;
-
-		@ConfigEntry(id = "showStatus", translation = "slyrics.config.showStatus")
-		@Comment("Status message when nothing is playing or no lyrics were found")
-		public static boolean showStatus = D.showStatus;
-
 		@ConfigButton(title = "Choose font", text = "Choose")
 		@Comment("Opens a searchable list of Minecraft's fonts and every TrueType font installed on this computer.")
 		public static final Runnable pickFont = dev.slyrics.font.FontPickerScreen::open;
@@ -194,7 +186,7 @@ public final class RcConfig {
 	@Category(value = "Size")
 	public static final class SizeCat {
 		@ConfigEntry(id = "scale", translation = "slyrics.config.scale")
-		@Comment("Size of the lyric line when no world mode is on. You can also scroll over it in the HUD editor.")
+		@Comment("Size of the lyric line. You can also scroll over it in the HUD editor.")
 		@ConfigOption.Range(min = 0.5, max = 5)
 		@ConfigOption.Slider
 		public static float scale = D.scale;
@@ -219,14 +211,14 @@ public final class RcConfig {
 
 	}
 
-	@Category(value = "Features", categories = {PickModes.class, Cat8.class})
+	@Category(value = "Features", categories = {PickModes.class, AuraWords.class, SkyWords.class, StickWords.class, LineCat.class, MediaCat.class, CommonCat.class, Cat8.class})
 	public static final class Modes {
 	}
 
-	@Category(value = "Select modes")
+	@Category(value = "Select features")
 	public static final class PickModes {
 		@ConfigEntry(id = "hologram", translation = "slyrics.config.hologram")
-		@Comment("Words float in front of you, scattered around the crosshair. If every world mode is off, the lyrics show as a plain HUD line")
+		@Comment("Words float in front of you, scattered around the crosshair.")
 		public static boolean hologram = D.hologram;
 
 		@ConfigEntry(id = "skyMode", translation = "slyrics.config.skyMode")
@@ -236,6 +228,10 @@ public final class RcConfig {
 		@ConfigEntry(id = "stickMode", translation = "slyrics.config.stickMode")
 		@Comment("Words stick flat onto the blocks you look at, like stickers on walls and floors")
 		public static boolean stickMode = D.stickMode;
+
+		@ConfigEntry(id = "lineMode", translation = "slyrics.config.lineMode")
+		@Comment("The current lyric line at the bottom of the screen (move it in the HUD editor). Can be combined with the other features.")
+		public static boolean lineMode = D.lineMode;
 
 		@ConfigEntry(id = "hudMode", translation = "slyrics.config.hudMode")
 		@Comment("A small panel on the screen with the previous, the current and the next line. The current line fills in while it is sung, so you can sing along. Uses your font, colors and the word sweep color, and can be combined with the other modes.")
@@ -253,16 +249,10 @@ public final class RcConfig {
 		@Comment("Floating mode: words don't stay where they appear but keep drifting through the world, word by word, and fade out on the way. Works with Aura, Sky and the AFK camera (not with stick-on-blocks).")
 		public static boolean floating = D.floating;
 
-		@ConfigEntry(id = "floatSpeed", translation = "slyrics.config.floatSpeed")
-		@Comment("How fast floating words travel across your view, in degrees per second")
-		@ConfigOption.Range(min = 3, max = 60)
-		@ConfigOption.Slider
-		public static int floatSpeed = D.floatSpeed;
+	}
 
-		@ConfigEntry(id = "throughWalls", translation = "slyrics.config.throughWalls")
-		@Comment("On: lyrics can be seen through blocks and houses. Off: blocks hide them, so you only see words that are not behind terrain or buildings. Applies to all modes.")
-		public static boolean throughWalls = D.throughWalls;
-
+	@Category("Aura")
+	public static final class AuraWords {
 		@ConfigEntry(id = "near", translation = "slyrics.config.near")
 		@Comment("Closest distance of the words in blocks")
 		@ConfigOption.Range(min = 2, max = 12)
@@ -283,6 +273,10 @@ public final class RcConfig {
 		@Comment("Keeps words out of blocks: they are moved in front of walls and terrain and never placed inside the ground")
 		public static boolean blockClipping = D.blockClipping;
 
+	}
+
+	@Category("Sky")
+	public static final class SkyWords {
 		@ConfigEntry(id = "skyDistance", translation = "slyrics.config.skyDistance")
 		@Comment("How far away the sky words are, in blocks")
 		@ConfigOption.Range(min = 30, max = 200)
@@ -295,12 +289,32 @@ public final class RcConfig {
 		@ConfigOption.Slider
 		public static float skyElevation = D.skyElevation;
 
+	}
+
+	@Category("Stick on blocks")
+	public static final class StickWords {
 		@ConfigEntry(id = "stickRange", translation = "slyrics.config.stickRange")
 		@Comment("How far away blocks may be to get a word, in blocks")
 		@ConfigOption.Range(min = 3, max = 40)
 		@ConfigOption.Slider
 		public static float stickRange = D.stickRange;
 
+	}
+
+	@Category("Lyric line")
+	public static final class LineCat {
+		@ConfigEntry(id = "showNeighbors", translation = "slyrics.config.showNeighbors")
+		@Comment("Show the previous/next line, dimmed")
+		public static boolean showNeighbors = D.showNeighbors;
+
+		@ConfigEntry(id = "showStatus", translation = "slyrics.config.showStatus")
+		@Comment("Status message when nothing is playing or no lyrics were found")
+		public static boolean showStatus = D.showStatus;
+
+	}
+
+	@Category("Media player")
+	public static final class MediaCat {
 		@ConfigEntry(id = "mediaOpacity", translation = "slyrics.config.mediaOpacity")
 		@Comment("How opaque the window is")
 		@ConfigOption.Range(min = 20, max = 100)
@@ -310,6 +324,20 @@ public final class RcConfig {
 		@ConfigEntry(id = "mediaCover", translation = "slyrics.config.mediaCover")
 		@Comment("Show the album cover (if the player provides one)")
 		public static boolean mediaCover = D.mediaCover;
+
+	}
+
+	@Category("Floating & walls")
+	public static final class CommonCat {
+		@ConfigEntry(id = "floatSpeed", translation = "slyrics.config.floatSpeed")
+		@Comment("How fast floating words travel across your view, in degrees per second")
+		@ConfigOption.Range(min = 3, max = 60)
+		@ConfigOption.Slider
+		public static int floatSpeed = D.floatSpeed;
+
+		@ConfigEntry(id = "throughWalls", translation = "slyrics.config.throughWalls")
+		@Comment("On: lyrics can be seen through blocks and houses. Off: blocks hide them, so you only see words that are not behind terrain or buildings. Applies to all modes.")
+		public static boolean throughWalls = D.throughWalls;
 
 	}
 

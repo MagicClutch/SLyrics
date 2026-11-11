@@ -72,6 +72,9 @@ public class Config {
 	/** How fast floating words travel across your view, in degrees per second. */
 	public int floatSpeed = 12;
 
+	/** The current lyric line at the bottom of the screen (position in the HUD editor). */
+	public boolean lineMode = false;
+
 	/** True if any of the in-world modes is on (otherwise the plain HUD line is shown). */
 	public boolean anyWorld() {
 		return hologram || skyMode || stickMode;
