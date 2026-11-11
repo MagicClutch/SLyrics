@@ -58,6 +58,8 @@ public class LyricsHud implements HudElement {
 			alpha = Math.max(0f, Math.min(1f, alpha));
 		}
 
+		if ((c.lineScroll || c.lineMaxWords > 0) && drawWords(g, mc.font, c, lines, idx, pos, cx, cy, alpha)) return;
+
 		String text = Emojis.decorate(cur.text(), " ", c);
 		if (!text.isEmpty()) {
 			if (c.typewriter) {
@@ -78,6 +80,127 @@ public class LyricsHud implements HudElement {
 			if (idx + 1 < lines.size() && !lines.get(idx + 1).text().isEmpty())
 				draw(g, mc.font, lines.get(idx + 1).text(), cx, cy + 14 * c.scale, small, c.rgb(), 0.45f, c, 1f);
 		}
+	}
+
+	private record Word(String text, long start) {}
+
+	/** The same timing as the words in the world: the line's duration spread over its words by length. */
+	private static long[] schedule(String[] words, long start, long duration) {
+		double[] w = new double[words.length];
+		double sum = 0;
+		for (int i = 0; i < words.length; i++) {
+			w[i] = words[i].length() + 1.5;
+			sum += w[i];
+		}
+		double usable = Math.min(duration * 0.85, 420.0 * sum / 4.0);
+		long[] t = new long[words.length];
+		double acc = 0;
+		for (int i = 0; i < words.length; i++) {
+			t[i] = start - 90 + Math.round(acc / sum * usable);
+			acc += w[i];
+		}
+		return t;
+	}
+
+	/** The words of lines from..to (inclusive) with the time each one is sung. */
+	private static List<Word> words(List<LyricLine> lines, int from, int to, Config c, int[] firstOfCurrent, int current) {
+		List<Word> out = new java.util.ArrayList<>();
+		for (int li = Math.max(0, from); li <= Math.min(lines.size() - 1, to); li++) {
+			String t = lines.get(li).text().trim();
+			if (t.isEmpty()) continue;
+			if (li == current) firstOfCurrent[0] = out.size();
+			String[] ws = t.split("\\s+");
+			long start = lines.get(li).timeMs();
+			long end = li + 1 < lines.size() ? lines.get(li + 1).timeMs() : start + 5000;
+			long[] at = schedule(ws, start, Math.max(400L, end - start));
+			for (int i = 0; i < ws.length; i++) out.add(new Word(Emojis.decorate(ws[i], " ", c), at[i]));
+		}
+		return out;
+	}
+
+	/**
+	 * The lyric line as words: either scrolling (the word being sung stays in the middle, the rest runs past it, across lines)
+	 * or, for a line with more words than the limit, in parts that switch while it is sung. Returns false if the normal line should be drawn.
+	 */
+	private static boolean drawWords(GuiGraphicsExtractor g, Font font, Config c, List<LyricLine> lines, int idx, long pos, float cx, float cy, float alpha) {
+		int max = c.lineMaxWords;
+		if (c.lineScroll) {
+			int[] first = {0};
+			List<Word> all = words(lines, idx - 3, idx + 4, c, first, idx);
+			if (all.isEmpty()) return false;
+			int k = first[0];
+			for (int i = first[0]; i < all.size() && all.get(i).start() <= pos; i++) k = i;
+			boolean started = all.get(k).start() <= pos;
+			float f = 0f;
+			if (k + 1 < all.size() && started) {
+				long gap = Math.max(1, all.get(k + 1).start() - all.get(k).start());
+				f = Math.max(0f, Math.min(1f, (pos - all.get(k).start()) / (float) Math.min(gap, 350L))); // glide quickly, also over a long pause
+				f = f * f * (3f - 2f * f);
+			}
+			List<String> texts = new java.util.ArrayList<>();
+			for (Word w : all) texts.add(w.text());
+			int left = max > 0 ? (max - 1) / 2 : 1000, right = max > 0 ? max / 2 : 1000;
+			drawStrip(g, font, c, texts, k, f, left, right, false, started, cx, cy, c.scale, 1f); // no fade between lines: it keeps running
+			return true;
+		}
+		String[] ws = lines.get(idx).text().trim().split("\\s+");
+		if (max <= 0 || ws.length <= max) return false;
+		long start = lines.get(idx).timeMs();
+		long end = idx + 1 < lines.size() ? lines.get(idx + 1).timeMs() : start + 5000;
+		long[] at = schedule(ws, start, Math.max(400L, end - start));
+		int cw = 0;
+		for (int i = 0; i < ws.length; i++) if (at[i] <= pos) cw = i;
+		int from = cw / max * max, to = Math.min(ws.length, from + max);
+		List<String> part = new java.util.ArrayList<>();
+		for (int i = from; i < to; i++) part.add(Emojis.decorate(ws[i], " ", c));
+		drawStrip(g, font, c, part, cw - from, 0f, 1000, 1000, true, at[cw] <= pos, cx, cy, c.scale, alpha);
+		return true;
+	}
+
+	/**
+	 * Draws words in a row. rowCentered: the whole row is centered at cx. Otherwise word cur (moved on by f toward the next one)
+	 * is centered at cx, and only left/right words around it are shown, fading in and out at the ends.
+	 */
+	private static void drawStrip(GuiGraphicsExtractor g, Font font, Config c, List<String> words, int cur, float f, int left, int right,
+								  boolean rowCentered, boolean highlight, float cx, float cy, float scale, float alpha) {
+		int n = words.size();
+		if (n == 0) return;
+		MutableComponent[] comps = new MutableComponent[n];
+		int[] wd = new int[n];
+		float[] lx = new float[n];
+		int space = font.width(" ");
+		float x = 0;
+		for (int i = 0; i < n; i++) {
+			comps[i] = styled(words.get(i), c, true);
+			wd[i] = font.width(comps[i]);
+			lx[i] = x;
+			x += wd[i] + space;
+		}
+		float anchor;
+		if (rowCentered) anchor = (x - space) / 2f;
+		else {
+			float c0 = lx[cur] + wd[cur] / 2f, c1 = cur + 1 < n ? lx[cur + 1] + wd[cur + 1] / 2f : c0;
+			anchor = c0 + (c1 - c0) * f;
+		}
+		int base = c.rgb();
+		int hi = c.sweepMode ? sweepRgb(c) : base;
+		float half = g.guiWidth() / 2f - 6f;
+		g.pose().pushMatrix();
+		g.pose().translate(cx, cy);
+		g.pose().scale(scale, scale);
+		for (int i = 0; i < n; i++) {
+			float d = i - (cur + f);
+			float vis = rowCentered ? 1f : d < 0 ? Math.max(0f, Math.min(1f, left + 1 + d)) : Math.max(0f, Math.min(1f, right + 1 - d));
+			if (vis <= 0f) continue;
+			float xs = (lx[i] - anchor) * scale, xe = (lx[i] + wd[i] - anchor) * scale;
+			if (xs < -half || xe > half) continue;
+			boolean now = i == cur;
+			int a = Math.round(255 * alpha * vis * (now ? 1f : Math.max(0.35f, 0.78f - 0.1f * Math.abs(d))));
+			if (a < 4) continue;
+			int rgb = now && highlight ? hi : base;
+			g.text(font, comps[i], Math.round(lx[i] - anchor), -font.lineHeight / 2, (a << 24) | rgb, c.shadow);
+		}
+		g.pose().popMatrix();
 	}
 
 	private static int sweepRgb(Config c) {

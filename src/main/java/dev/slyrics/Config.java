@@ -74,6 +74,10 @@ public class Config {
 
 	/** The current lyric line at the bottom of the screen (position in the HUD editor). */
 	public boolean lineMode = false;
+	/** Lyric line: scrolls through like a ticker, the word being sung stays in the middle. */
+	public boolean lineScroll = false;
+	/** Lyric line: how many words are shown at once (0 = the whole line). */
+	public int lineMaxWords = 0;
 
 	/** True if any of the in-world modes is on (otherwise the plain HUD line is shown). */
 	public boolean anyWorld() {

@@ -303,6 +303,16 @@ public final class RcConfig {
 
 	@Category("Lyric line")
 	public static final class LineCat {
+		@ConfigEntry(id = "lineScroll", translation = "slyrics.config.lineScroll")
+		@Comment("The line scrolls through like a ticker: the word being sung stays in the middle and the text keeps running past it, from line to line.")
+		public static boolean lineScroll = D.lineScroll;
+
+		@ConfigEntry(id = "lineMaxWords", translation = "slyrics.config.lineMaxWords")
+		@Comment("How many words are shown at once (0 = the whole line). With scrolling: how many words are visible around the middle. Without: a longer line is shown in parts that switch while it is sung.")
+		@ConfigOption.Range(min = 0, max = 16)
+		@ConfigOption.Slider
+		public static int lineMaxWords = D.lineMaxWords;
+
 		@ConfigEntry(id = "showNeighbors", translation = "slyrics.config.showNeighbors")
 		@Comment("Show the previous/next line, dimmed")
 		public static boolean showNeighbors = D.showNeighbors;
