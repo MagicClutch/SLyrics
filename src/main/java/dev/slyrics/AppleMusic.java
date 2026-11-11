@@ -17,7 +17,38 @@ public final class AppleMusic {
 	private static final String PREFIX = "org.mpris.MediaPlayer2.";
 	private static final String PLAYER_IF = "org.mpris.MediaPlayer2.Player";
 
+	/** The player that supplies the song right now (the bus name), or null; the media buttons control this one. */
+	private static volatile String activeBus;
+
 	private AppleMusic() {}
+
+	/** Sends PlayPause / Next / Previous to the active player. */
+	static void control(String method) {
+		Spotify.executor().execute(() -> {
+			String bus = activeBus;
+			if (bus == null) {
+				MediaPlayer.notice("No media player found");
+				return;
+			}
+			try {
+				if (!useGdbus) {
+					try {
+						run("busctl", "--user", "call", bus, "/org/mpris/MediaPlayer2", PLAYER_IF, method);
+					} catch (java.io.IOException noBusctl) {
+						useGdbus = true;
+					}
+				}
+				if (useGdbus) {
+					run("gdbus", "call", "--session", "--dest", bus, "--object-path", "/org/mpris/MediaPlayer2", "--method", PLAYER_IF + "." + method);
+				}
+				if (method.equals("PlayPause")) Spotify.setProgress(Spotify.positionMs(), !Spotify.playing);
+				Spotify.executor().schedule(AppleMusic::pollSafe, 400, TimeUnit.MILLISECONDS);
+			} catch (Exception e) {
+				SLyricsClient.LOGGER.debug("Player control error", e);
+				MediaPlayer.notice("Could not control the player");
+			}
+		});
+	}
 
 	public static void start() {
 		Spotify.executor().scheduleWithFixedDelay(AppleMusic::pollSafe, 1, 1, TimeUnit.SECONDS);
@@ -56,6 +87,7 @@ public final class AppleMusic {
 				chosenState = state;
 			}
 		}
+		activeBus = chosen;
 		if (chosen == null) {
 			Spotify.playing = false;
 			boolean flatpak = java.nio.file.Files.exists(java.nio.file.Path.of("/.flatpak-info"));
@@ -88,6 +120,7 @@ public final class AppleMusic {
 		String pos = propJson(chosen, "Position");
 		if (pos != null) posMs = num(JsonParser.parseString(pos).getAsJsonObject().get("data")) / 1000L;
 
+		Spotify.coverUrl = meta.has("mpris:artUrl") ? str(meta.get("mpris:artUrl")) : "";
 		Spotify.setProgress(posMs, "Playing".equals(chosenState));
 		Spotify.setTrack(new Track(artist + " - " + title, title, artist, album, lengthMs));
 	}

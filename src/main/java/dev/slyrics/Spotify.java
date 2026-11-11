@@ -30,7 +30,7 @@ import java.util.function.Consumer;
 public final class Spotify {
 	public static final int PORT = 8888;
 	public static final String REDIRECT = "http://127.0.0.1:" + PORT + "/callback";
-	private static final String SCOPE = "user-read-currently-playing user-read-playback-state";
+	private static final String SCOPE = "user-read-currently-playing user-read-playback-state user-modify-playback-state";
 	private static final Path AUTH_FILE = FabricLoader.getInstance().getConfigDir().resolve("slyrics-auth.json");
 	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
 	private static final Gson GSON = new Gson();
@@ -52,6 +52,8 @@ public final class Spotify {
 	public static volatile List<LyricLine> lyrics = List.of();
 	public static volatile boolean lyricsLoading;
 	public static volatile boolean playing;
+	/** Cover image of the current song (URL, or file:// from a local player); empty if unknown. */
+	public static volatile String coverUrl = "";
 	private static volatile long progressAtFetch;
 	private static volatile long fetchedAtNanos;
 	public static volatile String status = "Not connected. Use /slyrics login";
@@ -235,7 +237,53 @@ public final class Spotify {
 		fetchedAtNanos = System.nanoTime();
 		playing = isPlaying;
 
+		JsonObject album = item.getAsJsonObject("album");
+		String cover = "";
+		if (album.has("images") && album.getAsJsonArray("images").size() > 0) { // the images are listed large to small; the smallest is enough for a thumbnail
+			var imgs = album.getAsJsonArray("images");
+			cover = imgs.get(imgs.size() > 1 ? imgs.size() - 2 : 0).getAsJsonObject().get("url").getAsString();
+		}
+		coverUrl = cover;
 		setTrack(t);
+	}
+
+	/** Play / pause / next / previous on the Spotify account (needs Premium and the user-modify-playback-state scope). */
+	static void control(String action) {
+		EXEC.execute(() -> {
+			try {
+				if (refreshToken == null) {
+					MediaPlayer.notice("Not logged in to Spotify");
+					return;
+				}
+				if (accessToken == null || System.currentTimeMillis() > accessExpiresAt) refresh();
+				String path;
+				String method = "PUT";
+				switch (action) {
+					case "play" -> path = "play";
+					case "pause" -> path = "pause";
+					case "next" -> { path = "next"; method = "POST"; }
+					case "previous" -> { path = "previous"; method = "POST"; }
+					default -> { return; }
+				}
+				HttpRequest req = HttpRequest.newBuilder(URI.create("https://api.spotify.com/v1/me/player/" + path))
+					.header("Authorization", "Bearer " + accessToken).timeout(Duration.ofSeconds(8))
+					.method(method, HttpRequest.BodyPublishers.noBody()).build();
+				int code = HTTP.send(req, HttpResponse.BodyHandlers.discarding()).statusCode();
+				if (code == 401) accessToken = null;
+				if (code == 403) MediaPlayer.notice("Needs Spotify Premium and a new /slyrics login");
+				else if (code == 404) MediaPlayer.notice("No active Spotify device");
+				else if (code == 429) MediaPlayer.notice("Spotify: too many requests");
+				else if (code >= 400) MediaPlayer.notice("Spotify error " + code);
+				else {
+					if (action.equals("play") || action.equals("pause")) setProgress(positionMs(), action.equals("play"));
+					pausedUntil = System.currentTimeMillis() + 900; // let Spotify catch up before the next poll reads the old state
+					EXEC.schedule(Spotify::pollSafe, 1000, TimeUnit.MILLISECONDS);
+				}
+			} catch (Exception e) {
+				SLyricsClient.LOGGER.debug("Spotify control error", e);
+				MediaPlayer.notice("Spotify unreachable");
+			}
+		});
 	}
 
 	/** Makes t the current song (shared by all music sources) and looks up its lyrics when it changed. */

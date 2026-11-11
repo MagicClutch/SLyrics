@@ -205,6 +205,18 @@ public class Config {
 	/** Panel text size in percent. */
 	public int hudScale = 100;
 
+	// ------------------------------------------------------------------ media player widget
+
+	/** A small player window on the screen: cover, title, progress and play / pause / previous / next buttons. */
+	public boolean mediaPlayer = true;
+	/** Top-left corner in percent of screen width/height. */
+	public float mediaX = 1.5f;
+	public float mediaY = 2f;
+	/** Size in percent. */
+	public int mediaScale = 100;
+	public int mediaOpacity = 85;
+	public boolean mediaCover = true;
+
 	// ------------------------------------------------------------------ helpers
 
 	public int rgb() {

@@ -35,6 +35,7 @@ public class SLyricsClient implements ClientModInitializer {
 		AppleMusic.start();
 		LyricsWorld.init();
 		AfkCamera.init();
+		MediaPlayer.init();
 		// first start after installing: tell the user where to enter their own Spotify Client ID
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
 			if ("Spotify".equals(Config.INSTANCE.musicSource) && Config.INSTANCE.clientId.isBlank()) {
