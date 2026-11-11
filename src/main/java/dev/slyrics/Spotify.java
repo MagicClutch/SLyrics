@@ -304,6 +304,7 @@ public final class Spotify {
 	private static final long NO_LYRICS_MS = 10_000L;
 
 	static void seek(long ms) {
+		pausedUntil = System.currentTimeMillis() + 2000; // polls must not bring the old position back before Spotify has jumped
 		control("seek", ms);
 	}
 

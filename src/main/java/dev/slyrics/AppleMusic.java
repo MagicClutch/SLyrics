@@ -20,6 +20,9 @@ public final class AppleMusic {
 	/** The player that supplies the song right now (the bus name), or null; the media buttons control this one. */
 	private static volatile String activeBus;
 
+	/** After a seek the position is not read for a moment, so the bar does not jump back to the old place. */
+	private static volatile long holdUntil;
+
 	private AppleMusic() {}
 
 	/** Sends PlayPause / Next / Previous to the active player. */
@@ -30,8 +33,8 @@ public final class AppleMusic {
 	/** Jumps to a position: MPRIS Seek takes an offset in microseconds from the current position. */
 	static void seek(long ms) {
 		long offsetUs = (ms - Spotify.positionMs()) * 1000L;
+		holdUntil = System.currentTimeMillis() + 1500;
 		control("Seek", "x", Long.toString(offsetUs));
-		Spotify.setProgress(ms, Spotify.playing);
 	}
 
 	private static void control(String method, String sig, String arg) {
@@ -55,7 +58,7 @@ public final class AppleMusic {
 					else run("gdbus", "call", "--session", "--dest", bus, "--object-path", "/org/mpris/MediaPlayer2", "--method", PLAYER_IF + "." + method, arg);
 				}
 				if (method.equals("PlayPause")) Spotify.setProgress(Spotify.positionMs(), !Spotify.playing);
-				Spotify.executor().schedule(AppleMusic::pollSafe, 400, TimeUnit.MILLISECONDS);
+				Spotify.executor().schedule(AppleMusic::pollSafe, method.equals("Seek") ? 1600 : 400, TimeUnit.MILLISECONDS);
 			} catch (Exception e) {
 				SLyricsClient.LOGGER.debug("Player control error", e);
 				MediaPlayer.notice("Could not control the player");
@@ -76,6 +79,7 @@ public final class AppleMusic {
 	}
 
 	private static void poll() throws Exception {
+		if (System.currentTimeMillis() < holdUntil) return;
 		Config c = Config.INSTANCE;
 		boolean auto = "Auto".equals(c.musicSource);
 		if (!c.enabled || !(auto || "Others".equals(c.musicSource))) return;
