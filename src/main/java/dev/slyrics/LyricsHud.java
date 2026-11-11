@@ -88,7 +88,7 @@ public class LyricsHud implements HudElement {
 		}
 	}
 
-	/** HUD mode: previous / current / next line at the top-left, the current line fills in while it is sung. */
+	/** HUD mode: previous / current / next line, the current line fills in while it is sung. */
 	private static void drawPanel(GuiGraphicsExtractor g, Font font, Config c, List<LyricLine> lines) {
 		long pos = Spotify.positionMs() - c.offsetMs;
 		int idx = -1;
@@ -117,6 +117,53 @@ public class LyricsHud implements HudElement {
 			long sing = Math.min(Math.max(1, nextStart - start), Math.max(1200L, cur.length() * 85L));
 			progress = Math.max(0f, Math.min(1f, (pos - start) / (float) sing));
 		}
+		float[] box = panelBox(font, c, g.guiWidth(), g.guiHeight(), prev, cur, next, true);
+		drawPanelBox(g, font, c, prev, cur, next, progress, box);
+	}
+
+	static final String[] SAMPLE = {"The line before", "The line being sung now", "The line after"};
+
+	/** The lyrics panel with sample text at its configured place (for the HUD editor): {x, y, scale, width, height} in screen pixels. */
+	static float[] sampleBox(Font font, Config c, int guiW, int guiH) {
+		return panelBox(font, c, guiW, guiH, SAMPLE[0], SAMPLE[1], SAMPLE[2], false);
+	}
+
+	static void drawSample(GuiGraphicsExtractor g, Font font, Config c, float[] box) {
+		drawPanelBox(g, font, c, SAMPLE[0], SAMPLE[1], SAMPLE[2], 0.5f, box);
+	}
+
+	/**
+	 * Where the panel goes and how big it is: {x, y, scale, width, height} (width and height in screen pixels, scale included).
+	 * With dodge=true the panel moves out of the way of the media player, so the two never overlap.
+	 */
+	static float[] panelBox(Font font, Config c, int guiW, int guiH, String prev, String cur, String next, boolean dodge) {
+		int lh = font.lineHeight;
+		float side = 0.72f;
+		int wp = font.width(styled(prev, c, true)), wc = font.width(styled(cur, c, true)), wn = font.width(styled(next, c, true));
+		float pad = 4f;
+		float width = Math.max(Math.max(wp * side, wc), wn * side);
+		float height = (prev.isEmpty() ? 0 : lh * side + 2) + lh + 2 + (next.isEmpty() ? 0 : lh * side + 2);
+
+		float scale = c.hudScale / 100f;
+		float x0 = guiW * c.hudX / 100f, y0 = guiH * c.hudY / 100f;
+		float room = guiW - x0 - 4f;
+		float fit = Math.min(1f, room / ((width + pad * 2) * scale));
+		scale *= Math.max(0.3f, fit);
+		float w = (width + pad * 2) * scale, h = (height + pad * 2) * scale;
+		x0 = Math.max(0, Math.min(x0, guiW - w));
+		y0 = Math.max(0, Math.min(y0, guiH - h));
+		if (dodge) {
+			float[] pr = MediaPlayer.rect(guiW, guiH);
+			if (pr != null && HudLayout.overlaps(x0, y0, w, h, pr)) {
+				float below = pr[1] + pr[3] + 3f;
+				if (below + h <= guiH) y0 = below;
+				else y0 = Math.max(0, pr[1] - h - 3f);
+			}
+		}
+		return new float[]{x0, y0, scale, w, h};
+	}
+
+	private static void drawPanelBox(GuiGraphicsExtractor g, Font font, Config c, String prev, String cur, String next, float progress, float[] box) {
 		int cut = Math.round(cur.length() * progress);
 		while (cut > 0 && cut < cur.length() && cur.charAt(cut) != ' ' && progress < 1f && cut < cur.length() - 1 && Character.isLetter(cur.charAt(cut))) cut++; // finish the word, no half words
 		String sung = cur.substring(0, cut), rest = cur.substring(cut);
@@ -124,25 +171,16 @@ public class LyricsHud implements HudElement {
 		int base = c.rgb();
 		int sungRgb = c.sweepMode ? sweepRgb(c) : base;
 		int restA = 150, sideA = 105;
-		float main = 1f, side = 0.72f;
+		float side = 0.72f;
 		int lh = font.lineHeight;
-
-		MutableComponent cp = styled(prev, c, true), cc = styled(cur, c, true), cn = styled(next, c, true);
-		int wp = font.width(cp), wc = font.width(cc), wn = font.width(cn);
+		MutableComponent cp = styled(prev, c, true), cn = styled(next, c, true);
 		float pad = 4f;
-		float width = Math.max(Math.max(wp * side, wc * main), wn * side);
-		float height = (prev.isEmpty() ? 0 : lh * side + 2) + lh * main + 2 + (next.isEmpty() ? 0 : lh * side + 2);
-
-		float scale = c.hudScale / 100f;
-		float x0 = g.guiWidth() * c.hudX / 100f, y0 = g.guiHeight() * c.hudY / 100f;
-		float room = g.guiWidth() - x0 - 4f;
-		float fit = Math.min(1f, room / ((width + pad * 2) * scale));
-		scale *= Math.max(0.3f, fit);
+		float scale = box[2];
 
 		g.pose().pushMatrix();
-		g.pose().translate(x0, y0);
+		g.pose().translate(box[0], box[1]);
 		g.pose().scale(scale, scale);
-		if (c.background) g.fill(0, 0, Math.round(width + pad * 2), Math.round(height + pad * 2), 140 << 24);
+		if (c.background) g.fill(0, 0, Math.round(box[3] / scale), Math.round(box[4] / scale), 140 << 24);
 		float y = pad;
 		if (!prev.isEmpty()) {
 			g.pose().pushMatrix();
@@ -158,7 +196,7 @@ public class LyricsHud implements HudElement {
 			if (!sung.isEmpty()) g.text(font, cs, Math.round(pad), Math.round(y), (255 << 24) | sungRgb, c.shadow);
 			if (!rest.isEmpty()) g.text(font, styled(rest, c, true), Math.round(pad) + ws, Math.round(y), (restA << 24) | base, c.shadow);
 		}
-		y += lh * main + 2;
+		y += lh + 2;
 		if (!next.isEmpty()) {
 			g.pose().pushMatrix();
 			g.pose().translate(pad, y);

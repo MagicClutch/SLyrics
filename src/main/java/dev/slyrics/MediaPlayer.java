@@ -41,9 +41,6 @@ public final class MediaPlayer implements HudElement {
 
 	private static KeyMapping keyPlay, keyNext, keyPrev;
 
-	// where the window was drawn last frame (screen coordinates), for the mouse
-	private static volatile float lastX, lastY, lastScale;
-	private static volatile boolean shown;
 	/** True while the position editor is open: the editor draws the window itself. */
 	static volatile boolean editing;
 
@@ -72,8 +69,8 @@ public final class MediaPlayer implements HudElement {
 		});
 		ScreenEvents.AFTER_INIT.register((mc, screen, w, h) ->
 			ScreenMouseEvents.allowMouseClick(screen).register((s, event) -> {
-				boolean used = event.button() == 0 && click(event.x(), event.y());
-				SLyricsClient.LOGGER.info("[media] click on {} at {},{} -> used={} shown={} window={},{} scale={}", s.getClass().getSimpleName(), event.x(), event.y(), used, shown, lastX, lastY, lastScale);
+				boolean used = click(event.x(), event.y());
+				SLyricsClient.LOGGER.info("[media] click on {} at {},{} button={} -> used={}", s.getClass().getSimpleName(), event.x(), event.y(), event.button(), used);
 				return !used;
 			}));
 		HudElementRegistry.attachElementAfter(VanillaHudElements.CHAT, Identifier.fromNamespaceAndPath("slyrics", "media"), new MediaPlayer());
@@ -98,12 +95,6 @@ public final class MediaPlayer implements HudElement {
 		else AppleMusic.seek(ms);
 	}
 
-	private static boolean onBar(double mx, double my) {
-		float s = lastScale;
-		double x = lastX + 4 * s, y = lastY + (H - 10) * s;
-		return mx >= x && mx < x + (W - 8) * s && my >= y && my < y + 10 * s;
-	}
-
 	public static void togglePlay() {
 		if (spotify()) Spotify.control(Spotify.playing ? "pause" : "play");
 		else AppleMusic.control("PlayPause");
@@ -119,17 +110,36 @@ public final class MediaPlayer implements HudElement {
 		else AppleMusic.control("Previous");
 	}
 
-	/** Returns true if the click hit one of the buttons (and was used). */
+	static boolean visible() {
+		Config c = Config.INSTANCE;
+		return !editing && c.enabled && c.mediaPlayer && Spotify.track != null;
+	}
+
+	/** The window's box {x, y, width, height} in screen pixels, or null while it is hidden. */
+	static float[] rect(int guiW, int guiH) {
+		if (!visible()) return null;
+		float[] p = place(guiW, guiH);
+		return new float[]{p[0], p[1], W * p[2], H * p[2]};
+	}
+
+	private static boolean in(double mx, double my, float[] p, int x, int y, int w, int h) {
+		return mx >= p[0] + x * p[2] && mx < p[0] + (x + w) * p[2] && my >= p[1] + y * p[2] && my < p[1] + (y + h) * p[2];
+	}
+
+	/** Returns true if the click hit one of the buttons or the progress bar (and was used). */
 	private static boolean click(double mx, double my) {
-		if (!shown) return false;
+		if (!visible()) return false;
+		Minecraft mc = Minecraft.getInstance();
+		float[] p = place(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
 		Track t = Spotify.track;
-		if (t != null && t.durationMs() > 0 && onBar(mx, my)) {
-			double f = (mx - (lastX + 6 * lastScale)) / ((W - 12) * lastScale);
+		if (t.durationMs() > 0 && in(mx, my, p, 4, H - 10, W - 8, 10)) {
+			double f = (mx - (p[0] + 6 * p[2])) / ((W - 12) * p[2]);
 			seek((long) (Math.max(0, Math.min(1, f)) * t.durationMs()));
 			return true;
 		}
 		for (int i = 0; i < BUTTONS.length; i++) {
-			if (!inside(mx, my, BUTTONS[i])) continue;
+			int[] b = BUTTONS[i];
+			if (!in(mx, my, p, b[0], b[1], b[2], b[3])) continue;
 			switch (i) {
 				case 0 -> previous();
 				case 1 -> togglePlay();
@@ -138,12 +148,6 @@ public final class MediaPlayer implements HudElement {
 			return true;
 		}
 		return false;
-	}
-
-	private static boolean inside(double mx, double my, int[] b) {
-		float s = lastScale;
-		double x = lastX + b[0] * s, y = lastY + b[1] * s;
-		return mx >= x && mx < x + b[2] * s && my >= y && my < y + b[3] * s;
 	}
 
 	// ------------------------------------------------------------------ drawing
@@ -161,13 +165,8 @@ public final class MediaPlayer implements HudElement {
 	public void extractRenderState(GuiGraphicsExtractor g, DeltaTracker delta) {
 		Config c = Config.INSTANCE;
 		Track t = Spotify.track;
-		shown = false;
-		if (editing || !c.enabled || !c.mediaPlayer || t == null) return;
+		if (!visible()) return;
 		float[] p = place(g.guiWidth(), g.guiHeight());
-		lastX = p[0];
-		lastY = p[1];
-		lastScale = p[2];
-		shown = true;
 		draw(g, t, Spotify.positionMs(), p[0], p[1], p[2], Minecraft.getInstance().gui.screen() != null);
 	}
 
