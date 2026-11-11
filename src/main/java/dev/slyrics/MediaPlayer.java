@@ -43,6 +43,9 @@ public final class MediaPlayer implements HudElement {
 
 	/** True while the position editor is open: the editor draws the window itself. */
 	static volatile boolean editing;
+	/** True while the progress bar is held with the mouse: the bar follows the mouse and the song only jumps on release. */
+	private static volatile boolean scrubbing;
+	private static volatile double scrubFraction;
 
 	private static volatile String notice = "";
 	private static volatile long noticeUntil;
@@ -67,12 +70,24 @@ public final class MediaPlayer implements HudElement {
 			while (keyNext.consumeClick()) next();
 			while (keyPrev.consumeClick()) previous();
 		});
-		ScreenEvents.AFTER_INIT.register((mc, screen, w, h) ->
+		ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> {
 			ScreenMouseEvents.allowMouseClick(screen).register((s, event) -> {
 				boolean used = click(event.x(), event.y());
 				SLyricsClient.LOGGER.info("[media] click on {} at {},{} button={} -> used={}", s.getClass().getSimpleName(), event.x(), event.y(), event.button(), used);
 				return !used;
-			}));
+			});
+			ScreenMouseEvents.allowMouseRelease(screen).register((s, event) -> {
+				if (!scrubbing) return true;
+				scrubbing = false;
+				Track t = Spotify.track;
+				if (t != null && t.durationMs() > 0 && visible()) {
+					Minecraft m = Minecraft.getInstance();
+					float[] p = place(m.getWindow().getGuiScaledWidth(), m.getWindow().getGuiScaledHeight());
+					seek((long) (fraction(event.x(), p) * t.durationMs()));
+				}
+				return false;
+			});
+		});
 		HudElementRegistry.attachElementAfter(VanillaHudElements.CHAT, Identifier.fromNamespaceAndPath("slyrics", "media"), new MediaPlayer());
 	}
 
@@ -80,7 +95,7 @@ public final class MediaPlayer implements HudElement {
 
 	static void notice(String text) {
 		notice = text;
-		noticeUntil = System.currentTimeMillis() + 4000;
+		noticeUntil = System.currentTimeMillis() + 6000;
 	}
 
 	/** True if the song on screen comes from Spotify (in Auto mode: whichever source is showing right now). */
@@ -122,6 +137,11 @@ public final class MediaPlayer implements HudElement {
 		return new float[]{p[0], p[1], W * p[2], H * p[2]};
 	}
 
+	/** Where on the progress bar (0..1) the mouse x is. */
+	private static double fraction(double mx, float[] p) {
+		return Math.max(0, Math.min(1, (mx - (p[0] + 6 * p[2])) / ((W - 12) * p[2])));
+	}
+
 	private static boolean in(double mx, double my, float[] p, int x, int y, int w, int h) {
 		return mx >= p[0] + x * p[2] && mx < p[0] + (x + w) * p[2] && my >= p[1] + y * p[2] && my < p[1] + (y + h) * p[2];
 	}
@@ -133,8 +153,8 @@ public final class MediaPlayer implements HudElement {
 		float[] p = place(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
 		Track t = Spotify.track;
 		if (t.durationMs() > 0 && in(mx, my, p, 4, H - 10, W - 8, 10)) {
-			double f = (mx - (p[0] + 6 * p[2])) / ((W - 12) * p[2]);
-			seek((long) (Math.max(0, Math.min(1, f)) * t.durationMs()));
+			scrubbing = true;
+			scrubFraction = fraction(mx, p);
 			return true;
 		}
 		for (int i = 0; i < BUTTONS.length; i++) {
@@ -218,12 +238,17 @@ public final class MediaPlayer implements HudElement {
 
 		// time row below the buttons (elapsed left, length right) and the progress bar
 		long dur = Math.max(0, t.durationMs()), pos = Math.max(0, Math.min(dur > 0 ? dur : Long.MAX_VALUE, posNow));
+		if (scrubbing && (!cursor || dur <= 0)) scrubbing = false; // screen closed or song changed while holding
+		if (scrubbing) {
+			scrubFraction = fraction(mx, new float[]{x0, y0, scale});
+			pos = (long) (scrubFraction * dur);
+		}
 		g.text(font, mmss(pos), 6, 42, (a << 24) | 0xB0B0B8, false);
 		if (dur > 0) {
 			String total = mmss(dur);
 			g.text(font, total, W - 6 - font.width(total), 42, (a << 24) | 0xB0B0B8, false);
 		}
-		boolean overBar = cursor && dur > 0 && mx >= x0 + 4 * scale && mx < x0 + (W - 4) * scale && my >= y0 + (H - 10) * scale && my < y0 + H * scale;
+		boolean overBar = scrubbing || cursor && dur > 0 && mx >= x0 + 4 * scale && mx < x0 + (W - 4) * scale && my >= y0 + (H - 10) * scale && my < y0 + H * scale;
 		int by = H - 7;
 		g.fill(6, by, W - 6, by + (overBar ? 3 : 2), (a * 110 / 255) << 24 | 0xFFFFFF);
 		if (dur > 0) {
