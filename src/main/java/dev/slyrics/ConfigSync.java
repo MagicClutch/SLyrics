@@ -22,7 +22,7 @@ public final class ConfigSync {
 	public static void init() {
 		boolean hadFile = Files.exists(FabricLoader.getInstance().getConfigDir().resolve("slyrics.jsonc"));
 		var old = hadFile ? readOldLayout() : null; // before anything touches the file: Resourceful Config rewrites it
-		var renamed = hadFile && Config.INSTANCE.mediaVersion < 3 ? readRenamedSections() : null;
+		var renamed = hadFile && Config.INSTANCE.mediaVersion < 4 ? readRenamedSections() : null;
 		CONFIGURATOR.register(RcConfig.class);
 		if (hadFile) {
 			// register() does not read the file; without loading it the fields keep their defaults and would overwrite the real settings
@@ -57,7 +57,7 @@ public final class ConfigSync {
 			var out = new java.util.ArrayList<com.google.gson.JsonObject>();
 			if (root.isJsonObject()) {
 				var top = root.getAsJsonObject();
-				for (String name : new String[]{"Modes", "Media player", "HUD", "Size", "Text Settings"}) {
+				for (String name : new String[]{"Modes", "Features", "Media player", "HUD", "Size", "Text Settings"}) {
 					if (top.has(name) && top.get(name).isJsonObject()) out.add(top.getAsJsonObject(name));
 				}
 			}
@@ -71,7 +71,7 @@ public final class ConfigSync {
 	/** Once: switch to the Auto music source (Spotify first) and move the media player from its old default spot into the corner. */
 	private static void migrateMedia() {
 		Config c = Config.INSTANCE;
-		if (c.mediaVersion >= 3) return;
+		if (c.mediaVersion >= 4) return;
 		if (c.mediaVersion < 1) {
 			c.musicSource = "Auto";
 			if (c.mediaX == 1.5f && c.mediaY == 2f) {
@@ -79,7 +79,7 @@ public final class ConfigSync {
 				c.mediaY = 0.6f;
 			}
 		}
-		c.mediaVersion = 3;
+		c.mediaVersion = 4;
 		toRc();
 		CONFIGURATOR.saveConfig(RcConfig.class);
 		Config.save();

@@ -24,13 +24,53 @@ public final class HudEditor extends Screen {
 	private String toast = "";
 	private long toastUntil;
 
-	private HudEditor() {
+	private final Screen parent;
+
+	private HudEditor(Screen parent) {
 		super(Component.literal("Edit HUD"));
+		this.parent = parent;
 	}
 
 	public static void open() {
+		open(null);
+	}
+
+	/** Opens the editor; Done goes back to the given screen (or to the game). */
+	public static void open(Screen parent) {
 		Minecraft mc = Minecraft.getInstance();
-		mc.execute(() -> mc.gui.setScreen(new HudEditor()));
+		mc.execute(() -> mc.gui.setScreen(new HudEditor(parent)));
+	}
+
+	/**
+	 * Clicking the "HUD editor" or "Profiles" category in the settings opens the editor / the profile list straight away instead of a page that
+	 * only holds an Open button. Resourceful Config opens a screen for the category; this replaces it.
+	 */
+	public static void initRedirect() {
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
+			if (!screen.getClass().getName().startsWith("com.teamresourceful.resourcefulconfig.") || !screen.getClass().getName().endsWith("ConfigScreen")) return;
+			Object cfg = field(screen, "config"), parent = field(screen, "parent");
+			if (!(cfg instanceof com.teamresourceful.resourcefulconfig.api.types.ResourcefulConfig category) || !(parent instanceof Screen parentScreen)) return;
+			if (!(field(parentScreen, "config") instanceof com.teamresourceful.resourcefulconfig.api.types.ResourcefulConfig main) || !"slyrics".equals(main.id())) return;
+			if (main.categories().get("HUD editor") == category) open(parentScreen);
+			else if (main.categories().get("Profiles") == category) {
+				client.execute(() -> client.gui.setScreen(new dev.slyrics.profiles.ProfilesScreen(parentScreen)));
+			}
+		});
+	}
+
+	private static Object field(Object o, String name) {
+		for (Class<?> c = o.getClass(); c != null; c = c.getSuperclass()) {
+			try {
+				var f = c.getDeclaredField(name);
+				f.setAccessible(true);
+				return f.get(o);
+			} catch (NoSuchFieldException e) {
+				// try the superclass
+			} catch (ReflectiveOperationException | RuntimeException e) {
+				return null;
+			}
+		}
+		return null;
 	}
 
 	@Override
@@ -51,7 +91,7 @@ public final class HudEditor extends Screen {
 	@Override
 	public void onClose() {
 		Config.save();
-		this.minecraft.gui.setScreen(null);
+		this.minecraft.gui.setScreen(parent);
 	}
 
 	// ------------------------------------------------------------------ modules

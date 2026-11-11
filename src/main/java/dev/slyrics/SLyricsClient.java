@@ -36,6 +36,7 @@ public class SLyricsClient implements ClientModInitializer {
 		LyricsWorld.init();
 		AfkCamera.init();
 		MediaPlayer.init();
+		HudEditor.initRedirect();
 		// first start after installing: tell the user where to enter their own Spotify Client ID
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
 			Spotify.resetNoLyricsTimer();

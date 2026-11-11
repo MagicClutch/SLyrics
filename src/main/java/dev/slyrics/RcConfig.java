@@ -219,26 +219,12 @@ public final class RcConfig {
 
 	}
 
-	@Category(value = "Features", categories = {PickModes.class, AuraWords.class, SkyWords.class, StickWords.class, KaraokeCat.class, MediaCat.class, Cat8.class})
+	@Category(value = "Features", categories = {PickModes.class, Cat8.class})
 	public static final class Modes {
 	}
 
 	@Category(value = "Select modes")
 	public static final class PickModes {
-		@ConfigEntry(id = "throughWalls", translation = "slyrics.config.throughWalls")
-		@Comment("On: lyrics can be seen through blocks and houses. Off: blocks hide them, so you only see words that are not behind terrain or buildings. Applies to all modes.")
-		public static boolean throughWalls = D.throughWalls;
-
-		@ConfigEntry(id = "floating", translation = "slyrics.config.floating")
-		@Comment("Floating mode: words don't stay where they appear but keep drifting through the world, word by word, and fade out on the way. Works with Aura, Sky and the AFK camera (not with stick-on-blocks).")
-		public static boolean floating = D.floating;
-
-		@ConfigEntry(id = "floatSpeed", translation = "slyrics.config.floatSpeed")
-		@Comment("How fast floating words travel across your view, in degrees per second")
-		@ConfigOption.Range(min = 3, max = 60)
-		@ConfigOption.Slider
-		public static int floatSpeed = D.floatSpeed;
-
 		@ConfigEntry(id = "hologram", translation = "slyrics.config.hologram")
 		@Comment("Words float in front of you, scattered around the crosshair. If every world mode is off, the lyrics show as a plain HUD line")
 		public static boolean hologram = D.hologram;
@@ -251,14 +237,32 @@ public final class RcConfig {
 		@Comment("Words stick flat onto the blocks you look at, like stickers on walls and floors")
 		public static boolean stickMode = D.stickMode;
 
+		@ConfigEntry(id = "hudMode", translation = "slyrics.config.hudMode")
+		@Comment("A small panel on the screen with the previous, the current and the next line. The current line fills in while it is sung, so you can sing along. Uses your font, colors and the word sweep color, and can be combined with the other modes.")
+		public static boolean hudMode = D.hudMode;
+
+		@ConfigEntry(id = "mediaPlayer", translation = "slyrics.config.mediaPlayer")
+		@Comment("A small player window on the screen with cover, title, progress and previous / play-pause / next buttons. Open chat or the pause menu to get the mouse cursor and click the buttons, or bind keys in Options > Controls > SLyrics. Works with Spotify (needs Premium and a new /slyrics login) and with the Others source.")
+		public static boolean mediaPlayer = D.mediaPlayer;
+
 		@ConfigEntry(id = "afkEnabled", translation = "slyrics.config.afkEnabled")
-		@Comment("AFK camera: after you have been idle for a while, the camera leaves first person and slowly orbits you like a cinematic shot, with the lyrics in view. Any input ends it. Settings are in Modes > AFK camera.")
+		@Comment("AFK camera: after you have been idle for a while, the camera leaves first person and slowly orbits you like a cinematic shot, with the lyrics in view. Any input ends it. Settings are in Features > AFK camera.")
 		public static boolean afkEnabled = D.afkEnabled;
 
-	}
+		@ConfigEntry(id = "floating", translation = "slyrics.config.floating")
+		@Comment("Floating mode: words don't stay where they appear but keep drifting through the world, word by word, and fade out on the way. Works with Aura, Sky and the AFK camera (not with stick-on-blocks).")
+		public static boolean floating = D.floating;
 
-	@Category(value = "Aura")
-	public static final class AuraWords {
+		@ConfigEntry(id = "floatSpeed", translation = "slyrics.config.floatSpeed")
+		@Comment("How fast floating words travel across your view, in degrees per second")
+		@ConfigOption.Range(min = 3, max = 60)
+		@ConfigOption.Slider
+		public static int floatSpeed = D.floatSpeed;
+
+		@ConfigEntry(id = "throughWalls", translation = "slyrics.config.throughWalls")
+		@Comment("On: lyrics can be seen through blocks and houses. Off: blocks hide them, so you only see words that are not behind terrain or buildings. Applies to all modes.")
+		public static boolean throughWalls = D.throughWalls;
+
 		@ConfigEntry(id = "near", translation = "slyrics.config.near")
 		@Comment("Closest distance of the words in blocks")
 		@ConfigOption.Range(min = 2, max = 12)
@@ -279,10 +283,6 @@ public final class RcConfig {
 		@Comment("Keeps words out of blocks: they are moved in front of walls and terrain and never placed inside the ground")
 		public static boolean blockClipping = D.blockClipping;
 
-	}
-
-	@Category(value = "Sky")
-	public static final class SkyWords {
 		@ConfigEntry(id = "skyDistance", translation = "slyrics.config.skyDistance")
 		@Comment("How far away the sky words are, in blocks")
 		@ConfigOption.Range(min = 30, max = 200)
@@ -295,23 +295,21 @@ public final class RcConfig {
 		@ConfigOption.Slider
 		public static float skyElevation = D.skyElevation;
 
-	}
-
-	@Category(value = "Stick on blocks")
-	public static final class StickWords {
 		@ConfigEntry(id = "stickRange", translation = "slyrics.config.stickRange")
 		@Comment("How far away blocks may be to get a word, in blocks")
 		@ConfigOption.Range(min = 3, max = 40)
 		@ConfigOption.Slider
 		public static float stickRange = D.stickRange;
 
-	}
+		@ConfigEntry(id = "mediaOpacity", translation = "slyrics.config.mediaOpacity")
+		@Comment("How opaque the window is")
+		@ConfigOption.Range(min = 20, max = 100)
+		@ConfigOption.Slider
+		public static int mediaOpacity = D.mediaOpacity;
 
-	@Category("Karaoke mode")
-	public static final class KaraokeCat {
-		@ConfigEntry(id = "hudMode", translation = "slyrics.config.hudMode")
-		@Comment("A small panel on the screen with the previous, the current and the next line. The current line fills in while it is sung, so you can sing along. Uses your font, colors and the word sweep color, and can be combined with the other modes.")
-		public static boolean hudMode = D.hudMode;
+		@ConfigEntry(id = "mediaCover", translation = "slyrics.config.mediaCover")
+		@Comment("Show the album cover (if the player provides one)")
+		public static boolean mediaCover = D.mediaCover;
 
 	}
 
@@ -399,23 +397,6 @@ public final class RcConfig {
 		@ConfigOption.Slider
 		public static float afkSpeed = D.afkSpeed;
 
-	}
-
-	@Category("Media player")
-	public static final class MediaCat {
-		@ConfigEntry(id = "mediaPlayer", translation = "slyrics.config.mediaPlayer")
-		@Comment("A small player window on the screen with cover, title, progress and previous / play-pause / next buttons. Open chat or the pause menu to get the mouse cursor and click the buttons, or bind keys in Options > Controls > SLyrics. Works with Spotify (needs Premium and a new /slyrics login) and with the Others source.")
-		public static boolean mediaPlayer = D.mediaPlayer;
-
-		@ConfigEntry(id = "mediaOpacity", translation = "slyrics.config.mediaOpacity")
-		@Comment("How opaque the window is")
-		@ConfigOption.Range(min = 20, max = 100)
-		@ConfigOption.Slider
-		public static int mediaOpacity = D.mediaOpacity;
-
-		@ConfigEntry(id = "mediaCover", translation = "slyrics.config.mediaCover")
-		@Comment("Show the album cover (if the player provides one)")
-		public static boolean mediaCover = D.mediaCover;
 	}
 
 	@Category("Profiles")
