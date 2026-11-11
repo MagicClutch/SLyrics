@@ -241,8 +241,8 @@ public final class HudEditor extends Screen {
 		Config c = Config.INSTANCE;
 		return switch (m) {
 			case PLAYER -> "Media player " + c.mediaScale + "%";
-			case KARAOKE -> "Karaoke " + c.hudScale + "%" + (c.hudMode ? "" : " (karaoke mode is off)");
-			default -> "Lyric line " + Math.round(c.scale * 100) + "%" + (c.lineMode ? "" : " (lyric line mode is off)");
+			case KARAOKE -> "Karaoke " + c.hudScale + "%" + (c.hudMode ? "" : " (off)");
+			default -> "Lyric line " + Math.round(c.scale * 100) + "%" + (c.lineMode ? "" : " (off)");
 		};
 	}
 
