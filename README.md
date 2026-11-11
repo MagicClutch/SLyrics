@@ -1,48 +1,61 @@
-# SLyrics (Fabric, Minecraft 26.2 / 26.3)
+# SLyrics
 
-Shows the synced lyrics of the song currently playing on Spotify as floating text in your Minecraft world:
-holograms in front of you, words scattered in the sky, or a plain HUD line.
+Synced lyrics of the song you are listening to, as part of your Minecraft world: words that pop up around you, huge words in the sky, a sing-along panel, a media player. Client-side Fabric mod for **Minecraft 26.3**.
 
-## Setup
-Install [Fabric API](https://modrinth.com/mod/fabric-api) and [Resourceful Config](https://modrinth.com/mod/resourceful-config) first, then pick a music source in `/slyrics config` -> Connectivity.
+Needs [Fabric API](https://modrinth.com/mod/fabric-api), [Resourceful Config](https://modrinth.com/mod/resourceful-config) and Java 25. Open the settings with `/slyrics config`.
+
+## Features
+
+**Lyrics in the world** (turn on any combination, every word goes to one of them)
+- **Aura:** each word pops up around your crosshair the moment it is sung, glowing and tilted toward you.
+- **Sky:** huge words far away that flash up and drift like clouds.
+- **Stick on blocks:** words stick flat onto the walls and floors you look at, like stickers.
+- **Floating:** words keep drifting through the world instead of standing still.
+- Words stay out of blocks (or can be seen through walls, your choice), 3D text, glow, outline, motion blur, bounce, flicker, follow-me.
+
+**Lyrics on the screen**
+- **Lyric line:** the current line at the bottom. Limit how many words show at once, or let it **scroll** like a ticker with the sung word always in the middle.
+- **Karaoke mode:** a small panel with the previous, the current and the next line; the current line fills in while it is sung.
+- **Word sweep:** the sung word is colored from left to right in time with the singing.
+
+**Media player**
+- A small window with cover, title, progress and previous / play-pause / next. Click the buttons in chat or the pause menu, or bind keys under *Controls -> SLyrics*. Hold the progress bar to scrub and let go to jump.
+
+**HUD editor** (`/slyrics hud`)
+- Drag the media player, the karaoke panel and the lyric line, scroll over one to resize it. Edges and the screen center snap with guide lines, and the modules never overlap.
+
+**AFK camera**
+- After you are idle, the camera leaves first person and plays cinematic shots around you (orbit, rise, fly-by, push in, ...) with the lyrics in view. Any input ends it.
+
+**Look**
+- Any Minecraft font, a font from a resource pack or a font installed on your computer. Text animations (TikTok pop, Slam, Shake, Wobble, Wave, Spin in, Slide up).
+- Emojis: real Minecraft icons or colored symbols after keywords in many languages (love ♥, fight ⚔, ...).
+
+**Profiles**
+- Save all settings including the HUD layout under a name, load, import and export them. A *Save profile* button appears whenever the active profile has unsaved changes.
+
+## Music sources
+Pick one in *Connectivity*: **Auto** (default: Spotify first, otherwise any other player), **Spotify** or **Others**. Lyrics come from [LRCLIB](https://lrclib.net) (free, no key); not every song has synced lyrics.
 
 ### Spotify
 1. Create an app at https://developer.spotify.com/dashboard (API: **Web API**) with the redirect URI `http://127.0.0.1:8888/callback`.
 2. In game: `/slyrics config` -> enter your Client ID, then run `/slyrics login` and click the link in chat.
-3. Play a song in Spotify. Lyrics come from [LRCLIB](https://lrclib.net) (free, no key); not every song has synced lyrics.
+3. Play a song. Controlling playback from the media player needs **Spotify Premium**.
 
-### Other players (no Spotify needed, Linux only)
-Set the music source to **Others**. SLyrics reads the playing song from any media player that shows up in your desktop's media controls (MPRIS): Cider, YouTube / YouTube Music / Apple Music / SoundCloud in a browser, VLC, Tidal clients, ... No account and no login. To use one specific player, enter part of its name (e.g. `cider`) in the player field.
+### Other players (no account, Linux only)
+SLyrics reads the playing song from any player that shows up in your desktop's media controls (MPRIS): Cider, YouTube / YouTube Music / Apple Music / SoundCloud in a browser, VLC, Tidal clients, ... To use one specific player, enter part of its name (e.g. `cider`) in the player field.
 
-**Prism Launcher as Flatpak (e.g. installed from Bazaar / Flathub):** the sandbox hides your media players from Minecraft. Allow it once, then restart Prism completely:
+**Prism Launcher as Flatpak:** the sandbox hides your players from Minecraft. Allow it once and restart Prism completely:
 
     flatpak override --user --talk-name='org.mpris.MediaPlayer2.*' org.prismlauncher.PrismLauncher
 
-or, without a terminal, open **Flatseal**, pick Prism Launcher and add `org.mpris.MediaPlayer2.*` under *Session Bus -> Talk*. Not needed for a normal (non-Flatpak) Prism.
+or add `org.mpris.MediaPlayer2.*` under *Session Bus -> Talk* in **Flatseal**.
 
 ## Commands
-`/slyrics config | hud | login | logout | toggle | offset <ms>`
+`/slyrics config | hud | login | logout | toggle | offset <ms>` and `/slyrics profile save|update|load|delete|list <name>`
 
-## Features
-- **Words mode:** each word pops up around your crosshair the moment it is sung, glowing, tilted a little toward you, and fades shortly after. Words avoid overlapping each other.
-- **Lines mode:** the whole line appears and the word being sung lights up. Optional **Center layout** puts the words in a row straight ahead.
-- **Modes you can combine:** World words, Sky mode and Stick on blocks each have their own tab and switch. With several on, every word is sent to one of them at random.
-- **Karaoke mode:** a small panel with the previous, the current and the next line; the current line fills in while it is sung, so you can sing along.
-- **Media player:** a small window with cover, title, progress and previous / play-pause / next. Click the buttons (open chat or the pause menu for the cursor) or bind keys; hold the progress bar to scrub and let go to jump. Needs Spotify Premium for Spotify, other players are controlled through MPRIS. The source **Auto** shows Spotify first, otherwise any other player.
-- **HUD editor** (`/slyrics hud`): drag the media player and the karaoke panel where you want them, scroll over one to resize it. They never overlap.
-- **Word sweep:** the word being sung is colored from left to right in time with the singing; the color goes off when the next word starts (color, whole-word mode and fade-out are configurable).
-- **Stick on blocks:** words stick flat onto the walls and floors you look at, like stickers.
-- **Sky mode:** huge words far away in the sky that flash up and drift slowly like clouds (distance, height and letter size are configurable).
-- **Prevent block clipping** (on by default): words are moved in front of walls and terrain and never sit inside blocks.
-- **AFK camera** (off by default): after a configurable idle time the camera leaves first person and plays cinematic shots around you (orbit, rise, descend, diagonal sweep, fly-by, push in, pull out), with the lyrics placed in view. Pick which shots to use. The camera hard-cuts to a new shot only when a new lyric line starts, every N lines (configurable), with an optional dip through black. Any key press or mouse movement ends it.
-- **3D text** (off by default): words get a body of stacked layers, visible from the side.
-- Distance, size, opacity, glow, outline, motion blur, bounce, flicker, follow-me, walls protection, uppercase.
-- Custom font: `minecraft:default`, `minecraft:uniform`, `minecraft:alt`, `minecraft:illageralt`, or any font from a resource pack (`assets/<namespace>/font/<name>.json` -> `<namespace>:<name>`).
-- Emojis: real Minecraft icons (heart, diamond, sword, apple, ...) or colorful symbols, added after matching keywords in many languages; adds a symbol after keywords in many languages (love ♥, fight ⚔, ...) without replacing the word. Toggle in the config; edit the word list via `emojiMap` in `config/slyrics.json`.
-- Words fade out when the music is paused.
+## Settings at a glance
+*Connectivity* (source, Spotify, other players) - *Text Settings* (text, effects, animations, word sweep, size) - *Features* (select features, then one page each for Aura, Sky, Stick on blocks, Lyric line, Media player, Floating & walls, AFK camera) - *Profiles* - *HUD editor*.
 
 ## Build
-`./gradlew build` (26.3). For 26.2:
-`./gradlew build -Pminecraft_version=26.2 -Pfabric_api_version=0.161.0+26.2 -Pyacl_version=3.9.7+26.2-fabric -Pmod_version=1.0.0+26.2`
-
-Run the dev client with `./gradlew runClient`.
+`./gradlew build` (Minecraft 26.3, Java 25). Run the dev client with `./gradlew runClient`.
