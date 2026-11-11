@@ -34,21 +34,47 @@ public final class SaveProfileButton {
 		return n.startsWith("com.teamresourceful.resourcefulconfig.") && n.endsWith("ConfigScreen") && isOurs(screen);
 	}
 
-	/** Resourceful Config screens exist for every mod that uses it; only ours may get the button. */
+	/**
+	 * Resourceful Config screens exist for every mod that uses it; only ours may get the button. A category page is a screen of
+	 * its own whose config is the category, so the screens it was opened from are checked too.
+	 */
 	private static boolean isOurs(Screen screen) {
+		for (int depth = 0; screen != null && depth < 6; depth++) {
+			var cfg = configOf(screen);
+			if (cfg != null && "slyrics".equals(cfg.id())) return true;
+			screen = parentOf(screen);
+		}
+		return false;
+	}
+
+	private static com.teamresourceful.resourcefulconfig.api.types.ResourcefulConfig configOf(Screen screen) {
 		for (Class<?> c = screen.getClass(); c != null; c = c.getSuperclass()) {
 			for (java.lang.reflect.Field f : c.getDeclaredFields()) {
 				if (!com.teamresourceful.resourcefulconfig.api.types.ResourcefulConfig.class.isAssignableFrom(f.getType())) continue;
 				try {
 					f.setAccessible(true);
-					var cfg = (com.teamresourceful.resourcefulconfig.api.types.ResourcefulConfig) f.get(screen);
-					return cfg != null && "slyrics".equals(cfg.id());
+					return (com.teamresourceful.resourcefulconfig.api.types.ResourcefulConfig) f.get(screen);
 				} catch (ReflectiveOperationException | RuntimeException e) {
-					return false;
+					return null;
 				}
 			}
 		}
-		return false;
+		return null;
+	}
+
+	private static Screen parentOf(Screen screen) {
+		for (Class<?> c = screen.getClass(); c != null; c = c.getSuperclass()) {
+			try {
+				java.lang.reflect.Field f = c.getDeclaredField("parent");
+				f.setAccessible(true);
+				return f.get(screen) instanceof Screen p ? p : null;
+			} catch (NoSuchFieldException e) {
+				// try the superclass
+			} catch (ReflectiveOperationException | RuntimeException e) {
+				return null;
+			}
+		}
+		return null;
 	}
 
 	private static void save() {
