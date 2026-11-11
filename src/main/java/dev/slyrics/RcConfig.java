@@ -170,7 +170,7 @@ public final class RcConfig {
 
 	}
 
-	@Category(value = "Karaoke sweep")
+	@Category(value = "Word sweep")
 	public static final class Sweep {
 		@ConfigEntry(id = "sweepMode", translation = "slyrics.config.sweepMode")
 		@Comment("The word being sung is colored from left to right in time with the singing. When the next word starts, the color goes off again.")
@@ -205,7 +205,7 @@ public final class RcConfig {
 
 	}
 
-	@Category(value = "Modes", categories = {PickModes.class, AuraWords.class, SkyWords.class, StickWords.class, HudModeCat.class, Cat8.class})
+	@Category(value = "Modes", categories = {PickModes.class, AuraWords.class, SkyWords.class, StickWords.class, KaraokeCat.class, Cat8.class})
 	public static final class Modes {
 	}
 
@@ -293,10 +293,10 @@ public final class RcConfig {
 
 	}
 
-	@Category("HUD mode")
-	public static final class HudModeCat {
+	@Category("Karaoke mode")
+	public static final class KaraokeCat {
 		@ConfigEntry(id = "hudMode", translation = "slyrics.config.hudMode")
-		@Comment("A small panel on the screen with the previous, the current and the next line. The current line fills in while it is sung, so you can sing along. Uses your font, colors and karaoke color, and can be combined with the other modes.")
+		@Comment("A small panel on the screen with the previous, the current and the next line. The current line fills in while it is sung, so you can sing along. Uses your font, colors and the word sweep color, and can be combined with the other modes.")
 		public static boolean hudMode = D.hudMode;
 
 		@ConfigButton(title = "Edit HUD layout", text = "Open")

@@ -88,7 +88,7 @@ public class LyricsHud implements HudElement {
 		}
 	}
 
-	/** HUD mode: previous / current / next line, the current line fills in while it is sung. */
+	/** Karaoke mode: previous / current / next line, the current line fills in while it is sung. */
 	private static void drawPanel(GuiGraphicsExtractor g, Font font, Config c, List<LyricLine> lines) {
 		long pos = Spotify.positionMs() - c.offsetMs;
 		int idx = -1;
