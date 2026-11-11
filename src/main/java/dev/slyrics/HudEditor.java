@@ -20,6 +20,9 @@ public final class HudEditor extends Screen {
 	private static final int[] CLICK_ORDER = {LINE, KARAOKE, PLAYER};
 	private int dragging = -1, selected = -1;
 	private double offX, offY;
+	/** The size shown for a moment after scrolling, like the action bar above the hotbar. */
+	private String toast = "";
+	private long toastUntil;
 
 	private HudEditor() {
 		super(Component.literal("Edit HUD"));
@@ -176,7 +179,13 @@ public final class HudEditor extends Screen {
 			float[] b = box(m);
 			int col = m == hover ? 0xFFFFFFFF : 0x66FFFFFF;
 			g.outline(Math.round(b[0]) - 1, Math.round(b[1]) - 1, Math.round(b[2]) + 2, Math.round(b[3]) + 2, col);
-			g.text(this.font, label(m), Math.round(b[0]), Math.max(0, Math.round(b[1]) - 10), col, true);
+		}
+		long left = toastUntil - System.currentTimeMillis();
+		if (left > 0 && !toast.isEmpty()) {
+			int alpha = (int) Math.max(8, Math.min(255, left * 255 / 400)); // fades out during the last 0.4 s
+			int w = this.font.width(toast), x = (this.width - w) / 2, y = this.height - 52;
+			g.fill(x - 4, y - 3, x + w + 4, y + this.font.lineHeight + 2, (alpha * 150 / 255) << 24);
+			g.text(this.font, toast, x, y, (alpha << 24) | 0xFFFFFF, true);
 		}
 	}
 
@@ -212,6 +221,8 @@ public final class HudEditor extends Screen {
 		if (m < 0) return false;
 		selected = m;
 		rescale(m, sy > 0 ? 1 : sy < 0 ? -1 : 0);
+		toast = label(m);
+		toastUntil = System.currentTimeMillis() + 1500;
 		return true;
 	}
 }
