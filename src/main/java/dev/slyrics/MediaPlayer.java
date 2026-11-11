@@ -72,7 +72,7 @@ public final class MediaPlayer implements HudElement {
 		});
 		ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> {
 			ScreenMouseEvents.allowMouseClick(screen).register((s, event) -> {
-				boolean used = click(event.x(), event.y());
+				boolean used = interactive(s) && click(event.x(), event.y());
 				SLyricsClient.LOGGER.info("[media] click on {} at {},{} button={} -> used={}", s.getClass().getSimpleName(), event.x(), event.y(), event.button(), used);
 				return !used;
 			});
@@ -124,6 +124,12 @@ public final class MediaPlayer implements HudElement {
 	public static void previous() {
 		if (spotify()) Spotify.control("previous");
 		else AppleMusic.control("Previous");
+	}
+
+	/** The player can be clicked on the chat, the pause menu and inventories, not through settings screens or other windows on top of it. */
+	static boolean interactive(net.minecraft.client.gui.screens.Screen s) {
+		return s instanceof net.minecraft.client.gui.screens.ChatScreen || s instanceof net.minecraft.client.gui.screens.PauseScreen
+			|| s instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>;
 	}
 
 	static boolean visible() {
@@ -188,7 +194,7 @@ public final class MediaPlayer implements HudElement {
 		Track t = Spotify.track;
 		if (!visible()) return;
 		float[] p = place(g.guiWidth(), g.guiHeight());
-		draw(g, t, Spotify.positionMs(), p[0], p[1], p[2], Minecraft.getInstance().gui.screen() != null);
+		draw(g, t, Spotify.positionMs(), p[0], p[1], p[2], interactive(Minecraft.getInstance().gui.screen()));
 	}
 
 	/** Draws the window with its top-left corner at (x0, y0). With cursor=true the buttons light up under the mouse. */
