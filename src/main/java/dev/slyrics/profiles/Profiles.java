@@ -21,6 +21,8 @@ import java.util.stream.Stream;
 /** Named copies of all settings in config/slyrics-profiles/<name>.json. Your Spotify client ID is never stored in them. */
 public final class Profiles {
 	private static final String SKIP = "clientId";
+	/** The HUD layout is set in the HUD editor, not in the settings screen, but it belongs to a profile like any other setting. */
+	private static final List<String> LAYOUT = List.of("mediaX", "mediaY", "mediaScale", "hudX", "hudY", "hudScale", "xPercent", "yPercent");
 
 	private Profiles() {}
 
@@ -61,6 +63,13 @@ public final class Profiles {
 				} catch (NoSuchFieldException ignored) {
 					// a button or an entry that has no counterpart in Config
 				}
+			}
+		}
+		for (String name : LAYOUT) {
+			try {
+				out.add(Config.class.getField(name));
+			} catch (NoSuchFieldException ignored) {
+				// not there (should not happen)
 			}
 		}
 		return out;
@@ -104,6 +113,7 @@ public final class Profiles {
 			JsonObject saved = JsonParser.parseString(Files.readString(folder().resolve(clean(name) + ".json"))).getAsJsonObject();
 			for (var e : now.entrySet()) {
 				JsonElement other = saved.get(e.getKey());
+				if (other == null && LAYOUT.contains(e.getKey())) continue; // a profile saved before the layout was part of it
 				if (other == null || !other.isJsonPrimitive() || !other.getAsString().equals(e.getValue().getAsString())) return true;
 			}
 			return false;
