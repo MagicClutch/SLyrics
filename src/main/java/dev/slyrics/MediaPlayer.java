@@ -71,7 +71,11 @@ public final class MediaPlayer implements HudElement {
 			while (keyPrev.consumeClick()) previous();
 		});
 		ScreenEvents.AFTER_INIT.register((mc, screen, w, h) ->
-			ScreenMouseEvents.allowMouseClick(screen).register((s, event) -> !(event.button() == 0 && click(event.x(), event.y()))));
+			ScreenMouseEvents.allowMouseClick(screen).register((s, event) -> {
+				boolean used = event.button() == 0 && click(event.x(), event.y());
+				SLyricsClient.LOGGER.info("[media] click on {} at {},{} -> used={} shown={} window={},{} scale={}", s.getClass().getSimpleName(), event.x(), event.y(), used, shown, lastX, lastY, lastScale);
+				return !used;
+			}));
 		HudElementRegistry.attachElementAfter(VanillaHudElements.CHAT, Identifier.fromNamespaceAndPath("slyrics", "media"), new MediaPlayer());
 	}
 

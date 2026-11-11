@@ -48,6 +48,9 @@ public class Config {
 	/** Which built-in profiles were already created (so deleted ones do not come back). */
 	public int defaultProfilesVersion = 0;
 
+	/** Bookkeeping: 1 = switched to the Auto music source and the new media player position once. */
+	public int mediaVersion = 0;
+
 	/** Which default emoji words were already merged into the word lists. */
 	public int emojiVersion = 0;
 

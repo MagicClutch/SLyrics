@@ -36,6 +36,22 @@ public final class ConfigSync {
 			toRc();
 			CONFIGURATOR.saveConfig(RcConfig.class);
 		}
+		migrateMedia();
+	}
+
+	/** Once: switch to the Auto music source (Spotify first) and move the media player from its old default spot into the corner. */
+	private static void migrateMedia() {
+		Config c = Config.INSTANCE;
+		if (c.mediaVersion >= 1) return;
+		c.mediaVersion = 1;
+		c.musicSource = "Auto";
+		if (c.mediaX == 1.5f && c.mediaY == 2f) {
+			c.mediaX = 0.4f;
+			c.mediaY = 0.6f;
+		}
+		toRc();
+		CONFIGURATOR.saveConfig(RcConfig.class);
+		Config.save();
 	}
 
 	/**
