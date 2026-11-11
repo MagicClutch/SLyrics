@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
+import dev.slyrics.profiles.Profiles;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -85,11 +86,45 @@ public final class HudEditor extends Screen {
 				moveTo(m, b[0], b[1]);
 			}
 		}
-		int bw = 70, gap = 6, x = (this.width - 2 * bw - gap) / 2, y = this.height - 30;
-		CustomButton reset = addRenderableWidget(new CustomButton(bw, 18, Component.literal("Reset"), this::reset));
+		reset = addRenderableWidget(new CustomButton(BW, 18, Component.literal("Reset"), this::reset));
+		save = addRenderableWidget(new CustomButton(SAVE_W, 18, Component.literal("Save profile"), this::saveProfile));
+		done = addRenderableWidget(new CustomButton(BW, 18, Component.literal("Done"), this::onClose));
+		layoutButtons();
+	}
+
+	private static final int BW = 70, SAVE_W = 90, GAP = 6;
+	private CustomButton reset, save, done;
+
+	/** True if a profile is active and the settings (with the layout) differ from what is saved in it. */
+	private static boolean canSave() {
+		return !Profiles.active().isEmpty() && Profiles.modified();
+	}
+
+	/** Reset | Save profile | Done, centered; Save profile only while there is something to save. */
+	private void layoutButtons() {
+		boolean showSave = canSave();
+		save.visible = showSave;
+		save.active = showSave;
+		int total = 2 * BW + GAP + (showSave ? SAVE_W + GAP : 0);
+		int x = (this.width - total) / 2, y = this.height - 30;
 		reset.setPosition(x, y);
-		CustomButton done = addRenderableWidget(new CustomButton(bw, 18, Component.literal("Done"), this::onClose));
-		done.setPosition(x + bw + gap, y);
+		x += BW + GAP;
+		if (showSave) {
+			save.setPosition(x, y);
+			x += SAVE_W + GAP;
+		}
+		done.setPosition(x, y);
+	}
+
+	private void saveProfile() {
+		try {
+			ConfigSync.saveAll();
+			String name = Profiles.save(Profiles.active());
+			toast = "Saved profile '" + name + "'";
+		} catch (Exception e) {
+			toast = "Could not save the profile";
+		}
+		toastUntil = System.currentTimeMillis() + 1800;
 	}
 
 	@Override
@@ -250,6 +285,7 @@ public final class HudEditor extends Screen {
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		layoutButtons();
 		super.extractRenderState(g, mouseX, mouseY, a);
 		Config c = Config.INSTANCE;
 		g.centeredText(this.font, Component.literal("Edit HUD").withColor(UIConstants.TEXT_TITLE), this.width / 2, 10, -1);
