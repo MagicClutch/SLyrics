@@ -27,7 +27,7 @@ public class LyricsHud implements HudElement {
 		List<LyricLine> lines = Spotify.lyrics;
 
 		if (c.hudMode && !lines.isEmpty()) drawPanel(g, mc.font, c, lines);
-		if (c.anyWorld() && !lines.isEmpty()) return; // lyrics are shown as holograms in the world
+		if (!c.lineMode && !lines.isEmpty()) return; // the lyric line is its own feature; the other modes show the lyrics elsewhere
 		if (lines.isEmpty() || !Spotify.playing && Spotify.track == null) {
 			String msg = c.showStatus ? Spotify.noLyricsMessage() : null; // only "No lyrics found", and only for 10 seconds
 			if (msg != null) draw(g, mc.font, msg, cx, cy, Math.min(1f, c.scale) * 0.7f, 0xAAAAAA, 0.8f * Spotify.noLyricsAlpha(), c, 1f);
