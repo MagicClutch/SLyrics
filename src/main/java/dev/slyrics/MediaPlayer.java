@@ -106,6 +106,7 @@ public final class MediaPlayer implements HudElement {
 
 	/** Jumps to a position in the current song. */
 	public static void seek(long ms) {
+		Spotify.setProgress(ms, Spotify.playing); // the bar stays where you let go, no jump back while the player catches up
 		if (spotify()) Spotify.seek(ms);
 		else AppleMusic.seek(ms);
 	}
