@@ -90,5 +90,15 @@
 	"slyrics.config.hudX": "Position X (%)",
 	"slyrics.config.hudY": "Position Y (%)",
 	"slyrics.config.xPercent": "Position X (%)",
-	"slyrics.config.yPercent": "Position Y (%)"
+	"slyrics.config.yPercent": "Position Y (%)",
+	"slyrics.config.mediaPlayer": "Enable media player",
+	"slyrics.config.mediaX": "Position X (%)",
+	"slyrics.config.mediaY": "Position Y (%)",
+	"slyrics.config.mediaScale": "Size (%)",
+	"slyrics.config.mediaOpacity": "Opacity (%)",
+	"slyrics.config.mediaCover": "Show cover",
+	"key.category.slyrics.main": "SLyrics",
+	"key.slyrics.play_pause": "Play / pause",
+	"key.slyrics.next": "Next song",
+	"key.slyrics.previous": "Previous song"
 }

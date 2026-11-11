@@ -6,7 +6,7 @@ import com.teamresourceful.resourcefulconfig.api.annotations.*;
  * The settings screen (Resourceful Config): one nested class per category, one static field per setting.
  * ConfigSync mirrors the values into Config by field name, so a field here needs a field of the same name there.
  */
-@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Connectivity.class, RcConfig.TextSettings.class, RcConfig.SizeCat.class, RcConfig.Modes.class, RcConfig.ProfilesTab.class, RcConfig.Cat10.class})
+@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Connectivity.class, RcConfig.TextSettings.class, RcConfig.SizeCat.class, RcConfig.Modes.class, RcConfig.MediaCat.class, RcConfig.ProfilesTab.class, RcConfig.Cat10.class})
 @ConfigInfo(title = "SLyrics", description = "Spotify lyrics as floating words in the world")
 public final class RcConfig {
 	private static final Config D = new Config();
@@ -402,6 +402,41 @@ public final class RcConfig {
 		@ConfigOption.Slider
 		public static float afkSpeed = D.afkSpeed;
 
+	}
+
+	@Category("Media player")
+	public static final class MediaCat {
+		@ConfigEntry(id = "mediaPlayer", translation = "slyrics.config.mediaPlayer")
+		@Comment("A small player window on the screen with cover, title, progress and previous / play-pause / next buttons. Open chat or the pause menu to get the mouse cursor and click the buttons, or bind keys in Options > Controls > SLyrics. Works with Spotify (needs Premium and a new /slyrics login) and with the Others source.")
+		public static boolean mediaPlayer = D.mediaPlayer;
+
+		@ConfigEntry(id = "mediaX", translation = "slyrics.config.mediaX")
+		@Comment("Horizontal position of the window's left edge, in percent of the screen width")
+		@ConfigOption.Range(min = 0, max = 100)
+		@ConfigOption.Slider
+		public static float mediaX = D.mediaX;
+
+		@ConfigEntry(id = "mediaY", translation = "slyrics.config.mediaY")
+		@Comment("Vertical position of the window's top edge, in percent of the screen height")
+		@ConfigOption.Range(min = 0, max = 100)
+		@ConfigOption.Slider
+		public static float mediaY = D.mediaY;
+
+		@ConfigEntry(id = "mediaScale", translation = "slyrics.config.mediaScale")
+		@Comment("Size of the window in percent")
+		@ConfigOption.Range(min = 50, max = 300)
+		@ConfigOption.Slider
+		public static int mediaScale = D.mediaScale;
+
+		@ConfigEntry(id = "mediaOpacity", translation = "slyrics.config.mediaOpacity")
+		@Comment("How opaque the window is")
+		@ConfigOption.Range(min = 20, max = 100)
+		@ConfigOption.Slider
+		public static int mediaOpacity = D.mediaOpacity;
+
+		@ConfigEntry(id = "mediaCover", translation = "slyrics.config.mediaCover")
+		@Comment("Show the album cover (if the player provides one)")
+		public static boolean mediaCover = D.mediaCover;
 	}
 
 	@Category("Profiles")
