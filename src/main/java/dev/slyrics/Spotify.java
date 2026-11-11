@@ -54,6 +54,12 @@ public final class Spotify {
 	public static volatile boolean playing;
 	/** Cover image of the current song (URL, or file:// from a local player); empty if unknown. */
 	public static volatile String coverUrl = "";
+	/** Auto source: true while the song on screen comes from Spotify (false: from another player). */
+	public static volatile boolean fromSpotify;
+	/** Auto source: another player is playing right now (Spotify then only takes over when it plays itself). */
+	static volatile boolean othersActive;
+	/** When the lyrics search for the current song came back empty (ms), for the short "No lyrics found" message. */
+	private static volatile long noLyricsSince;
 	private static volatile long progressAtFetch;
 	private static volatile long fetchedAtNanos;
 	public static volatile String status = "Not connected. Use /slyrics login";
@@ -195,7 +201,8 @@ public final class Spotify {
 	}
 
 	private static void poll() throws Exception {
-		if (refreshToken == null || !Config.INSTANCE.enabled || !"Spotify".equals(Config.INSTANCE.musicSource)) return;
+		String source = Config.INSTANCE.musicSource;
+		if (refreshToken == null || !Config.INSTANCE.enabled || !("Spotify".equals(source) || "Auto".equals(source))) return;
 		if (System.currentTimeMillis() < pausedUntil) return;
 		if (accessToken == null || System.currentTimeMillis() > accessExpiresAt) refresh();
 
@@ -213,6 +220,7 @@ public final class Spotify {
 			return;
 		}
 		if (code == 204 || code != 200) {
+			if (yieldToOthers()) return;
 			playing = false;
 			if (code == 204) status = "Spotify is not playing anything";
 			return;
@@ -220,6 +228,7 @@ public final class Spotify {
 		JsonObject root = JsonParser.parseString(res.body()).getAsJsonObject();
 		if (!root.has("item") || root.get("item").isJsonNull()
 			|| !"track".equals(root.has("currently_playing_type") ? root.get("currently_playing_type").getAsString() : "track")) {
+			if (yieldToOthers()) return;
 			playing = false;
 			status = "No song (podcast/ad)";
 			return;
@@ -233,6 +242,8 @@ public final class Spotify {
 		// roughly compensate latency: half the request time
 		long latencyMs = (System.nanoTime() - sent) / 2_000_000L;
 		boolean isPlaying = root.get("is_playing").getAsBoolean();
+		if (!isPlaying && yieldToOthers()) return;
+		fromSpotify = true;
 		progressAtFetch = root.get("progress_ms").getAsLong() + (isPlaying ? latencyMs : 0);
 		fetchedAtNanos = System.nanoTime();
 		playing = isPlaying;
@@ -247,8 +258,38 @@ public final class Spotify {
 		setTrack(t);
 	}
 
+	/** Auto source: a paused Spotify must not push aside another player that is playing. */
+	private static boolean yieldToOthers() {
+		return "Auto".equals(Config.INSTANCE.musicSource) && othersActive;
+	}
+
+	/** The text for the screen when the current song has no lyrics: shown for 10 seconds, then null. */
+	public static String noLyricsMessage() {
+		return track == null || lyricsLoading || !lyrics.isEmpty() || System.currentTimeMillis() - noLyricsSince > NO_LYRICS_MS ? null : "No lyrics found";
+	}
+
+	/** 0..1, fading out at the end of the 10 seconds. */
+	public static float noLyricsAlpha() {
+		return Math.max(0f, Math.min(1f, (NO_LYRICS_MS - (System.currentTimeMillis() - noLyricsSince)) / 1000f));
+	}
+
+	/** Starts the 10 seconds again (called when joining a world). */
+	public static void resetNoLyricsTimer() {
+		noLyricsSince = System.currentTimeMillis();
+	}
+
+	private static final long NO_LYRICS_MS = 10_000L;
+
+	static void seek(long ms) {
+		control("seek", ms);
+	}
+
 	/** Play / pause / next / previous on the Spotify account (needs Premium and the user-modify-playback-state scope). */
 	static void control(String action) {
+		control(action, 0);
+	}
+
+	static void control(String action, long arg) {
 		EXEC.execute(() -> {
 			try {
 				if (refreshToken == null) {
@@ -263,6 +304,7 @@ public final class Spotify {
 					case "pause" -> path = "pause";
 					case "next" -> { path = "next"; method = "POST"; }
 					case "previous" -> { path = "previous"; method = "POST"; }
+					case "seek" -> path = "seek?position_ms=" + Math.max(0, arg);
 					default -> { return; }
 				}
 				HttpRequest req = HttpRequest.newBuilder(URI.create("https://api.spotify.com/v1/me/player/" + path))
@@ -276,6 +318,7 @@ public final class Spotify {
 				else if (code >= 400) MediaPlayer.notice("Spotify error " + code);
 				else {
 					if (action.equals("play") || action.equals("pause")) setProgress(positionMs(), action.equals("play"));
+					else if (action.equals("seek")) setProgress(arg, playing);
 					pausedUntil = System.currentTimeMillis() + 900; // let Spotify catch up before the next poll reads the old state
 					EXEC.schedule(Spotify::pollSafe, 1000, TimeUnit.MILLISECONDS);
 				}
@@ -299,6 +342,7 @@ public final class Spotify {
 				if (track != null && track.id().equals(t.id())) {
 					lyrics = l;
 					lyricsLoading = false;
+					if (l.isEmpty()) noLyricsSince = System.currentTimeMillis();
 					status = l.isEmpty() ? t.artist() + " - " + t.title() + ": no lyrics found" : "";
 				}
 			});

@@ -24,6 +24,17 @@ public final class AppleMusic {
 
 	/** Sends PlayPause / Next / Previous to the active player. */
 	static void control(String method) {
+		control(method, null, null);
+	}
+
+	/** Jumps to a position: MPRIS Seek takes an offset in microseconds from the current position. */
+	static void seek(long ms) {
+		long offsetUs = (ms - Spotify.positionMs()) * 1000L;
+		control("Seek", "x", Long.toString(offsetUs));
+		Spotify.setProgress(ms, Spotify.playing);
+	}
+
+	private static void control(String method, String sig, String arg) {
 		Spotify.executor().execute(() -> {
 			String bus = activeBus;
 			if (bus == null) {
@@ -33,13 +44,15 @@ public final class AppleMusic {
 			try {
 				if (!useGdbus) {
 					try {
-						run("busctl", "--user", "call", bus, "/org/mpris/MediaPlayer2", PLAYER_IF, method);
+						if (sig == null) run("busctl", "--user", "call", bus, "/org/mpris/MediaPlayer2", PLAYER_IF, method);
+						else run("busctl", "--user", "call", bus, "/org/mpris/MediaPlayer2", PLAYER_IF, method, sig, arg);
 					} catch (java.io.IOException noBusctl) {
 						useGdbus = true;
 					}
 				}
 				if (useGdbus) {
-					run("gdbus", "call", "--session", "--dest", bus, "--object-path", "/org/mpris/MediaPlayer2", "--method", PLAYER_IF + "." + method);
+					if (arg == null) run("gdbus", "call", "--session", "--dest", bus, "--object-path", "/org/mpris/MediaPlayer2", "--method", PLAYER_IF + "." + method);
+					else run("gdbus", "call", "--session", "--dest", bus, "--object-path", "/org/mpris/MediaPlayer2", "--method", PLAYER_IF + "." + method, arg);
 				}
 				if (method.equals("PlayPause")) Spotify.setProgress(Spotify.positionMs(), !Spotify.playing);
 				Spotify.executor().schedule(AppleMusic::pollSafe, 400, TimeUnit.MILLISECONDS);
@@ -64,8 +77,10 @@ public final class AppleMusic {
 
 	private static void poll() throws Exception {
 		Config c = Config.INSTANCE;
-		if (!c.enabled || !"Others".equals(c.musicSource)) return;
+		boolean auto = "Auto".equals(c.musicSource);
+		if (!c.enabled || !(auto || "Others".equals(c.musicSource))) return;
 		if (!System.getProperty("os.name", "").toLowerCase().contains("linux")) {
+			if (auto) return;
 			Spotify.status = "Others: only supported on Linux for now";
 			return;
 		}
@@ -89,6 +104,8 @@ public final class AppleMusic {
 		}
 		activeBus = chosen;
 		if (chosen == null) {
+			Spotify.othersActive = false;
+			if (auto) return; // nothing to say: Spotify may still play
 			Spotify.playing = false;
 			boolean flatpak = java.nio.file.Files.exists(java.nio.file.Path.of("/.flatpak-info"));
 			Spotify.status = flatpak && useGdbus
@@ -98,6 +115,8 @@ public final class AppleMusic {
 		}
 		JsonObject meta = obj(propJson(chosen, "Metadata"));
 		if (meta == null || !meta.has("xesam:title")) {
+			Spotify.othersActive = false;
+			if (auto) return;
 			Spotify.playing = false;
 			Spotify.status = "Others: nothing is playing";
 			return;
@@ -120,6 +139,11 @@ public final class AppleMusic {
 		String pos = propJson(chosen, "Position");
 		if (pos != null) posMs = num(JsonParser.parseString(pos).getAsJsonObject().get("data")) / 1000L;
 
+		boolean playingNow = "Playing".equals(chosenState);
+		Spotify.othersActive = playingNow;
+		// Auto: Spotify has priority; another player only shows when Spotify is not playing and is not the one on screen paused-or-not unless this one plays
+		if (auto && Spotify.track != null && Spotify.fromSpotify && (Spotify.playing || !playingNow)) return;
+		Spotify.fromSpotify = false;
 		Spotify.coverUrl = meta.has("mpris:artUrl") ? str(meta.get("mpris:artUrl")) : "";
 		Spotify.setProgress(posMs, "Playing".equals(chosenState));
 		Spotify.setTrack(new Track(artist + " - " + title, title, artist, album, lengthMs));

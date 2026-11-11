@@ -33,8 +33,8 @@ public class Config {
 	public String clientId = "";
 	/** Lyrics timing offset in ms (negative = earlier, positive = later). */
 	public int offsetMs = -139;
-	/** Where the current song comes from: "Spotify" or "Others". */
-	public String musicSource = "Spotify";
+	/** Where the current song comes from: "Auto" (Spotify first, then any other player), "Spotify" or "Others". */
+	public String musicSource = "Auto";
 	/** Others: only use media players whose name contains this (empty = any except Spotify). */
 	public String applePlayer = "";
 	/** On-screen status message (e.g. when no lyrics were found). */
@@ -210,8 +210,8 @@ public class Config {
 	/** A small player window on the screen: cover, title, progress and play / pause / previous / next buttons. */
 	public boolean mediaPlayer = true;
 	/** Top-left corner in percent of screen width/height. */
-	public float mediaX = 1.5f;
-	public float mediaY = 2f;
+	public float mediaX = 0.4f;
+	public float mediaY = 0.6f;
 	/** Size in percent. */
 	public int mediaScale = 100;
 	public int mediaOpacity = 85;
