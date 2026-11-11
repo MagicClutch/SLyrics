@@ -99,7 +99,7 @@ public final class HudEditor extends Screen {
 
 	@Override
 	public void onClose() {
-		Config.save();
+		ConfigSync.saveAll(); // also writes `scale`, which Resourceful Config stores
 		this.minecraft.gui.setScreen(parent);
 	}
 
@@ -184,7 +184,16 @@ public final class HudEditor extends Screen {
 		return false;
 	}
 
-	/** Grows or shrinks a module around its own center; it only stops when it would run into another module. */
+	/** The lyric line size is a Resourceful Config setting: set both copies, or ConfigSync would copy the old value back a moment later. */
+	private static void setLineScale(float v) {
+		Config.INSTANCE.scale = v;
+		RcConfig.SizeCat.scale = v;
+	}
+
+	/**
+	 * Grows or shrinks a module: the media player and the karaoke panel stay on their top-left corner, the lyric line on its
+	 * own center. It only stops when it would run into another module.
+	 */
 	private void rescale(int m, int steps) {
 		Config c = Config.INSTANCE;
 		int oldInt = m == PLAYER ? c.mediaScale : c.hudScale;
@@ -195,14 +204,16 @@ public final class HudEditor extends Screen {
 		switch (m) {
 			case PLAYER -> c.mediaScale = Math.max(50, Math.min(300, c.mediaScale + 10 * steps));
 			case KARAOKE -> c.hudScale = Math.max(40, Math.min(300, c.hudScale + 10 * steps));
-			default -> c.scale = Math.max(0.5f, Math.min(5f, steps > 0 ? c.scale * 1.1f : c.scale / 1.1f));
+			default -> setLineScale(Math.max(0.5f, Math.min(5f, steps > 0 ? c.scale * 1.1f : c.scale / 1.1f)));
 		}
 		float[] after = box(m);
-		setPos(m, cx - after[2] / 2, cy - after[3] / 2);
-		if (!hadOverlap && overlapsAny(m)) { // no room: undo
+		if (m == LINE) setPos(m, cx - after[2] / 2, cy - after[3] / 2);
+		else setPos(m, before[0], before[1]);
+		boolean noEffect = steps > 0 && after[2] <= before[2] + 0.01f && after[3] <= before[3] + 0.01f; // at its limit: do not pile up a size nobody sees
+		if (noEffect || !hadOverlap && overlapsAny(m)) { // no room: undo
 			if (m == PLAYER) c.mediaScale = oldInt;
 			else if (m == KARAOKE) c.hudScale = oldInt;
-			else c.scale = oldLine;
+			else setLineScale(oldLine);
 			setPos(m, before[0], before[1]);
 		}
 	}
@@ -211,7 +222,7 @@ public final class HudEditor extends Screen {
 		Config d = new Config(), c = Config.INSTANCE;
 		c.mediaX = d.mediaX; c.mediaY = d.mediaY; c.mediaScale = d.mediaScale;
 		c.hudX = d.hudX; c.hudY = d.hudY; c.hudScale = d.hudScale;
-		c.xPercent = d.xPercent; c.yPercent = d.yPercent; c.scale = d.scale;
+		c.xPercent = d.xPercent; c.yPercent = d.yPercent; setLineScale(d.scale);
 		for (int m : new int[]{KARAOKE, LINE}) {
 			float[] b = box(m);
 			moveTo(m, b[0], b[1]);
