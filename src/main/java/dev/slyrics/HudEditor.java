@@ -79,6 +79,12 @@ public final class HudEditor extends Screen {
 	@Override
 	protected void init() {
 		MediaPlayer.editing = true;
+		for (int m : new int[]{KARAOKE, LINE}) { // modules that already overlap are separated once, so scrolling does not jump
+			if (overlapsAny(m)) {
+				float[] b = box(m);
+				moveTo(m, b[0], b[1]);
+			}
+		}
 		int bw = 70, gap = 6, x = (this.width - 2 * bw - gap) / 2, y = this.height - 30;
 		CustomButton reset = addRenderableWidget(new CustomButton(bw, 18, Component.literal("Reset"), this::reset));
 		reset.setPosition(x, y);
@@ -125,19 +131,27 @@ public final class HudEditor extends Screen {
 				at = HudLayout.separate(at[0], at[1], mine[2], mine[3], box(o), this.width, this.height);
 			}
 		}
+		setPos(m, at[0], at[1]);
+	}
+
+	/** Puts a module at (x, y) pixels (kept inside the screen) without looking at the other modules. */
+	private void setPos(int m, float x, float y) {
+		float[] mine = box(m);
+		x = Math.max(0, Math.min(x, this.width - mine[2]));
+		y = Math.max(0, Math.min(y, this.height - mine[3]));
 		Config c = Config.INSTANCE;
 		switch (m) {
 			case PLAYER -> {
-				c.mediaX = at[0] / this.width * 100f;
-				c.mediaY = at[1] / this.height * 100f;
+				c.mediaX = x / this.width * 100f;
+				c.mediaY = y / this.height * 100f;
 			}
 			case KARAOKE -> {
-				c.hudX = at[0] / this.width * 100f;
-				c.hudY = at[1] / this.height * 100f;
+				c.hudX = x / this.width * 100f;
+				c.hudY = y / this.height * 100f;
 			}
 			default -> {
-				c.xPercent = (at[0] + mine[2] / 2) / this.width * 100f;
-				c.yPercent = (at[1] + mine[3] / 2) / this.height * 100f;
+				c.xPercent = (x + mine[2] / 2) / this.width * 100f;
+				c.yPercent = (y + mine[3] / 2) / this.height * 100f;
 			}
 		}
 	}
@@ -170,23 +184,26 @@ public final class HudEditor extends Screen {
 		return false;
 	}
 
+	/** Grows or shrinks a module around its own center; it only stops when it would run into another module. */
 	private void rescale(int m, int steps) {
 		Config c = Config.INSTANCE;
 		int oldInt = m == PLAYER ? c.mediaScale : c.hudScale;
 		float oldLine = c.scale;
+		boolean hadOverlap = overlapsAny(m);
+		float[] before = box(m);
+		float cx = before[0] + before[2] / 2, cy = before[1] + before[3] / 2;
 		switch (m) {
 			case PLAYER -> c.mediaScale = Math.max(50, Math.min(300, c.mediaScale + 10 * steps));
 			case KARAOKE -> c.hudScale = Math.max(40, Math.min(300, c.hudScale + 10 * steps));
-			default -> c.scale = Math.max(0.5f, Math.min(5f, c.scale + 0.2f * steps));
+			default -> c.scale = Math.max(0.5f, Math.min(5f, steps > 0 ? c.scale * 1.1f : c.scale / 1.1f));
 		}
-		if (overlapsAny(m)) {
-			float[] b = box(m);
-			moveTo(m, b[0], b[1]); // it grew into another module: step aside
-		}
-		if (overlapsAny(m)) { // no room: undo
+		float[] after = box(m);
+		setPos(m, cx - after[2] / 2, cy - after[3] / 2);
+		if (!hadOverlap && overlapsAny(m)) { // no room: undo
 			if (m == PLAYER) c.mediaScale = oldInt;
 			else if (m == KARAOKE) c.hudScale = oldInt;
 			else c.scale = oldLine;
+			setPos(m, before[0], before[1]);
 		}
 	}
 
