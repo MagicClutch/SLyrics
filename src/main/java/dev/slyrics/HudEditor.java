@@ -9,12 +9,15 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 /**
- * HUD editor: drag the media player and the lyrics panel with the mouse, scroll over one to resize it.
- * The two never overlap. Esc or Done saves.
+ * HUD editor: drag the lyric line, the karaoke panel and the media player with the mouse, scroll over one to resize it.
+ * They never overlap. Esc or Done saves.
  */
 public final class HudEditor extends Screen {
 	private static final Track SAMPLE = new Track("sample", "Song title", "Artist", "", 215_000L);
-	private static final int PLAYER = 0, LYRICS = 1;
+	private static final String LINE_SAMPLE = "The lyric line";
+	private static final int PLAYER = 0, KARAOKE = 1, LINE = 2, COUNT = 3;
+	/** Topmost first, for clicking. */
+	private static final int[] CLICK_ORDER = {LINE, KARAOKE, PLAYER};
 	private int dragging = -1, selected = -1;
 	private double offX, offY;
 
@@ -57,35 +60,67 @@ public final class HudEditor extends Screen {
 			float[] p = MediaPlayer.place(this.width, this.height);
 			return new float[]{p[0], p[1], MediaPlayer.W * p[2], MediaPlayer.H * p[2]};
 		}
-		float[] b = LyricsHud.sampleBox(this.font, c, this.width, this.height);
-		return new float[]{b[0], b[1], b[3], b[4]};
+		if (m == KARAOKE) {
+			float[] b = LyricsHud.sampleBox(this.font, c, this.width, this.height);
+			return new float[]{b[0], b[1], b[3], b[4]};
+		}
+		float w = (this.font.width(LyricsHud.styled(LINE_SAMPLE, c, true)) + 6) * c.scale, h = (this.font.lineHeight + 4) * c.scale;
+		float cx = this.width * c.xPercent / 100f, cy = this.height * c.yPercent / 100f;
+		return new float[]{Math.max(0, Math.min(cx - w / 2, this.width - w)), Math.max(0, Math.min(cy - h / 2, this.height - h)), w, h};
 	}
 
-	/** Moves a module to (x, y) pixels, away from the other one and inside the screen. */
+	/** Moves a module to (x, y) pixels, away from the others and inside the screen. */
 	private void moveTo(int m, float x, float y) {
-		float[] mine = box(m), other = box(1 - m);
-		float[] at = HudLayout.separate(x, y, mine[2], mine[3], other, this.width, this.height);
+		float[] mine = box(m);
+		float[] at = {x, y};
+		for (int pass = 0; pass < 3; pass++) {
+			for (int o = 0; o < COUNT; o++) {
+				if (o == m) continue;
+				at = HudLayout.separate(at[0], at[1], mine[2], mine[3], box(o), this.width, this.height);
+			}
+		}
 		Config c = Config.INSTANCE;
-		if (m == PLAYER) {
-			c.mediaX = at[0] / this.width * 100f;
-			c.mediaY = at[1] / this.height * 100f;
-		} else {
-			c.hudX = at[0] / this.width * 100f;
-			c.hudY = at[1] / this.height * 100f;
+		switch (m) {
+			case PLAYER -> {
+				c.mediaX = at[0] / this.width * 100f;
+				c.mediaY = at[1] / this.height * 100f;
+			}
+			case KARAOKE -> {
+				c.hudX = at[0] / this.width * 100f;
+				c.hudY = at[1] / this.height * 100f;
+			}
+			default -> {
+				c.xPercent = (at[0] + mine[2] / 2) / this.width * 100f;
+				c.yPercent = (at[1] + mine[3] / 2) / this.height * 100f;
+			}
 		}
 	}
 
-	private void rescale(int m, int delta) {
-		Config c = Config.INSTANCE;
-		int oldScale = m == PLAYER ? c.mediaScale : c.hudScale;
-		int scale = Math.max(m == PLAYER ? 50 : 40, Math.min(300, oldScale + delta));
-		if (m == PLAYER) c.mediaScale = scale; else c.hudScale = scale;
+	private boolean overlapsAny(int m) {
 		float[] b = box(m);
-		float[] other = box(1 - m);
-		if (HudLayout.overlaps(b[0], b[1], b[2], b[3], other)) moveTo(m, b[0], b[1]); // grew into the other module: step aside
-		float[] after = box(m);
-		if (HudLayout.overlaps(after[0], after[1], after[2], after[3], other)) { // no room: undo
-			if (m == PLAYER) c.mediaScale = oldScale; else c.hudScale = oldScale;
+		for (int o = 0; o < COUNT; o++) {
+			if (o != m && HudLayout.overlaps(b[0], b[1], b[2], b[3], box(o))) return true;
+		}
+		return false;
+	}
+
+	private void rescale(int m, int steps) {
+		Config c = Config.INSTANCE;
+		int oldInt = m == PLAYER ? c.mediaScale : c.hudScale;
+		float oldLine = c.scale;
+		switch (m) {
+			case PLAYER -> c.mediaScale = Math.max(50, Math.min(300, c.mediaScale + 10 * steps));
+			case KARAOKE -> c.hudScale = Math.max(40, Math.min(300, c.hudScale + 10 * steps));
+			default -> c.scale = Math.max(0.5f, Math.min(5f, c.scale + 0.2f * steps));
+		}
+		if (overlapsAny(m)) {
+			float[] b = box(m);
+			moveTo(m, b[0], b[1]); // it grew into another module: step aside
+		}
+		if (overlapsAny(m)) { // no room: undo
+			if (m == PLAYER) c.mediaScale = oldInt;
+			else if (m == KARAOKE) c.hudScale = oldInt;
+			else c.scale = oldLine;
 		}
 	}
 
@@ -93,16 +128,28 @@ public final class HudEditor extends Screen {
 		Config d = new Config(), c = Config.INSTANCE;
 		c.mediaX = d.mediaX; c.mediaY = d.mediaY; c.mediaScale = d.mediaScale;
 		c.hudX = d.hudX; c.hudY = d.hudY; c.hudScale = d.hudScale;
-		float[] b = box(LYRICS);
-		moveTo(LYRICS, b[0], b[1]);
+		c.xPercent = d.xPercent; c.yPercent = d.yPercent; c.scale = d.scale;
+		for (int m : new int[]{KARAOKE, LINE}) {
+			float[] b = box(m);
+			moveTo(m, b[0], b[1]);
+		}
 	}
 
 	private int moduleAt(double mx, double my) {
-		for (int m : new int[]{LYRICS, PLAYER}) {
+		for (int m : CLICK_ORDER) {
 			float[] b = box(m);
 			if (mx >= b[0] && mx < b[0] + b[2] && my >= b[1] && my < b[1] + b[3]) return m;
 		}
 		return -1;
+	}
+
+	private String label(int m) {
+		Config c = Config.INSTANCE;
+		return switch (m) {
+			case PLAYER -> "Media player " + c.mediaScale + "%";
+			case KARAOKE -> "Karaoke " + c.hudScale + "%" + (c.hudMode ? "" : " (karaoke mode is off)");
+			default -> "Lyric line " + Math.round(c.scale * 100) + "%" + (c.anyWorld() ? " (hidden while a world mode is on)" : "");
+		};
 	}
 
 	// ------------------------------------------------------------------ screen
@@ -121,14 +168,15 @@ public final class HudEditor extends Screen {
 		float[] lb = LyricsHud.sampleBox(this.font, c, this.width, this.height);
 		if (!c.background) g.fill(Math.round(lb[0]), Math.round(lb[1]), Math.round(lb[0] + lb[3]), Math.round(lb[1] + lb[4]), 0x55000000);
 		LyricsHud.drawSample(g, this.font, c, lb);
+		float[] ln = box(LINE);
+		LyricsHud.draw(g, this.font, LINE_SAMPLE, ln[0] + ln[2] / 2, ln[1] + ln[3] / 2, c.scale, c.rgb(), 1f, c, 1f);
 
 		int hover = dragging >= 0 ? dragging : moduleAt(mouseX, mouseY);
-		for (int m : new int[]{PLAYER, LYRICS}) {
+		for (int m = 0; m < COUNT; m++) {
 			float[] b = box(m);
 			int col = m == hover ? 0xFFFFFFFF : 0x66FFFFFF;
 			g.outline(Math.round(b[0]) - 1, Math.round(b[1]) - 1, Math.round(b[2]) + 2, Math.round(b[3]) + 2, col);
-			String label = (m == PLAYER ? "Media player " + c.mediaScale : "Karaoke " + c.hudScale + (c.hudMode ? "" : " (karaoke mode is off)")) + (m == PLAYER ? "%" : m == LYRICS && c.hudMode ? "%" : "");
-			g.text(this.font, label, Math.round(b[0]), Math.max(0, Math.round(b[1]) - 10), col, true);
+			g.text(this.font, label(m), Math.round(b[0]), Math.max(0, Math.round(b[1]) - 10), col, true);
 		}
 	}
 
@@ -163,7 +211,7 @@ public final class HudEditor extends Screen {
 		if (m < 0) m = selected;
 		if (m < 0) return false;
 		selected = m;
-		rescale(m, sy > 0 ? 10 : sy < 0 ? -10 : 0);
+		rescale(m, sy > 0 ? 1 : sy < 0 ? -1 : 0);
 		return true;
 	}
 }

@@ -6,7 +6,7 @@ import com.teamresourceful.resourcefulconfig.api.annotations.*;
  * The settings screen (Resourceful Config): one nested class per category, one static field per setting.
  * ConfigSync mirrors the values into Config by field name, so a field here needs a field of the same name there.
  */
-@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Connectivity.class, RcConfig.TextSettings.class, RcConfig.SizeCat.class, RcConfig.Modes.class, RcConfig.MediaCat.class, RcConfig.ProfilesTab.class, RcConfig.Cat10.class})
+@com.teamresourceful.resourcefulconfig.api.annotations.Config(value = "slyrics", version = 1, categories = {RcConfig.Connectivity.class, RcConfig.TextSettings.class, RcConfig.Modes.class, RcConfig.ProfilesTab.class, RcConfig.Cat10.class})
 @ConfigInfo(title = "SLyrics", description = "Spotify lyrics as floating words in the world")
 public final class RcConfig {
 	private static final Config D = new Config();
@@ -65,12 +65,20 @@ public final class RcConfig {
 
 	}
 
-	@Category(value = "Text Settings", categories = {TextLook.class, Effects.class, Animations.class, Sweep.class})
+	@Category(value = "Text Settings", categories = {TextLook.class, Effects.class, Animations.class, Sweep.class, SizeCat.class})
 	public static final class TextSettings {
 	}
 
 	@Category(value = "Text")
 	public static final class TextLook {
+		@ConfigEntry(id = "showNeighbors", translation = "slyrics.config.showNeighbors")
+		@Comment("Show the previous/next line, dimmed")
+		public static boolean showNeighbors = D.showNeighbors;
+
+		@ConfigEntry(id = "showStatus", translation = "slyrics.config.showStatus")
+		@Comment("Status message when nothing is playing or no lyrics were found")
+		public static boolean showStatus = D.showStatus;
+
 		@ConfigButton(title = "Choose font", text = "Choose")
 		@Comment("Opens a searchable list of Minecraft's fonts and every TrueType font installed on this computer.")
 		public static final Runnable pickFont = dev.slyrics.font.FontPickerScreen::open;
@@ -185,6 +193,12 @@ public final class RcConfig {
 
 	@Category(value = "Size")
 	public static final class SizeCat {
+		@ConfigEntry(id = "scale", translation = "slyrics.config.scale")
+		@Comment("Size of the lyric line when no world mode is on. You can also scroll over it in the HUD editor.")
+		@ConfigOption.Range(min = 0.5, max = 5)
+		@ConfigOption.Slider
+		public static float scale = D.scale;
+
 		@ConfigEntry(id = "size", translation = "slyrics.config.size")
 		@Comment("Size of the text in the world")
 		@ConfigOption.Range(min = 50, max = 250)
@@ -205,7 +219,7 @@ public final class RcConfig {
 
 	}
 
-	@Category(value = "Modes", categories = {PickModes.class, AuraWords.class, SkyWords.class, StickWords.class, KaraokeCat.class, Cat8.class})
+	@Category(value = "Features", categories = {PickModes.class, AuraWords.class, SkyWords.class, StickWords.class, KaraokeCat.class, MediaCat.class, Cat8.class})
 	public static final class Modes {
 	}
 
@@ -298,10 +312,6 @@ public final class RcConfig {
 		@ConfigEntry(id = "hudMode", translation = "slyrics.config.hudMode")
 		@Comment("A small panel on the screen with the previous, the current and the next line. The current line fills in while it is sung, so you can sing along. Uses your font, colors and the word sweep color, and can be combined with the other modes.")
 		public static boolean hudMode = D.hudMode;
-
-		@ConfigButton(title = "Edit HUD layout", text = "Open")
-		@Comment("Opens the HUD editor: drag the lyrics panel and the media player with the mouse, scroll over one to resize it. Also: /slyrics hud")
-		public static final Runnable editHud = HudEditor::open;
 
 	}
 
@@ -397,10 +407,6 @@ public final class RcConfig {
 		@Comment("A small player window on the screen with cover, title, progress and previous / play-pause / next buttons. Open chat or the pause menu to get the mouse cursor and click the buttons, or bind keys in Options > Controls > SLyrics. Works with Spotify (needs Premium and a new /slyrics login) and with the Others source.")
 		public static boolean mediaPlayer = D.mediaPlayer;
 
-		@ConfigButton(title = "Edit HUD layout", text = "Open")
-		@Comment("Opens the HUD editor: drag the media player and the lyrics panel with the mouse, scroll over one to make it bigger or smaller. Also: /slyrics hud")
-		public static final Runnable editHud = HudEditor::open;
-
 		@ConfigEntry(id = "mediaOpacity", translation = "slyrics.config.mediaOpacity")
 		@Comment("How opaque the window is")
 		@ConfigOption.Range(min = 20, max = 100)
@@ -420,31 +426,11 @@ public final class RcConfig {
 
 	}
 
-	@Category("HUD")
+	@Category("HUD editor")
 	public static final class Cat10 {
-		@ConfigEntry(id = "scale", translation = "slyrics.config.scale")
-		@Comment("Only used when holograms are off")
-		@ConfigOption.Range(min = 0.5, max = 5)
-		@ConfigOption.Slider
-		public static float scale = D.scale;
-
-		@ConfigEntry(id = "xPercent", translation = "slyrics.config.xPercent")
-		@ConfigOption.Range(min = 0, max = 100)
-		@ConfigOption.Slider
-		public static float xPercent = D.xPercent;
-
-		@ConfigEntry(id = "yPercent", translation = "slyrics.config.yPercent")
-		@ConfigOption.Range(min = 0, max = 100)
-		@ConfigOption.Slider
-		public static float yPercent = D.yPercent;
-
-		@ConfigEntry(id = "showNeighbors", translation = "slyrics.config.showNeighbors")
-		@Comment("Show the previous/next line, dimmed")
-		public static boolean showNeighbors = D.showNeighbors;
-
-		@ConfigEntry(id = "showStatus", translation = "slyrics.config.showStatus")
-		@Comment("Status message when nothing is playing or no lyrics were found")
-		public static boolean showStatus = D.showStatus;
+		@ConfigButton(title = "Open HUD editor", text = "Open")
+		@Comment("Drag the lyric line, the karaoke panel and the media player where you want them and scroll over one to resize it. They never overlap. Also: /slyrics hud")
+		public static final Runnable editHud = HudEditor::open;
 
 	}
 
