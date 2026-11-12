@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.png" alt="SLyrics logo" width="128"></p>
+
 # SLyrics
 
 Synced lyrics of the song you are listening to, as part of your Minecraft world: words that pop up around you, huge words in the sky, a sing-along panel, a media player. Client-side Fabric mod for **Minecraft 26.3**.

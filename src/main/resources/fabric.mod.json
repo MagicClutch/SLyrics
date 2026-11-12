@@ -6,6 +6,7 @@
 	"description": "Shows the lyrics of the song currently playing on Spotify as floating text in the world.",
 	"authors": ["SLyrics"],
 	"license": "MIT",
+	"icon": "assets/slyrics/icon.png",
 	"environment": "client",
 	"mixins": ["slyrics.mixins.json"],
 	"entrypoints": {
