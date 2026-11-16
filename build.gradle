@@ -23,6 +23,15 @@ dependencies {
 	runtimeOnly "me.djtheredstoner:DevAuth-fabric:1.2.1"
 	// Newer Minecraft no longer bundles Apache HttpClient, which DevAuth needs
 	runtimeOnly "org.apache.httpcomponents:httpclient:4.5.14"
+	// OneConfig (optional at runtime) so the dev client has it; run with -PnoOneConfig to test the mod without it
+	if (!project.hasProperty("noOneConfig")) {
+		runtimeOnly "maven.modrinth:oneconfig:${project.oneconfig_version}"
+		runtimeOnly "maven.modrinth:fabric-language-kotlin:SKW1BTL3"
+		runtimeOnly "maven.modrinth:compose-multiplatform:bMhjbdhu"
+		runtimeOnly "org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.153.0"
+		runtimeOnly "org.jetbrains.skiko:skiko-awt:0.153.0"
+		runtimeOnly("org.jetbrains.compose.ui:ui-skiko-desktop:1.13.0-alpha02") { transitive = false }
+	}
 }
 
 processResources {
@@ -52,3 +61,18 @@ java {
 	sourceCompatibility = JavaVersion.VERSION_25
 	targetCompatibility = JavaVersion.VERSION_25
 }
+
+// OneConfig is optional: its jars are only on the compile classpath (never bundled). The modules sit nested inside the mod jar,
+// so they are unpacked from it for compiling.
+configurations { oneConfigJar }
+dependencies { oneConfigJar "maven.modrinth:oneconfig:${project.oneconfig_version}" }
+def oneConfigLibs = layout.buildDirectory.dir('oneconfig-libs')
+tasks.register('unpackOneConfig', Copy) {
+	from({ zipTree(configurations.oneConfigJar.singleFile).matching { include 'META-INF/jars/*.jar' } }) {
+		eachFile { it.path = it.name }
+		includeEmptyDirs = false
+	}
+	into oneConfigLibs
+}
+dependencies { compileOnly fileTree(dir: oneConfigLibs, include: ['config*.jar', 'ui*.jar', 'utils*.jar', 'hud*.jar', 'events*.jar', 'poly-compose*.jar', 'internal*.jar']) }
+tasks.named('compileJava') { dependsOn 'unpackOneConfig' }

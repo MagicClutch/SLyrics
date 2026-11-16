@@ -25,9 +25,11 @@ public class SLyricsClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		Config.load();
 		ConfigSync.init();
+		dev.slyrics.compat.oneconfig.OneConfigBridge.init();
 		dev.slyrics.profiles.Profiles.ensureDefaults();
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(c -> {
 			ConfigSync.tick();
+			dev.slyrics.compat.oneconfig.OneConfigBridge.tick();
 			dev.slyrics.font.UserFont.tick();
 		});
 		dev.slyrics.profiles.SaveProfileButton.init();

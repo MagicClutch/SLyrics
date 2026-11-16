@@ -18,5 +18,8 @@
 		"java": ">=25",
 		"fabric-api": "*",
 		"resourcefulconfig": ">=5.0.0"
+	},
+	"suggests": {
+		"oneconfig": ">=1.4.1"
 	}
 }
