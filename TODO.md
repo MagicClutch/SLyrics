@@ -16,8 +16,26 @@
 - [ ] Look at the SLyrics page in the OneConfig GUI (categories, titles, sliders, color pickers, dropdowns, buttons).
       Only checked through logs so far, not visually. Check that titles/descriptions show correctly (`title` is set to the English text).
 - [ ] Verify a restart keeps OneConfig edits (the file write was confirmed; the page after restart was not looked at).
-- [ ] HUD elements: not native. OneConfig HUDs are Compose-based (`Hud.Content(Composer, int)`), this mod is Java only.
-      Currently the "Open HUD editor" button opens the existing editor. Decide: add Kotlin + Compose compiler, or keep the fallback.
+- [ ] **TASK: move the HUD elements in OneConfig's own HUD editor** (not started, no code changed yet).
+      Today the "Open HUD editor" button only opens the old editor, because OneConfig's editor only knows elements registered
+      with `HudManager.register(...)`, and SLyrics draws its three elements itself through Fabric's `HudElementRegistry`.
+      Findings so far (OneConfig 1.4.1, read from the jars):
+      - No Kotlin needed: `org.polyfrost.oneconfig.api.hud.v1.LegacyHud` (in the platform jar `26.3-fabric-1.4.1.jar`) can be
+        subclassed from Java. Constructor `(String id, String title, Hud.Category)`, implement `getWidth()`, `getHeight()`,
+        `render(GuiGraphicsExtractor)`, and also `update()` (abstract in `Hud`). `HudManager.register(hud)` adds it to the editor.
+      - The compile classpath will need `androidx.compose.runtime` and Kotlin stdlib (inherited signatures such as
+        `Content(Composer, int)`), taken from the compose bundle / Fabric Language Kotlin jars like the other OneConfig jars
+        (extend the `unpackOneConfig` task in `build.gradle`).
+      Plan:
+      1. Three `LegacyHud` classes in `dev.slyrics.compat.oneconfig`: lyric line, karaoke panel, media player. Start with the
+         media player (simplest: `MediaPlayer.draw(...)` already draws at a given top-left corner).
+      2. Their `render()` calls the existing drawing code, so the look stays the same.
+      3. Two-way sync of position and scale with the existing fields (`xPercent/yPercent/scale`, `hudX/hudY/hudScale`,
+         `mediaX/mediaY/mediaScale`, all in percent of the screen), so the old editor and OneConfig's editor change the same values.
+      4. With OneConfig installed, switch off the mod's own drawing of those elements (otherwise they show twice).
+         `LyricsHud` / `MediaPlayer` must behave exactly as before without OneConfig.
+      5. Test: drag and scale in OneConfig's HUD editor, then check the old editor and a restart; then without OneConfig.
+      Keep the "Open HUD editor" button as an extra.
 - [ ] Font picker, profile list screen: still buttons that open the old screens (OneConfig dropdowns cannot be filled dynamically).
       The profile actions work through a name field plus buttons.
 - [ ] Keybinds (`key.slyrics.play_pause|next|previous`): still in Options > Controls. OneConfig may list them itself; not checked.
