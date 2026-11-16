@@ -294,7 +294,7 @@ public final class HudEditor extends Screen {
 		float[] pb = MediaPlayer.place(this.width, this.height);
 		Track t = Spotify.track != null ? Spotify.track : SAMPLE;
 		long pos = Spotify.track != null ? Spotify.positionMs() : 83_000L;
-		MediaPlayer.draw(g, t, pos, pb[0], pb[1], pb[2], false);
+		MediaPlayer.draw(g, t, pos, pb[0], pb[1], pb[2], false, false);
 		float[] lb = LyricsHud.sampleBox(this.font, c, this.width, this.height);
 		if (!c.background) g.fill(Math.round(lb[0]), Math.round(lb[1]), Math.round(lb[0] + lb[3]), Math.round(lb[1] + lb[4]), 0x55000000);
 		LyricsHud.drawSample(g, this.font, c, lb);

@@ -20,17 +20,26 @@ public class LyricsHud implements HudElement {
 		Minecraft mc = Minecraft.getInstance();
 		float fadeBlack = AfkCamera.fadeAlpha();
 		if (fadeBlack > 0f) g.fill(0, 0, g.guiWidth(), g.guiHeight(), Math.round(fadeBlack * 255) << 24);
-		if (!c.enabled) return;
+		if (!c.enabled || HudMode.oneConfig) return; // with OneConfig its HUD editor draws the line, the panel and the player
 
 		int sw = g.guiWidth(), sh = g.guiHeight();
 		float cx = sw * c.xPercent / 100f, cy = sh * c.yPercent / 100f;
 		List<LyricLine> lines = Spotify.lyrics;
 
 		if (c.hudMode && !lines.isEmpty()) drawPanel(g, mc.font, c, lines);
+		drawLine(g, mc.font, c, cx, cy, c.scale, sw / 2f - 6f);
+	}
+
+	/**
+	 * The lyric line, centered at (cx, cy). k is the size factor (the line's scale; 1 when a surrounding transform already scales),
+	 * half the room to each side of cx in the units drawn in.
+	 */
+	public static void drawLine(GuiGraphicsExtractor g, Font font, Config c, float cx, float cy, float k, float half) {
+		List<LyricLine> lines = Spotify.lyrics;
 		if (!c.lineMode && !lines.isEmpty()) return; // the lyric line is its own feature; the other modes show the lyrics elsewhere
 		if (lines.isEmpty() || !Spotify.playing && Spotify.track == null) {
 			String msg = c.showStatus ? Spotify.noLyricsMessage() : null; // only "No lyrics found", and only for 10 seconds
-			if (msg != null) draw(g, mc.font, msg, cx, cy, Math.min(1f, c.scale) * 0.7f, 0xAAAAAA, 0.8f * Spotify.noLyricsAlpha(), c, 1f);
+			if (msg != null) draw(g, font, msg, cx, cy, k * Math.min(1f, c.scale) / c.scale * 0.7f, 0xAAAAAA, 0.8f * Spotify.noLyricsAlpha(), c, 1f);
 			return;
 		}
 
@@ -58,7 +67,7 @@ public class LyricsHud implements HudElement {
 			alpha = Math.max(0f, Math.min(1f, alpha));
 		}
 
-		if ((c.lineScroll || c.lineMaxWords > 0) && drawWords(g, mc.font, c, lines, idx, pos, cx, cy, alpha)) return;
+		if ((c.lineScroll || c.lineMaxWords > 0) && drawWords(g, font, c, lines, idx, pos, cx, cy, alpha, k, half)) return;
 
 		String text = Emojis.decorate(cur.text(), " ", c);
 		if (!text.isEmpty()) {
@@ -70,15 +79,15 @@ public class LyricsHud implements HudElement {
 				alpha = Math.max(alpha, Math.min(1f, sinceStart / 120f)); // do not fade while typing
 				if (sinceStart < len - c.fadeMs) alpha = 1f;
 			}
-			draw(g, mc.font, text, cx, cy, c.scale, c.rgb(), alpha, c, 1f);
+			draw(g, font, text, cx, cy, k, c.rgb(), alpha, c, 1f);
 		}
 
 		if (c.showNeighbors) {
-			float small = c.scale * 0.6f;
+			float small = k * 0.6f;
 			if (idx > 0 && !lines.get(idx - 1).text().isEmpty())
-				draw(g, mc.font, lines.get(idx - 1).text(), cx, cy - 14 * c.scale, small, c.rgb(), 0.45f, c, 1f);
+				draw(g, font, lines.get(idx - 1).text(), cx, cy - 14 * k, small, c.rgb(), 0.45f, c, 1f);
 			if (idx + 1 < lines.size() && !lines.get(idx + 1).text().isEmpty())
-				draw(g, mc.font, lines.get(idx + 1).text(), cx, cy + 14 * c.scale, small, c.rgb(), 0.45f, c, 1f);
+				draw(g, font, lines.get(idx + 1).text(), cx, cy + 14 * k, small, c.rgb(), 0.45f, c, 1f);
 		}
 	}
 
@@ -122,7 +131,7 @@ public class LyricsHud implements HudElement {
 	 * The lyric line as words: either scrolling (the word being sung stays in the middle, the rest runs past it, across lines)
 	 * or, for a line with more words than the limit, in parts that switch while it is sung. Returns false if the normal line should be drawn.
 	 */
-	private static boolean drawWords(GuiGraphicsExtractor g, Font font, Config c, List<LyricLine> lines, int idx, long pos, float cx, float cy, float alpha) {
+	private static boolean drawWords(GuiGraphicsExtractor g, Font font, Config c, List<LyricLine> lines, int idx, long pos, float cx, float cy, float alpha, float sz, float half) {
 		int max = c.lineMaxWords;
 		if (c.lineScroll) {
 			int[] first = {0};
@@ -140,7 +149,7 @@ public class LyricsHud implements HudElement {
 			List<String> texts = new java.util.ArrayList<>();
 			for (Word w : all) texts.add(w.text());
 			int left = max > 0 ? (max - 1) / 2 : 1000, right = max > 0 ? max / 2 : 1000;
-			drawStrip(g, font, c, texts, k, f, left, right, false, started, cx, cy, c.scale, 1f); // no fade between lines: it keeps running
+			drawStrip(g, font, c, texts, k, f, left, right, false, started, cx, cy, sz, 1f, half); // no fade between lines: it keeps running
 			return true;
 		}
 		String[] ws = lines.get(idx).text().trim().split("\\s+");
@@ -153,7 +162,7 @@ public class LyricsHud implements HudElement {
 		int from = cw / max * max, to = Math.min(ws.length, from + max);
 		List<String> part = new java.util.ArrayList<>();
 		for (int i = from; i < to; i++) part.add(Emojis.decorate(ws[i], " ", c));
-		drawStrip(g, font, c, part, cw - from, 0f, 1000, 1000, true, at[cw] <= pos, cx, cy, c.scale, alpha);
+		drawStrip(g, font, c, part, cw - from, 0f, 1000, 1000, true, at[cw] <= pos, cx, cy, sz, alpha, half);
 		return true;
 	}
 
@@ -162,7 +171,7 @@ public class LyricsHud implements HudElement {
 	 * is centered at cx, and only left/right words around it are shown, fading in and out at the ends.
 	 */
 	private static void drawStrip(GuiGraphicsExtractor g, Font font, Config c, List<String> words, int cur, float f, int left, int right,
-								  boolean rowCentered, boolean highlight, float cx, float cy, float scale, float alpha) {
+								  boolean rowCentered, boolean highlight, float cx, float cy, float scale, float alpha, float half) {
 		int n = words.size();
 		if (n == 0) return;
 		MutableComponent[] comps = new MutableComponent[n];
@@ -184,7 +193,6 @@ public class LyricsHud implements HudElement {
 		}
 		int base = c.rgb();
 		int hi = c.sweepMode ? sweepRgb(c) : base;
-		float half = g.guiWidth() / 2f - 6f;
 		g.pose().pushMatrix();
 		g.pose().translate(cx, cy);
 		g.pose().scale(scale, scale);
@@ -213,6 +221,15 @@ public class LyricsHud implements HudElement {
 
 	/** Karaoke mode: previous / current / next line, the current line fills in while it is sung. */
 	private static void drawPanel(GuiGraphicsExtractor g, Font font, Config c, List<LyricLine> lines) {
+		Object[] st = panelState(c, lines);
+		if (st == null) return;
+		String prev = (String) st[0], cur = (String) st[1], next = (String) st[2];
+		float[] box = panelBox(font, c, g.guiWidth(), g.guiHeight(), prev, cur, next, true);
+		drawPanelBox(g, font, c, prev, cur, next, (Float) st[3], box);
+	}
+
+	/** The three lines and how much of the current one is sung {prev, cur, next, progress}, or null if there is nothing to show. */
+	private static Object[] panelState(Config c, List<LyricLine> lines) {
 		long pos = Spotify.positionMs() - c.offsetMs;
 		int idx = -1;
 		int lo = 0, hi = lines.size() - 1;
@@ -230,7 +247,7 @@ public class LyricsHud implements HudElement {
 		prev = Emojis.decorate(prev, " ", c);
 		cur = Emojis.decorate(cur, " ", c);
 		next = Emojis.decorate(next, " ", c);
-		if (prev.isEmpty() && cur.isEmpty() && next.isEmpty()) return;
+		if (prev.isEmpty() && cur.isEmpty() && next.isEmpty()) return null;
 
 		// how much of the current line has been sung: spread over the time the line is sung (not the pause after it)
 		float progress = 0f;
@@ -240,8 +257,35 @@ public class LyricsHud implements HudElement {
 			long sing = Math.min(Math.max(1, nextStart - start), Math.max(1200L, cur.length() * 85L));
 			progress = Math.max(0f, Math.min(1f, (pos - start) / (float) sing));
 		}
-		float[] box = panelBox(font, c, g.guiWidth(), g.guiHeight(), prev, cur, next, true);
-		drawPanelBox(g, font, c, prev, cur, next, progress, box);
+		return new Object[]{prev, cur, next, progress};
+	}
+
+	/**
+	 * The panel as OneConfig's HUD element draws it: the top-left corner is (0, 0) and nothing is scaled here (the HUD element does
+	 * that). Without lyrics (or with sample=true) the sample text is used; with g == null nothing is drawn and only the size is returned. Returns the size {width, height} in those units, or null if there is nothing to draw.
+	 */
+	public static float[] drawPanelLocal(GuiGraphicsExtractor g, Font font, Config c, boolean sample) {
+		String prev, cur, next;
+		float progress = 0.5f;
+		Object[] st = sample || Spotify.lyrics.isEmpty() ? null : panelState(c, Spotify.lyrics);
+		if (st != null) {
+			prev = (String) st[0]; cur = (String) st[1]; next = (String) st[2]; progress = (Float) st[3];
+		} else {
+			if (g != null && !sample && !Spotify.lyrics.isEmpty()) return null; // only empty lines: nothing to draw
+			prev = SAMPLE[0]; cur = SAMPLE[1]; next = SAMPLE[2]; // the sample also gives the size when nothing is playing
+		}
+		float[] box = localBox(font, c, prev, cur, next);
+		if (g != null) drawPanelBox(g, font, c, prev, cur, next, progress, box);
+		return new float[]{box[3], box[4]};
+	}
+
+	private static float[] localBox(Font font, Config c, String prev, String cur, String next) {
+		int lh = font.lineHeight;
+		float side = 0.72f, pad = 4f;
+		int wp = font.width(styled(prev, c, true)), wc = font.width(styled(cur, c, true)), wn = font.width(styled(next, c, true));
+		float width = Math.max(Math.max(wp * side, wc), wn * side);
+		float height = (prev.isEmpty() ? 0 : lh * side + 2) + lh + 2 + (next.isEmpty() ? 0 : lh * side + 2);
+		return new float[]{0, 0, 1f, width + pad * 2, height + pad * 2};
 	}
 
 	static final String[] SAMPLE = {"The line before", "The line being sung now", "The line after"};

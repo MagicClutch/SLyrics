@@ -33,7 +33,8 @@ import java.time.Duration;
  * Clicking works while a screen is open (chat, pause menu); keys can be bound in the controls menu.
  */
 public final class MediaPlayer implements HudElement {
-	static final int W = 160, H = 60, COVER = 36;
+	public static final int W = 160, H = 60, COVER = 36;
+	private static final Track SAMPLE = new Track("sample", "Song title", "Artist", "", 215_000L);
 	/** Local (unscaled) button boxes: x, y, w, h. */
 	private static final int[][] BUTTONS = {{44, 24, 16, 12}, {64, 24, 16, 12}, {84, 24, 16, 12}};
 
@@ -132,7 +133,7 @@ public final class MediaPlayer implements HudElement {
 			|| s instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>;
 	}
 
-	static boolean visible() {
+	public static boolean visible() {
 		Config c = Config.INSTANCE;
 		return !editing && c.enabled && c.mediaPlayer && Spotify.track != null;
 	}
@@ -192,13 +193,25 @@ public final class MediaPlayer implements HudElement {
 	public void extractRenderState(GuiGraphicsExtractor g, DeltaTracker delta) {
 		Config c = Config.INSTANCE;
 		Track t = Spotify.track;
-		if (!visible()) return;
+		if (HudMode.oneConfig || !visible()) return; // with OneConfig its HUD editor draws the player
 		float[] p = place(g.guiWidth(), g.guiHeight());
-		draw(g, t, Spotify.positionMs(), p[0], p[1], p[2], interactive(Minecraft.getInstance().gui.screen()));
+		draw(g, t, Spotify.positionMs(), p[0], p[1], p[2], interactive(Minecraft.getInstance().gui.screen()), false);
+	}
+
+	/**
+	 * Draws the window for OneConfig's HUD element: its transform already puts the top-left corner at (0, 0) and applies the scale.
+	 * The position and scale from the config are only used to find the mouse. With sample=true a sample song is shown when none plays.
+	 */
+	public static void drawInHud(GuiGraphicsExtractor g, boolean sample) {
+		Track t = Spotify.track != null ? Spotify.track : sample ? SAMPLE : null;
+		if (t == null) return;
+		Minecraft mc = Minecraft.getInstance();
+		float[] p = place(g.guiWidth(), g.guiHeight());
+		draw(g, t, Spotify.positionMs(), p[0], p[1], p[2], interactive(mc.gui.screen()), true);
 	}
 
 	/** Draws the window with its top-left corner at (x0, y0). With cursor=true the buttons light up under the mouse. */
-	static void draw(GuiGraphicsExtractor g, Track t, long posNow, float x0, float y0, float scale, boolean cursor) {
+	static void draw(GuiGraphicsExtractor g, Track t, long posNow, float x0, float y0, float scale, boolean cursor, boolean transformed) {
 		Config c = Config.INSTANCE;
 		Minecraft mc = Minecraft.getInstance();
 		Font font = mc.font;
@@ -206,8 +219,10 @@ public final class MediaPlayer implements HudElement {
 		double mx = mc.mouseHandler.getScaledXPos(mc.getWindow()), my = mc.mouseHandler.getScaledYPos(mc.getWindow());
 
 		g.pose().pushMatrix();
-		g.pose().translate(x0, y0);
-		g.pose().scale(scale, scale);
+		if (!transformed) {
+			g.pose().translate(x0, y0);
+			g.pose().scale(scale, scale);
+		}
 
 		g.fill(0, 0, W, H, (a * 170 / 255) << 24 | 0x101014);
 		g.outline(0, 0, W, H, (a * 90 / 255) << 24 | 0xFFFFFF);

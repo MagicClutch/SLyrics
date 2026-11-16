@@ -14,6 +14,11 @@ repositories {
 	maven { url = 'https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1' }
 }
 
+// Skia's native library for the dev client's own OS
+def osName = System.getProperty("os.name").toLowerCase()
+def arm = System.getProperty("os.arch").contains("aarch64") || System.getProperty("os.arch").contains("arm")
+def skikoPlatform = osName.contains("win") ? "windows-x64" : osName.contains("mac") ? (arm ? "macos-arm64" : "macos-x64") : (arm ? "linux-arm64" : "linux-x64")
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
@@ -28,7 +33,7 @@ dependencies {
 		runtimeOnly "maven.modrinth:oneconfig:${project.oneconfig_version}"
 		runtimeOnly "maven.modrinth:fabric-language-kotlin:SKW1BTL3"
 		runtimeOnly "maven.modrinth:compose-multiplatform:bMhjbdhu"
-		runtimeOnly "org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.153.0"
+		runtimeOnly "org.jetbrains.skiko:skiko-awt-runtime-${skikoPlatform}:0.153.0"
 		runtimeOnly "org.jetbrains.skiko:skiko-awt:0.153.0"
 		runtimeOnly("org.jetbrains.compose.ui:ui-skiko-desktop:1.13.0-alpha02") { transitive = false }
 	}
@@ -45,8 +50,8 @@ processResources {
 loom {
 	runs {
 		client {
-			// DevAuth is off by default; this logs the dev client in with your real account
-			property "devauth.enabled", "true"
+			// DevAuth logs the dev client in with your real account; -PnoDevAuth skips it (offline / login problems)
+			property "devauth.enabled", project.hasProperty("noDevAuth") ? "false" : "true"
 			property "devauth.account", "main"
 		}
 	}
@@ -63,16 +68,29 @@ java {
 }
 
 // OneConfig is optional: its jars are only on the compile classpath (never bundled). The modules sit nested inside the mod jar,
-// so they are unpacked from it for compiling.
-configurations { oneConfigJar }
-dependencies { oneConfigJar "maven.modrinth:oneconfig:${project.oneconfig_version}" }
+// so they are unpacked from it for compiling. OneConfig's HUD classes extend Compose / Kotlin types, so the runtime pieces of
+// those (Compose Multiplatform, Fabric Language Kotlin) are unpacked the same way.
+configurations { oneConfigJar; composeJar; kotlinJar }
+dependencies {
+	oneConfigJar "maven.modrinth:oneconfig:${project.oneconfig_version}"
+	composeJar "maven.modrinth:compose-multiplatform:bMhjbdhu"
+	kotlinJar "maven.modrinth:fabric-language-kotlin:SKW1BTL3"
+}
 def oneConfigLibs = layout.buildDirectory.dir('oneconfig-libs')
 tasks.register('unpackOneConfig', Copy) {
 	from({ zipTree(configurations.oneConfigJar.singleFile).matching { include 'META-INF/jars/*.jar' } }) {
 		eachFile { it.path = it.name }
 		includeEmptyDirs = false
 	}
+	from({ zipTree(configurations.composeJar.singleFile).matching { include 'META-INF/jars/runtime-desktop*.jar', 'META-INF/jars/runtime-annotation*.jar' } }) {
+		eachFile { it.path = it.name }
+		includeEmptyDirs = false
+	}
+	from({ zipTree(configurations.kotlinJar.singleFile).matching { include 'META-INF/jars/kotlin-stdlib-2*.jar' } }) {
+		eachFile { it.path = it.name }
+		includeEmptyDirs = false
+	}
 	into oneConfigLibs
 }
-dependencies { compileOnly fileTree(dir: oneConfigLibs, include: ['config*.jar', 'ui*.jar', 'utils*.jar', 'hud*.jar', 'events*.jar', 'poly-compose*.jar', 'internal*.jar']) }
+dependencies { compileOnly fileTree(dir: oneConfigLibs, include: ['config*.jar', 'ui*.jar', 'utils*.jar', 'hud*.jar', 'events*.jar', 'poly-compose*.jar', 'internal*.jar', '26.3-fabric*.jar', 'runtime-*.jar', 'kotlin-stdlib*.jar']) }
 tasks.named('compileJava') { dependsOn 'unpackOneConfig' }

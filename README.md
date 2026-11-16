@@ -6,6 +6,8 @@ Synced lyrics of the song you are listening to, as part of your Minecraft world:
 
 Needs [Fabric API](https://modrinth.com/mod/fabric-api), [Resourceful Config](https://modrinth.com/mod/resourceful-config) and Java 25. Open the settings with `/slyrics config`.
 
+[OneConfig](https://modrinth.com/mod/oneconfig) is optional. If it is installed it becomes the main config (settings page and HUD editor); Resourceful Config stays as the fallback (`/slyrics resourceful`), and everything can still be set there.
+
 ## Features
 
 **Lyrics in the world** (turn on any combination, every word goes to one of them)

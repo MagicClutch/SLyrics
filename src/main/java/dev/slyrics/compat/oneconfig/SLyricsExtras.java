@@ -57,26 +57,50 @@ final class SLyricsExtras {
 		p.setSubcategory(sub);
 	}
 
+	private static final String NO_PROFILES = "(no profiles yet)";
+	private static ConfigDSL.OptionsProp<Integer> profileList;
+	private static java.util.List<String> shownProfiles = java.util.List.of();
+	private static int tickCount;
+
+	/** The profile picked in the dropdown, or "" if there is none. */
+	private static String picked() {
+		var names = Profiles.list();
+		Integer i = profileList == null ? null : profileList.getProperty().get();
+		return i == null || i < 0 || i >= names.size() ? "" : names.get(i);
+	}
+
+	/** Fills the dropdown with the saved profiles and selects the active one. */
+	private static void refreshProfiles() {
+		if (profileList == null) return;
+		var names = Profiles.list();
+		shownProfiles = names;
+		profileList.setOptionKeys(names.isEmpty() ? new String[]{NO_PROFILES} : names.toArray(new String[0]));
+		profileList.getProperty().set(Math.max(0, names.indexOf(Profiles.active())));
+	}
+
+	/** Called every client tick: keeps the dropdown in step when profiles are saved, deleted or loaded elsewhere (commands, the profile screen). */
+	static void tick() {
+		if (profileList == null || ++tickCount % 20 != 0) return;
+		if (!Profiles.list().equals(shownProfiles)) refreshProfiles();
+	}
+
 	private static void profiles(ConfigDSL dsl) {
 		String cat = "Profiles";
-		String sub = "Profile actions";
-		ConfigDSL.TextProp name = dsl.text("");
-		name.setId("profileName");
-		name.setTitle("Profile name");
-		name.setDescription("The name used by the buttons below. Existing profiles: see the list button. Same as /slyrics profile ...");
-		name.setCategory(cat);
-		name.setSubcategory(sub);
-		name.getProperty().addCallback(v -> {
-			profileName = v == null ? "" : v.toString();
-			return true;
-		});
-		button(dsl, "profileSave", "Save profile", "Save", "Saves all current settings under the name above. Never replaces an existing profile.", cat, sub, () -> {
+		String sub = "Your profiles";
+		var names = Profiles.list();
+		shownProfiles = names;
+		profileList = dsl.dropdown(Math.max(0, names.indexOf(Profiles.active())), names.isEmpty() ? new String[]{NO_PROFILES} : names.toArray(new String[0]));
+		profileList.setId("profilePick");
+		profileList.setTitle("Profile");
+		profileList.setDescription("All saved profiles. Pick one, then Load or Delete it. The active profile is selected when the list is built.");
+		profileList.setCategory(cat);
+		profileList.setSubcategory(sub);
+		button(dsl, "profileLoad", "Load profile", "Load", "Loads the profile picked above and applies all its settings.", cat, sub, () -> {
 			try {
-				if (Profiles.exists(profileName)) { chat("'" + profileName + "' already exists. Use Update to replace the active profile."); return; }
-				String n = Profiles.save(profileName);
-				chat(n == null ? "invalid profile name" : "saved profile '" + n + "'");
+				String n = picked();
+				chat(n.isEmpty() ? "no profile picked" : Profiles.load(n) ? "loaded profile '" + n + "'" : "no profile named '" + n + "'");
 			} catch (Exception e) {
-				chat("could not save: " + e.getMessage());
+				chat("could not load: " + e.getMessage());
 			}
 		});
 		button(dsl, "profileUpdate", "Update active profile", "Update", "Replaces the active profile with the current settings.", cat, sub, () -> {
@@ -89,18 +113,32 @@ final class SLyricsExtras {
 				chat("could not save: " + e.getMessage());
 			}
 		});
-		button(dsl, "profileLoad", "Load profile", "Load", "Loads the profile with the name above.", cat, sub, () -> {
-			try {
-				chat(Profiles.load(profileName) ? "loaded profile '" + profileName + "'" : "no profile named '" + profileName + "'");
-			} catch (Exception e) {
-				chat("could not load: " + e.getMessage());
-			}
+		button(dsl, "profileDelete", "Delete profile", "Delete", "Deletes the profile picked above.", cat, sub, () -> {
+			String n = picked();
+			chat(n.isEmpty() ? "no profile picked" : Profiles.delete(n) ? "deleted profile '" + n + "'" : "no profile named '" + n + "'");
+			refreshProfiles();
 		});
-		button(dsl, "profileDelete", "Delete profile", "Delete", "Deletes the profile with the name above.", cat, sub, () ->
-			chat(Profiles.delete(profileName) ? "deleted profile '" + profileName + "'" : "no profile named '" + profileName + "'"));
-		button(dsl, "profileList", "List profiles", "List", "Shows the names of all saved profiles in chat. The active one is shown by Update.", cat, sub, () -> {
-			var names = Profiles.list();
-			chat("profiles: " + (names.isEmpty() ? "none yet" : String.join(", ", names)) + (Profiles.active().isEmpty() ? "" : " (active: " + Profiles.active() + ")"));
+
+		String newSub = "New profile";
+		ConfigDSL.TextProp name = dsl.text("");
+		name.setId("profileName");
+		name.setTitle("New profile name");
+		name.setDescription("Type a name, then press Save. Same as /slyrics profile save <name>.");
+		name.setCategory(cat);
+		name.setSubcategory(newSub);
+		name.getProperty().addCallback(v -> {
+			profileName = v == null ? "" : v.toString();
+			return true;
+		});
+		button(dsl, "profileSave", "Save as new profile", "Save", "Saves all current settings under the name above. Never replaces an existing profile.", cat, newSub, () -> {
+			try {
+				if (Profiles.exists(profileName)) { chat("'" + profileName + "' already exists. Use Update to replace the active profile."); return; }
+				String n = Profiles.save(profileName);
+				chat(n == null ? "invalid profile name" : "saved profile '" + n + "'");
+				refreshProfiles();
+			} catch (Exception e) {
+				chat("could not save: " + e.getMessage());
+			}
 		});
 	}
 

@@ -1,8 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 - Complete optional OneConfig support. With OneConfig installed, SLyrics gets its own page there with every setting of the
   Resourceful Config screen (same names, categories, order, defaults and ranges), plus the profile actions, the media player
   buttons, the Spotify logout and the emoji word lists. Both screens change the same values; OneConfig does not write a file
   of its own. Without OneConfig nothing changes.
+- With OneConfig, OneConfig is the main config: `/slyrics config` opens its page and `/slyrics hud` its HUD editor. The lyric
+  line, karaoke panel and media player are OneConfig HUD elements (move and scale them there); position and size stay in
+  step with the mod's own settings. Resourceful Config stays the fallback and can do everything: `/slyrics resourceful`
+  opens it, `/slyrics classichud` the mod's own HUD editor.
+- Profiles in OneConfig: a dropdown with all saved profiles plus Load, Update, Delete and Save as new.
+- Dev: `-PnoDevAuth` skips the DevAuth login; the Skia library for the dev client now matches the OS.

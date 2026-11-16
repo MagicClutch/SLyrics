@@ -75,7 +75,17 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 
 	static void register() {
 		SLyricsOneConfig page = new SLyricsOneConfig();
-		OneConfigBridge.syncer = page::sync;
+		SLyricsHuds.register();
+		OneConfigBridge.syncer = () -> {
+			page.sync();
+			SLyricsHuds.tick();
+		};
+	}
+
+	/** Shows the SLyrics page in OneConfig's own screen. */
+	static boolean open() {
+		org.polyfrost.oneconfig.api.ui.v1.OneConfigUI.open(new org.polyfrost.oneconfig.internal.ui.navigation.graph.ModConfigRoute("slyrics", null));
+		return true;
 	}
 
 	/** Used by SLyricsExtras for options that have no Resourceful Config entry. */
@@ -130,6 +140,23 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 				String desc = comment == null ? "" : comment.value();
 				if (button != null && Runnable.class.isAssignableFrom(f.getType())) {
 					Runnable action = (Runnable) f.get(null);
+					if (f.getName().equals("editHud")) { // OneConfig's own HUD editor is the main one; the mod's editor stays as an extra
+						ConfigDSL.RunnableProp main = dsl.button(SLyricsHuds::openEditor);
+						main.setId("editHudOneConfig");
+						main.setTitle("Open HUD editor");
+						main.setDescription("Drag the lyric line, the karaoke panel and the media player in OneConfig's HUD editor. Also: /slyrics hud");
+						main.setText("Open");
+						main.setCategory(catName);
+						main.setSubcategory(subName);
+						ConfigDSL.RunnableProp classic = dsl.button(action);
+						classic.setId(f.getName());
+						classic.setTitle("Open classic HUD editor");
+						classic.setDescription("The mod's own editor (the one used without OneConfig, also in Resourceful Config). " + desc);
+						classic.setText("Open");
+						classic.setCategory(catName);
+						classic.setSubcategory(subName);
+						continue;
+					}
 					ConfigDSL.RunnableProp p = dsl.button(action);
 					p.setId(f.getName());
 					p.setTitle(button.title());
@@ -211,6 +238,7 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 	private boolean logged;
 
 	void sync() {
+		SLyricsExtras.tick();
 		if (!logged && !bindings.isEmpty()) {
 			logged = true;
 			SLyricsClient.LOGGER.info("OneConfig page ready: {} synced options, tree uiOnly={}", bindings.size(), Tree_extensionsKt.getUiOnly(getTree()));

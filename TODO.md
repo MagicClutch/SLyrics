@@ -10,32 +10,14 @@
 - Tested with OneConfig: sync in both directions (OneConfig <-> Resourceful Config), value saved to `slyrics.jsonc`.
 
 ## Still open
-- [ ] **Run the client without OneConfig** (`./gradlew runClient -PnoOneConfig`). Both attempts failed before the game started
-      (DevAuth login: SSL handshake error), so "mod starts fine without OneConfig" is NOT verified yet. Retry, or run with
-      `-Ddevauth.enabled=false`.
-- [ ] Look at the SLyrics page in the OneConfig GUI (categories, titles, sliders, color pickers, dropdowns, buttons).
-      Only checked through logs so far, not visually. Check that titles/descriptions show correctly (`title` is set to the English text).
-- [ ] Verify a restart keeps OneConfig edits (the file write was confirmed; the page after restart was not looked at).
-- [ ] **TASK: move the HUD elements in OneConfig's own HUD editor** (not started, no code changed yet).
-      Today the "Open HUD editor" button only opens the old editor, because OneConfig's editor only knows elements registered
-      with `HudManager.register(...)`, and SLyrics draws its three elements itself through Fabric's `HudElementRegistry`.
-      Findings so far (OneConfig 1.4.1, read from the jars):
-      - No Kotlin needed: `org.polyfrost.oneconfig.api.hud.v1.LegacyHud` (in the platform jar `26.3-fabric-1.4.1.jar`) can be
-        subclassed from Java. Constructor `(String id, String title, Hud.Category)`, implement `getWidth()`, `getHeight()`,
-        `render(GuiGraphicsExtractor)`, and also `update()` (abstract in `Hud`). `HudManager.register(hud)` adds it to the editor.
-      - The compile classpath will need `androidx.compose.runtime` and Kotlin stdlib (inherited signatures such as
-        `Content(Composer, int)`), taken from the compose bundle / Fabric Language Kotlin jars like the other OneConfig jars
-        (extend the `unpackOneConfig` task in `build.gradle`).
-      Plan:
-      1. Three `LegacyHud` classes in `dev.slyrics.compat.oneconfig`: lyric line, karaoke panel, media player. Start with the
-         media player (simplest: `MediaPlayer.draw(...)` already draws at a given top-left corner).
-      2. Their `render()` calls the existing drawing code, so the look stays the same.
-      3. Two-way sync of position and scale with the existing fields (`xPercent/yPercent/scale`, `hudX/hudY/hudScale`,
-         `mediaX/mediaY/mediaScale`, all in percent of the screen), so the old editor and OneConfig's editor change the same values.
-      4. With OneConfig installed, switch off the mod's own drawing of those elements (otherwise they show twice).
-         `LyricsHud` / `MediaPlayer` must behave exactly as before without OneConfig.
-      5. Test: drag and scale in OneConfig's HUD editor, then check the old editor and a restart; then without OneConfig.
-      Keep the "Open HUD editor" button as an extra.
+- [x] Client starts without OneConfig (`./gradlew runClient -PnoDevAuth -PnoOneConfig`): no crash, no OneConfig classes loaded.
+- [x] HUD elements in OneConfig's HUD editor (`SLyricsHuds`: line, panel, media player as `LegacyHud`), synced with the config,
+      own drawing off while they exist (`HudMode.oneConfig`). OneConfig is now the main config (`/slyrics config`, `/slyrics hud`),
+      Resourceful Config the fallback (`/slyrics resourceful`, `/slyrics classichud`).
+- [ ] **Not looked at visually** (no way to drive the game window from here): the SLyrics page in the OneConfig GUI, dragging and
+      scaling the three elements in OneConfig's HUD editor (check that the lyric line box, the panel and the player land where the
+      old editor had them, and that a restart keeps them), the "Open HUD editor" / "Open classic HUD editor" buttons, `/slyrics config`
+      opening the page (uses OneConfig's internal `ModConfigRoute("slyrics")`; falls back to Resourceful Config if that fails).
 - [ ] Font picker, profile list screen: still buttons that open the old screens (OneConfig dropdowns cannot be filled dynamically).
       The profile actions work through a name field plus buttons.
 - [ ] Keybinds (`key.slyrics.play_pause|next|previous`): still in Options > Controls. OneConfig may list them itself; not checked.

@@ -52,7 +52,17 @@ public class SLyricsClient implements ClientModInitializer {
 			ClientCommands.literal("slyrics")
 				.executes(ctx -> openConfig())
 				.then(ClientCommands.literal("config").executes(ctx -> openConfig()))
+				.then(ClientCommands.literal("resourceful").executes(ctx -> { // the Resourceful Config screen, also with OneConfig installed
+					Minecraft.getInstance().execute(ConfigSync::openScreen);
+					return 1;
+				}))
 				.then(ClientCommands.literal("hud").executes(ctx -> {
+					Minecraft.getInstance().execute(() -> {
+						if (!dev.slyrics.compat.oneconfig.OneConfigBridge.openHudEditor()) HudEditor.open();
+					});
+					return 1;
+				}))
+				.then(ClientCommands.literal("classichud").executes(ctx -> {
 					HudEditor.open();
 					return 1;
 				}))
@@ -129,7 +139,9 @@ public class SLyricsClient implements ClientModInitializer {
 
 	private static int openConfig() {
 		Minecraft mc = Minecraft.getInstance();
-		mc.execute(ConfigSync::openScreen);
+		mc.execute(() -> {
+			if (!dev.slyrics.compat.oneconfig.OneConfigBridge.openConfig()) ConfigSync.openScreen(); // OneConfig is the main config, Resourceful Config the fallback
+		});
 		return 1;
 	}
 
