@@ -59,6 +59,9 @@ public final class MediaPlayer implements HudElement {
 	private static volatile String decodedFor = "";
 	private static int coverCounter;
 
+	/** Corner and scale of the window as OneConfig drew it last (null until the first frame). */
+	private static float[] hudPlace;
+
 	private MediaPlayer() {}
 
 	public static void init() {
@@ -182,6 +185,7 @@ public final class MediaPlayer implements HudElement {
 
 	/** Top-left corner and scale of the window for a screen of this size: {x, y, scale}. */
 	static float[] place(int guiW, int guiH) {
+		if (HudMode.oneConfig && hudPlace != null) return hudPlace.clone(); // where OneConfig really drew it, so the clicks match
 		Config c = Config.INSTANCE;
 		float scale = c.mediaScale / 100f;
 		float x = Math.max(0, Math.min(guiW * c.mediaX / 100f, guiW - W * scale));
@@ -206,7 +210,9 @@ public final class MediaPlayer implements HudElement {
 		Track t = Spotify.track != null ? Spotify.track : sample ? SAMPLE : null;
 		if (t == null) return;
 		Minecraft mc = Minecraft.getInstance();
-		float[] p = place(g.guiWidth(), g.guiHeight());
+		var m = g.pose();
+		hudPlace = new float[]{m.m20(), m.m21(), m.m00()}; // the transform OneConfig put on the element: corner and scale
+		float[] p = hudPlace;
 		draw(g, t, Spotify.positionMs(), p[0], p[1], p[2], interactive(mc.gui.screen()), true);
 	}
 

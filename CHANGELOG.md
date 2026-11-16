@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1
+
+- Fix: with OneConfig, the media player buttons and the progress bar now click where the player is drawn, also after it was
+  moved or resized in OneConfig's HUD editor.
+
 ## 1.1.0
 
 - Complete optional OneConfig support. With OneConfig installed, SLyrics gets its own page there with every setting of the
