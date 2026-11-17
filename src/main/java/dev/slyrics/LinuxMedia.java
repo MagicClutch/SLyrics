@@ -9,35 +9,21 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Apple Music has no public "what is playing right now" API, so the song is read from the media player that plays it
- * on this computer (the Apple Music web player in a browser, Cider, ...). On Linux every such player announces itself
- * on the session D-Bus as an MPRIS player; this class asks it for title, artist, length, position and play state.
+ * The "Others" music source on Linux. Every media player (Cider, a browser tab with YouTube / Apple Music, VLC, ...)
+ * announces itself on the session D-Bus as an MPRIS player; this class asks it for title, artist, length, position and
+ * play state, and sends it play / pause, next, previous and seek. The Windows counterpart is {@link WindowsMedia}.
  */
-public final class AppleMusic {
+final class LinuxMedia {
 	private static final String PREFIX = "org.mpris.MediaPlayer2.";
 	private static final String PLAYER_IF = "org.mpris.MediaPlayer2.Player";
 
 	/** The player that supplies the song right now (the bus name), or null; the media buttons control this one. */
 	private static volatile String activeBus;
 
-	/** After a seek the position is not read for a moment, so the bar does not jump back to the old place. */
-	private static volatile long holdUntil;
+	private LinuxMedia() {}
 
-	private AppleMusic() {}
-
-	/** Sends PlayPause / Next / Previous to the active player. */
-	static void control(String method) {
-		control(method, null, null);
-	}
-
-	/** Jumps to a position: MPRIS Seek takes an offset in microseconds from the current position. */
-	static void seek(long ms) {
-		long offsetUs = (ms - Spotify.positionMs()) * 1000L;
-		holdUntil = System.currentTimeMillis() + 1500;
-		control("Seek", "x", Long.toString(offsetUs));
-	}
-
-	private static void control(String method, String sig, String arg) {
+	/** Sends an MPRIS method (PlayPause, Next, Previous, Seek) to the active player. */
+	static void control(String method, String sig, String arg) {
 		Spotify.executor().execute(() -> {
 			String bus = activeBus;
 			if (bus == null) {
@@ -58,7 +44,7 @@ public final class AppleMusic {
 					else run("gdbus", "call", "--session", "--dest", bus, "--object-path", "/org/mpris/MediaPlayer2", "--method", PLAYER_IF + "." + method, arg);
 				}
 				if (method.equals("PlayPause")) Spotify.setProgress(Spotify.positionMs(), !Spotify.playing);
-				Spotify.executor().schedule(AppleMusic::pollSafe, method.equals("Seek") ? 1600 : 400, TimeUnit.MILLISECONDS);
+				Spotify.executor().schedule(OtherPlayers::pollSafe, method.equals("Seek") ? 1600 : 400, TimeUnit.MILLISECONDS);
 			} catch (Exception e) {
 				SLyricsClient.LOGGER.debug("Player control error", e);
 				MediaPlayer.notice("Could not control the player");
@@ -66,29 +52,8 @@ public final class AppleMusic {
 		});
 	}
 
-	public static void start() {
-		Spotify.executor().scheduleWithFixedDelay(AppleMusic::pollSafe, 1, 1, TimeUnit.SECONDS);
-	}
-
-	private static void pollSafe() {
-		try {
-			poll();
-		} catch (Exception e) {
-			SLyricsClient.LOGGER.debug("Other-player poll error", e);
-		}
-	}
-
-	private static void poll() throws Exception {
-		if (System.currentTimeMillis() < holdUntil) return;
-		Config c = Config.INSTANCE;
-		boolean auto = "Auto".equals(c.musicSource);
-		if (!c.enabled || !(auto || "Others".equals(c.musicSource))) return;
-		if (!System.getProperty("os.name", "").toLowerCase().contains("linux")) {
-			if (auto) return;
-			Spotify.status = "Others: only supported on Linux for now";
-			return;
-		}
-		String filter = c.applePlayer == null ? "" : c.applePlayer.trim().toLowerCase();
+	static void poll(Config c, boolean auto) throws Exception {
+		String filter = c.otherPlayer == null ? "" : c.otherPlayer.trim().toLowerCase();
 		String chosen = null;
 		String chosenState = "";
 		int chosenScore = -1;
@@ -125,8 +90,8 @@ public final class AppleMusic {
 			Spotify.status = "Others: nothing is playing";
 			return;
 		}
-		String title = clean(str(meta.get("xesam:title")));
-		String artist = clean(first(meta.get("xesam:artist"))).replaceAll("(?i)\\s*-\\s*topic$", "");
+		String title = OtherPlayers.clean(str(meta.get("xesam:title")));
+		String artist = OtherPlayers.clean(first(meta.get("xesam:artist"))).replaceAll("(?i)\\s*-\\s*topic$", "");
 		String url = meta.has("xesam:url") ? str(meta.get("xesam:url")) : "";
 		// plain YouTube: the "artist" is only the channel name; the real one is in the title as "Artist - Title"
 		boolean plainYoutube = url.contains("://www.youtube.com/") || url.contains("://youtube.com/") || url.contains("://m.youtube.com/");
@@ -162,13 +127,6 @@ public final class AppleMusic {
 		}
 	}
 
-	/** Removes what web players add to titles: invisible marks, " - YouTube", " - Apple Music", "(Official Video)", "[Lyrics]". */
-	static String clean(String s) {
-		String t = s.replaceAll("[\\u200E\\u200F\\u202A-\\u202E]", "").trim();
-		t = t.replaceAll("(?i)\\s*[-\u2013\u2014|]\\s*(youtube music|youtube|apple music|soundcloud|tidal|deezer)\\s*$", "");
-		t = t.replaceAll("(?i)\\s*[\\(\\[](official[^\\)\\]]*|lyrics?[^\\)\\]]*|audio[^\\)\\]]*|video[^\\)\\]]*|hd|hq|4k)[\\)\\]]", "");
-		return t.trim();
-	}
 
 	// ---------------------------------------------------------------- busctl helpers
 

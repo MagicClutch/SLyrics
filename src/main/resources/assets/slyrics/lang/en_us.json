@@ -32,7 +32,7 @@
 	"slyrics.config.clientId": "Client ID",
 	"slyrics.config.color": "Color",
 	"slyrics.config.musicSource": "Music source",
-	"slyrics.config.applePlayer": "Player name filter",
+	"slyrics.config.otherPlayer": "Player name filter",
 	"slyrics.config.afkTextNear": "Words: closest to you",
 	"slyrics.config.afkTextFar": "Words: farthest from you",
 	"slyrics.config.performanceMode": "Performance mode",

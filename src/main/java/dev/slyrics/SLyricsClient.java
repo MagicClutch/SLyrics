@@ -34,7 +34,7 @@ public class SLyricsClient implements ClientModInitializer {
 		});
 		dev.slyrics.profiles.SaveProfileButton.init();
 		Spotify.start();
-		AppleMusic.start();
+		OtherPlayers.start();
 		LyricsWorld.init();
 		AfkCamera.init();
 		MediaPlayer.init();

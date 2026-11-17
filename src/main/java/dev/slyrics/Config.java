@@ -36,7 +36,7 @@ public class Config {
 	/** Where the current song comes from: "Auto" (Spotify first, then any other player), "Spotify" or "Others". */
 	public String musicSource = "Auto";
 	/** Others: only use media players whose name contains this (empty = any except Spotify). */
-	public String applePlayer = "";
+	public String otherPlayer = "";
 	/** On-screen status message (e.g. when no lyrics were found). */
 	public boolean showStatus = true;
 

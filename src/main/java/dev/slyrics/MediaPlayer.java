@@ -112,22 +112,22 @@ public final class MediaPlayer implements HudElement {
 	public static void seek(long ms) {
 		Spotify.setProgress(ms, Spotify.playing); // the bar stays where you let go, no jump back while the player catches up
 		if (spotify()) Spotify.seek(ms);
-		else AppleMusic.seek(ms);
+		else OtherPlayers.seek(ms);
 	}
 
 	public static void togglePlay() {
 		if (spotify()) Spotify.control(Spotify.playing ? "pause" : "play");
-		else AppleMusic.control("PlayPause");
+		else OtherPlayers.control("PlayPause");
 	}
 
 	public static void next() {
 		if (spotify()) Spotify.control("next");
-		else AppleMusic.control("Next");
+		else OtherPlayers.control("Next");
 	}
 
 	public static void previous() {
 		if (spotify()) Spotify.control("previous");
-		else AppleMusic.control("Previous");
+		else OtherPlayers.control("Previous");
 	}
 
 	/** The player can be clicked on the chat, the pause menu and inventories, not through settings screens or other windows on top of it. */

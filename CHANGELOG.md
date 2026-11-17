@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- "Others" music source now works on Windows too (Windows media controls via PowerShell: Apple Music, browsers, VLC, ...), including play / pause, next, previous and seeking. The Linux code moved into its own class (`LinuxMedia`), next to `WindowsMedia`.
+
 ## 1.1.1
 
 - Fix: with OneConfig, the media player buttons and the progress bar now click where the player is drawn, also after it was

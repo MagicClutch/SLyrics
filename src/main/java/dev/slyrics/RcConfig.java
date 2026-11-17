@@ -31,14 +31,14 @@ public final class RcConfig {
 		public static MusicSource of(String s) { for (MusicSource m : values()) if (m.label.equals(s) || (m == OTHERS && "Apple Music".equals(s))) return m; return AUTO; }
 	}
 
-	@Category(value = "Connectivity", categories = {General.class, SpotifyTab.class, AppleMusicTab.class})
+	@Category(value = "Connectivity", categories = {General.class, SpotifyTab.class, OtherPlayersTab.class})
 	public static final class Connectivity {
 	}
 
 	@Category(value = "General")
 	public static final class General {
 		@ConfigEntry(id = "musicSource", translation = "slyrics.config.musicSource")
-		@Comment("Where the current song comes from. Auto: Spotify when it plays, otherwise any other player on this computer. Spotify: logs in with your Spotify account. Others: reads the song from any media player on this computer, e.g. Apple Music or YouTube Music in the browser, Cider, VLC (Linux only for now).")
+		@Comment("Where the current song comes from. Auto: Spotify when it plays, otherwise any other player on this computer. Spotify: logs in with your Spotify account. Others: reads the song from any media player on this computer, e.g. Apple Music or YouTube Music in the browser, Cider, VLC (Linux and Windows).")
 		public static MusicSource musicSource = MusicSource.of(D.musicSource);
 
 		@ConfigEntry(id = "enabled", translation = "slyrics.config.enabled")
@@ -454,10 +454,10 @@ public final class RcConfig {
 	}
 
 	@Category("Others")
-	public static final class AppleMusicTab {
-		@ConfigEntry(id = "applePlayer", translation = "slyrics.config.applePlayer")
+	public static final class OtherPlayersTab {
+		@ConfigEntry(id = "otherPlayer", translation = "slyrics.config.otherPlayer")
 		@Comment("Only use a media player whose name contains this text, e.g. cider or firefox. Empty = any player except Spotify. Used when the source is Others.")
-		public static String applePlayer = D.applePlayer;
+		public static String otherPlayer = D.otherPlayer;
 
 	}
 
