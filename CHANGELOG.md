@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.3
+
+- OneConfig: the font can now be picked from a dropdown (Text Settings > Text): Minecraft's fonts first, then every installed font. It stays in step with the font field and the Choose button.
+- OneConfig: new "Keybinds" category for play / pause, next and previous song. The keys are the same Minecraft key bindings as in Options > Controls, so both places always show the same key (one key only, no Ctrl / Shift / Alt).
+
 ## 1.1.2
 
 - Fix: the "Others" music source did nothing on Windows. It now works there too (Windows media controls via PowerShell: Apple Music, browsers, VLC, ...), including play / pause, next, previous and seeking. The cover is not shown on Windows.

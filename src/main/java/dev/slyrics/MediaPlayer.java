@@ -42,6 +42,11 @@ public final class MediaPlayer implements HudElement {
 
 	private static KeyMapping keyPlay, keyNext, keyPrev;
 
+	/** The three key bindings (play / pause, next, previous), so the OneConfig page can show and change them. */
+	public static KeyMapping[] keyMappings() {
+		return new KeyMapping[]{keyPlay, keyNext, keyPrev};
+	}
+
 	/** True while the position editor is open: the editor draws the window itself. */
 	static volatile boolean editing;
 	/** True while the progress bar is held with the mouse: the bar follows the mouse and the song only jumps on release. */
