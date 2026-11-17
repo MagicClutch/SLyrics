@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.1.2
 
-- "Others" music source now works on Windows too (Windows media controls via PowerShell: Apple Music, browsers, VLC, ...), including play / pause, next, previous and seeking. The Linux code moved into its own class (`LinuxMedia`), next to `WindowsMedia`.
+- Fix: the "Others" music source did nothing on Windows. It now works there too (Windows media controls via PowerShell: Apple Music, browsers, VLC, ...), including play / pause, next, previous and seeking. The cover is not shown on Windows.
+- The config entry for the player name filter was renamed (`applePlayer` -> `otherPlayer`), so a filter you entered before has to be entered again.
+- Internal: the Linux code moved into `LinuxMedia`, next to the new `WindowsMedia`; `AppleMusic` is now `OtherPlayers`.
 
 ## 1.1.1
 

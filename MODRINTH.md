@@ -72,7 +72,7 @@ All commands are client-side and need no permissions.
 | `/slyrics config` | Open the settings. |
 | `/slyrics hud` | Open the HUD editor. |
 | `/slyrics toggle` | Turn the mod on or off. |
-| `/slyrics offset <ms>` | Shift the lyrics timing in milliseconds. Use this if the lyrics are early or late. |
+| `/slyrics offset <ms>` | Shift the lyrics timing, from -10000 to 10000 milliseconds. Use this if the lyrics are early or late. |
 | `/slyrics login` | Log in to Spotify (click the link in chat). |
 | `/slyrics logout` | Log out of Spotify. |
 | `/slyrics profile list` | List your saved profiles. |
@@ -108,9 +108,11 @@ SLyrics reads the playing song from any player that shows up in your system's me
 - **Windows:** uses the Windows media controls (the same ones as the volume flyout). Nothing to install, it only needs the PowerShell that comes with Windows.
 - **Linux:** uses MPRIS over D-Bus, which most players support.
 
-To use one specific player, enter part of its name (for example `cider`) in the player field.
+To use one specific player, enter part of its name (for example `cider` or `chrome`) in the **Player name filter** field under *Connectivity*. Leave it empty to pick automatically: a playing player wins over a paused one.
 
-**Prism Launcher as Flatpak:** the sandbox hides your players from Minecraft. Allow it once and restart Prism completely:
+On Windows the cover art is not shown for these players (title, artist and progress work).
+
+**Linux, Prism Launcher as Flatpak:** the sandbox hides your players from Minecraft. Allow it once and restart Prism completely:
 
 ```
 flatpak override --user --talk-name='org.mpris.MediaPlayer2.*' org.prismlauncher.PrismLauncher
@@ -148,6 +150,7 @@ Settings are saved automatically.
 | **Loader** | Fabric Loader 0.20.1 or newer |
 | **Java** | 25 or newer |
 | **Side** | Client only |
+| **OS** | Windows and Linux (macOS: Spotify only) |
 
 ### Required mods
 - [Fabric API](https://modrinth.com/mod/fabric-api)
@@ -161,7 +164,7 @@ Settings are saved automatically.
 ## FAQ
 
 **The lyrics are early or late.**
-Use `/slyrics offset <ms>`. Positive and negative values both work.
+Use `/slyrics offset <ms>` (-10000 to 10000). Positive and negative values both work.
 
 **Nothing shows up.**
 Check that a song is playing, that the source under *Connectivity* matches where you play it, and that the song has synced lyrics on [LRCLIB](https://lrclib.net).
