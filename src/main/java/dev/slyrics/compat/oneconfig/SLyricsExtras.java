@@ -224,6 +224,30 @@ final class SLyricsExtras {
 	private static void profiles(ConfigDSL dsl) {
 		String cat = "Profiles";
 		String sub = "Your profiles";
+
+		// "New profile" comes first on the page: the options show in the order they are added
+		String newSub = "New profile";
+		ConfigDSL.TextProp name = dsl.text("");
+		name.setId("profileName");
+		name.setTitle("New profile name");
+		name.setDescription("Type a name, then press Save. Same as /slyrics profile save <name>.");
+		name.setCategory(cat);
+		name.setSubcategory(newSub);
+		name.getProperty().addCallback(v -> {
+			profileName = v == null ? "" : v.toString();
+			return true;
+		});
+		button(dsl, "profileSave", "Save as new profile", "Save", "Saves all current settings under the name above. Never replaces an existing profile.", cat, newSub, () -> {
+			try {
+				if (Profiles.exists(profileName)) { chat("'" + profileName + "' already exists. Use Update to replace the active profile."); return; }
+				String n = Profiles.save(profileName);
+				chat(n == null ? "invalid profile name" : "saved profile '" + n + "'");
+				refreshProfiles();
+			} catch (Exception e) {
+				chat("could not save: " + e.getMessage());
+			}
+		});
+
 		var names = Profiles.list();
 		shownProfiles = names;
 		profileList = dsl.dropdown(Math.max(0, names.indexOf(Profiles.active())), names.isEmpty() ? new String[]{NO_PROFILES} : names.toArray(new String[0]));
@@ -254,28 +278,6 @@ final class SLyricsExtras {
 			String n = picked();
 			chat(n.isEmpty() ? "no profile picked" : Profiles.delete(n) ? "deleted profile '" + n + "'" : "no profile named '" + n + "'");
 			refreshProfiles();
-		});
-
-		String newSub = "New profile";
-		ConfigDSL.TextProp name = dsl.text("");
-		name.setId("profileName");
-		name.setTitle("New profile name");
-		name.setDescription("Type a name, then press Save. Same as /slyrics profile save <name>.");
-		name.setCategory(cat);
-		name.setSubcategory(newSub);
-		name.getProperty().addCallback(v -> {
-			profileName = v == null ? "" : v.toString();
-			return true;
-		});
-		button(dsl, "profileSave", "Save as new profile", "Save", "Saves all current settings under the name above. Never replaces an existing profile.", cat, newSub, () -> {
-			try {
-				if (Profiles.exists(profileName)) { chat("'" + profileName + "' already exists. Use Update to replace the active profile."); return; }
-				String n = Profiles.save(profileName);
-				chat(n == null ? "invalid profile name" : "saved profile '" + n + "'");
-				refreshProfiles();
-			} catch (Exception e) {
-				chat("could not save: " + e.getMessage());
-			}
 		});
 	}
 

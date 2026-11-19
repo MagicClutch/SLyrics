@@ -223,7 +223,7 @@ public final class Profiles {
 			});
 			make("Sky", c -> {
 				c.hologram = false; c.skyMode = true; c.stickMode = false; c.floating = false;
-				c.skyDistance = 100f; c.skyElevation = 30f; c.skyTextDeg = 7f; c.throughWalls = true;
+				c.blockClipping = true; c.skyDistance = 100f; c.skyElevation = 30f; c.skyTextDeg = 7f; c.throughWalls = true;
 				c.glow = 60; c.outline = 40; c.blur = 40; c.bounce = 60; c.textAnim = "None"; c.sweepMode = true;
 				c.afkEnabled = false;
 			});

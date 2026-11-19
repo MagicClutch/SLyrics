@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.4
+
+- OneConfig: new **Developer mode** switch (Connectivity > General). With it off, only the easy everyday settings are shown (music source, offset, Spotify login, font and color, text animation, word sweep, the feature toggles, keybinds and profiles). Turn it on to get every detailed setting back. Stick on blocks, Floating, the media buttons and the HUD editor buttons are part of Developer mode. Resourceful Config cannot hide options, so it still shows everything.
+- OneConfig: the HUD editor buttons and the word sweep options moved into Features, and "New profile" is now at the top of the Profiles tab.
+- OneConfig: the Spotify Client ID is hidden. The field shows one * per character; paste a new ID to replace it, or empty the field to remove it.
+- New installs start lighter: sky mode only, no glow, outline, blur, bounce or text animation, block clipping off and the AFK camera off. Existing settings are not changed, and the built-in profiles still turn the effects on.
+- Fix: removed a debug log line that wrote an entry to the game log for every mouse click.
+
 ## 1.1.3
 
 - OneConfig: the font can now be picked from a dropdown (Text Settings > Text): Minecraft's fonts first, then every installed font. It stays in step with the font field and the Choose button.

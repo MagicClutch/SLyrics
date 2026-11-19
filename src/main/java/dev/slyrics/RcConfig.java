@@ -51,6 +51,10 @@ public final class RcConfig {
 		@ConfigOption.Slider
 		public static int offsetMs = D.offsetMs;
 
+		@ConfigEntry(id = "devMode", translation = "slyrics.config.devMode")
+		@Comment("Developer mode: shows all the detailed settings (effects, distances, AFK camera, emoji lists, ...) in the OneConfig page. Off: only the easy, everyday settings.")
+		public static boolean devMode = D.devMode;
+
 	}
 
 	@Category(value = "Spotify")

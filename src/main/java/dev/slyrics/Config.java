@@ -39,6 +39,8 @@ public class Config {
 	public String otherPlayer = "";
 	/** On-screen status message (e.g. when no lyrics were found). */
 	public boolean showStatus = true;
+	/** Developer mode: shows all the detailed settings in the OneConfig page. Off = only the easy, everyday settings. */
+	public boolean devMode = false;
 
 	// ------------------------------------------------------------------ bookkeeping (only in slyrics.json)
 
@@ -64,7 +66,7 @@ public class Config {
 	/** Words follow you when you walk. */
 	public boolean follow = false;
 	/** Keep words out of blocks: they are moved in front of walls/terrain and never placed inside the ground. */
-	public boolean blockClipping = true;
+	public boolean blockClipping = false;
 	public boolean throughWalls = true;
 
 	/** Floating mode: words keep drifting through the world instead of staying where they appeared (not for stick-on-blocks). */
@@ -110,9 +112,9 @@ public class Config {
 	public int size = 100;
 	public int opacity = 100;
 	public int glow = 0;
-	public int outline = 60;
-	public int blur = 50;
-	public int bounce = 100;
+	public int outline = 0;
+	public int blur = 0;
+	public int bounce = 0;
 	public boolean flicker = false;
 	/** 3D text: the words get a body, drawn as stacked layers behind the front face. */
 	public boolean depth3d = false;
@@ -136,7 +138,7 @@ public class Config {
 	/** How long a sung word stays before it fades out, in ms (0 = automatic, depends on the song speed). */
 	public int wordHoldMs = 0;
 	/** Viral-caption style animation of each sung word (see RcConfig.TextAnim). */
-	public String textAnim = "TikTok pop";
+	public String textAnim = "None";
 	public int animSpeed = 237;
 
 	// ------------------------------------------------------------------ emojis
@@ -166,7 +168,7 @@ public class Config {
 	// ------------------------------------------------------------------ AFK camera
 
 	/** After afkSeconds without input the camera leaves first person and plays cinematic shots around the player. */
-	public boolean afkEnabled = true;
+	public boolean afkEnabled = false;
 	public int afkSeconds = 10;
 	public boolean afkOnlyWhilePlaying = true;
 	/** Orbit radius in blocks, height above the eyes in blocks, speed in degrees per second. */

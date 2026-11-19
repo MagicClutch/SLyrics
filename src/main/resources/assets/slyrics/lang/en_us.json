@@ -46,6 +46,7 @@
 	"slyrics.config.emojiSprites": "Minecraft icons",
 	"slyrics.config.emojis": "Emojis",
 	"slyrics.config.enabled": "Enabled",
+	"slyrics.config.devMode": "Developer mode",
 	"slyrics.config.fadeMs": "Fade (ms)",
 	"slyrics.config.far": "Farthest distance",
 	"slyrics.config.flicker": "Flicker",

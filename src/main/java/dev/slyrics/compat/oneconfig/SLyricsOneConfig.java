@@ -124,8 +124,31 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 		}
 		SLyricsExtras.add(dsl, this::addBinding);
 		Tree tree = dsl.getTree();
+		applyDevMode(tree);
 		Tree_extensionsKt.setUiOnly(tree, true);
 		return tree;
+	}
+
+	/** Options that stay visible with Developer mode off: everything else is hidden until it is switched on. */
+	private static final java.util.Set<String> EASY = java.util.Set.of(
+		"enabled", "musicSource", "offsetMs", "devMode", "clientId", "connect", "spotifyLogout",
+		"font", "fontPick", "pickFont", "color", "textAnim", "sweepMode",
+		"hologram", "skyMode", "lineMode", "hudMode", "mediaPlayer", "afkEnabled",
+		"keyPlayPause", "keyNext", "keyPrevious",
+		"profilePick", "profileLoad", "profileUpdate", "profileDelete", "profileName", "profileSave");
+
+	/** Hides every option that is not in {@link #EASY} while the Developer mode switch is off. */
+	private static void applyDevMode(Tree tree) {
+		List<org.polyfrost.oneconfig.api.config.v1.Property<?>> all = new ArrayList<>();
+		tree.onAllProps((path, p) -> all.add(p));
+		org.polyfrost.oneconfig.api.config.v1.Property<?> dev = null;
+		for (var p : all) if ("devMode".equals(p.getID())) dev = p;
+		if (dev == null) return;
+		@SuppressWarnings("unchecked") org.polyfrost.oneconfig.api.config.v1.Property<Boolean> devProp = (org.polyfrost.oneconfig.api.config.v1.Property<Boolean>) dev;
+		for (var p : all) {
+			if (EASY.contains(p.getID())) continue;
+			p.addDisplayCondition(devProp, true);
+		}
 	}
 
 	private void addCategory(ConfigDSL dsl, JsonObject lang, String catName, Class<?> cls) {
@@ -146,15 +169,15 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 						main.setTitle("Open HUD editor");
 						main.setDescription("Drag the lyric line, the karaoke panel and the media player in OneConfig's HUD editor. Also: /slyrics hud");
 						main.setText("Open");
-						main.setCategory(catName);
-						main.setSubcategory(subName);
+						main.setCategory("Features"); // not its own tab: that tab would stay empty with Developer mode off
+						main.setSubcategory("HUD editor");
 						ConfigDSL.RunnableProp classic = dsl.button(action);
 						classic.setId(f.getName());
 						classic.setTitle("Open classic HUD editor");
 						classic.setDescription("The mod's own editor (the one used without OneConfig, also in Resourceful Config). " + desc);
 						classic.setText("Open");
-						classic.setCategory(catName);
-						classic.setSubcategory(subName);
+						classic.setCategory("Features");
+						classic.setSubcategory("HUD editor");
 						continue;
 					}
 					ConfigDSL.RunnableProp p = dsl.button(action);
@@ -168,6 +191,10 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 				}
 				if (entry == null) continue;
 				String id = entry.id();
+				if (id.equals("clientId")) { // never shown: the field stays empty and only takes a new ID
+					clientIdField(dsl, lang, catName, subName, desc);
+					continue;
+				}
 				Field cf = Config.class.getField(id);
 				Class<?> t = f.getType();
 				Binding b = new Binding();
@@ -214,8 +241,9 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 				prop.setTitle(lang.has(key) ? lang.get(key).getAsString() : id);
 				prop.setTitleKey(key);
 				prop.setDescription(desc);
-				prop.setCategory(catName);
-				prop.setSubcategory(subName);
+				boolean sweep = id.equals("sweepMode") || id.equals("sweepColor"); // word sweep lives under Features
+				prop.setCategory(sweep ? "Features" : catName);
+				prop.setSubcategory(sweep ? (id.equals("sweepMode") ? "Select features" : "Word sweep") : subName);
 				b.prop = prop;
 				b.last = b.toWidget(initial);
 				bindings.add(b);
@@ -223,6 +251,41 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 				SLyricsClient.LOGGER.warn("Skipped OneConfig option {}", f.getName(), e);
 			}
 		}
+	}
+
+	/** One star per character of the saved Client ID (nothing if none is saved). */
+	private static String clientIdStars() {
+		return "*".repeat(Config.INSTANCE.clientId.length());
+	}
+
+	/**
+	 * The Spotify Client ID is never shown: the field holds one * per character of the saved ID. Pasting a new ID (32 hex
+	 * characters) replaces it and the field turns back into stars; emptying the field removes the saved ID.
+	 */
+	private static void clientIdField(ConfigDSL dsl, JsonObject lang, String cat, String sub, String desc) {
+		ConfigDSL.TextProp p = dsl.text(clientIdStars());
+		p.setId("clientId");
+		String key = "slyrics.config.clientId";
+		p.setTitle(lang.has(key) ? lang.get(key).getAsString() : "Client ID");
+		p.setTitleKey(key);
+		p.setDescription(desc);
+		p.setCategory(cat);
+		p.setSubcategory(sub);
+		p.getProperty().addCallback(v -> {
+			String s = v == null ? "" : v.toString().trim();
+			if (s.matches("[*]+")) return true; // the stars themselves
+			if (s.isEmpty()) {
+				if (!Config.INSTANCE.clientId.isEmpty()) {
+					Config.INSTANCE.clientId = "";
+					ConfigSync.saveAll();
+				}
+			} else if (s.matches("[0-9a-fA-F]{32}")) {
+				Config.INSTANCE.clientId = s;
+				ConfigSync.saveAll();
+				net.minecraft.client.Minecraft.getInstance().execute(() -> p.getProperty().set(clientIdStars()));
+			}
+			return true;
+		});
 	}
 
 	private static JsonObject loadLang() {
