@@ -47,7 +47,7 @@ A small window with cover, title, progress bar and previous / play-pause / next 
 - Hold the progress bar to scrub, let go to jump.
 
 ### HUD editor
-Run `/slyrics hud` to open OneConfig's HUD editor, then drag and resize the media player, karaoke panel and lyric line.
+Run `/slyrics hud` to open OneConfig's HUD editor. Add the media player, karaoke panel or lyric line to show it, drag and resize it, and click it for its settings.
 
 ### AFK camera
 After you are idle, the camera leaves first person and plays cinematic shots around you (orbit, rise, fly-by, push in, ...) with the lyrics in view. Any input ends it.
@@ -128,7 +128,7 @@ Open them with `/slyrics config`: SLyrics has its own page in OneConfig.
 | **Connectivity** | Music source, Spotify Client ID, other players. |
 | **Text Settings** | Font, size, color, effects, animations, word sweep, emojis. |
 | **Features** | The lyrics in the world: which modes are on, then Aura, Sky, Stick on blocks, Floating & walls and the AFK camera. |
-| **HUD** | Everything on the screen: the HUD editor, the lyric line, the karaoke panel and the media player, each with its own on/off switch. |
+| **HUD** | Opens OneConfig's HUD editor. Add the lyric line, the karaoke panel or the media player there to show it, and click it for its settings. |
 | **Profiles** | Save, load, update, delete and share setups. |
 
 Settings are saved automatically to `config/slyrics.json`. With **Developer mode** off (Connectivity > General) only the everyday settings are shown.

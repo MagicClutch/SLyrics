@@ -36,7 +36,7 @@ public class LyricsHud implements HudElement {
 	 */
 	public static void drawLine(GuiGraphicsExtractor g, Font font, Config c, float cx, float cy, float k, float half) {
 		List<LyricLine> lines = Spotify.lyrics;
-		if (!c.lineMode && !lines.isEmpty()) return; // the lyric line is its own feature; the other modes show the lyrics elsewhere
+		if (!HudMode.oneConfig && !c.lineMode && !lines.isEmpty()) return; // its own feature (with OneConfig: added in the HUD editor)
 		if (lines.isEmpty() || !Spotify.playing && Spotify.track == null) {
 			String msg = c.showStatus ? Spotify.noLyricsMessage() : null; // only "No lyrics found", and only for 10 seconds
 			if (msg != null) draw(g, font, msg, cx, cy, k * Math.min(1f, c.scale) / c.scale * 0.7f, 0xAAAAAA, 0.8f * Spotify.noLyricsAlpha(), c);

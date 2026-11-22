@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+
+- The lyric line, the karaoke panel and the media player are now set up in OneConfig's HUD editor: add an element there to show it, and click it for its settings (lyric line: scrolling, words at once, previous and next line, status message; media player: opacity, album cover). The HUD tab on the SLyrics page only opens the editor.
+- Fix: moving or scaling an element in OneConfig's HUD editor is now kept in your settings and profiles (the editor works on copies of the elements, and the copies were not kept in step).
+- Fix: an element added in the HUD editor now always shows; before, it stayed hidden unless the old switch for it was also on.
+
 ## 1.2.0
 
 - One **text size** for the words in the world (Text Settings > Text): Aura, Stick on blocks and the AFK camera use it, Sky keeps its own size and the lyric line is sized in the HUD editor. Words that the movement prediction places farther ahead (sprinting, flying with an elytra) grow with the distance, so they look just as big.

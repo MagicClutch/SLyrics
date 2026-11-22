@@ -24,8 +24,9 @@ import java.util.stream.Stream;
  */
 public final class Profiles {
 	private static final java.util.Set<String> SKIP = java.util.Set.of("clientId", "musicSource", "otherPlayer", "offsetMs", "enabled", "devMode");
-	/** Settings that are not plain ConfigLayout fields (the HUD layout from the HUD editor, the font from its dropdown) but belong to a profile like any other. */
-	private static final List<String> LAYOUT = List.of("mediaX", "mediaY", "mediaScale", "hudX", "hudY", "hudScale", "xPercent", "yPercent", "font");
+	/** Settings that are not plain ConfigLayout fields (place, size and settings of the HUD elements, the font from its dropdown) but belong to a profile like any other. */
+	private static final List<String> LAYOUT = List.of("mediaX", "mediaY", "mediaScale", "hudX", "hudY", "hudScale", "xPercent", "yPercent", "scale", "font",
+		"lineScroll", "lineMaxWords", "showNeighbors", "showStatus", "mediaOpacity", "mediaCover"); // the last ones are set in the HUD elements
 
 	private Profiles() {}
 

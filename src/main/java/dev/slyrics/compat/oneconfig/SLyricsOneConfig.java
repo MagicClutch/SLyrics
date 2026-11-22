@@ -128,8 +128,8 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 	private static final java.util.Set<String> EASY = java.util.Set.of(
 		"enabled", "musicSource", "offsetMs", "devMode", "clientId", "connect", "spotifyLogout",
 		"font", "fontPick", "color", "glow", "emojis", "textAnim", "sweepMode",
-		"hologram", "skyMode", "lineMode", "hudMode", "mediaPlayer", "afkEnabled",
-		"size", "skyTextDeg", "scale", "near", "far",
+		"hologram", "skyMode", "afkEnabled",
+		"size", "skyTextDeg", "near", "far",
 		"keyPlayPause", "keyNext", "keyPrevious",
 		"profilePick", "profileLoad", "profileUpdate", "profileDelete", "profileName", "profileSave", "profileExport", "profileImport");
 

@@ -183,8 +183,11 @@ public final class ConfigLayout {
 	public static final class Modes {
 	}
 
-	/** Everything drawn flat on the screen: the lyric line, the karaoke panel and the media player, and the editor that places them. */
-	@Category(value = "HUD", categories = {HudEditorCat.class, LineCat.class, KaraokeCat.class, MediaCat.class})
+	/**
+	 * Everything drawn flat on the screen (the lyric line, the karaoke panel and the media player) lives in OneConfig's HUD
+	 * editor: add an element there to show it, and click it for its settings. This tab only opens the editor.
+	 */
+	@Category(value = "HUD", categories = {HudEditorCat.class})
 	public static final class Hud {
 	}
 
@@ -272,61 +275,6 @@ public final class ConfigLayout {
 		public static float stickRange = D.stickRange;
 	}
 
-	@Category("Lyric line")
-	public static final class LineCat {
-		@ConfigEntry(id = "lineMode")
-		@Comment("The current lyric line at the bottom of the screen (move it in the HUD editor). Can be combined with the other features.")
-		public static boolean lineMode = D.lineMode;
-
-		@ConfigEntry(id = "scale")
-		@Comment("Size of the lyric line. You can also scroll over it in the HUD editor.")
-		@Range(min = 0.5, max = 5)
-		@Slider
-		public static float scale = D.scale;
-
-		@ConfigEntry(id = "lineScroll")
-		@Comment("The line scrolls through like a ticker: the word being sung stays in the middle and the text keeps running past it, from line to line.")
-		public static boolean lineScroll = D.lineScroll;
-
-		@ConfigEntry(id = "lineMaxWords")
-		@Comment("How many words are shown at once (0 = the whole line). With scrolling: how many words are visible around the middle. Without: a longer line is shown in parts that switch while it is sung.")
-		@Range(min = 0, max = 16)
-		@Slider
-		public static int lineMaxWords = D.lineMaxWords;
-
-		@ConfigEntry(id = "showNeighbors")
-		@Comment("Show the previous/next line, dimmed")
-		public static boolean showNeighbors = D.showNeighbors;
-
-		@ConfigEntry(id = "showStatus")
-		@Comment("Status message when nothing is playing or no lyrics were found")
-		public static boolean showStatus = D.showStatus;
-	}
-
-	@Category("Karaoke")
-	public static final class KaraokeCat {
-		@ConfigEntry(id = "hudMode")
-		@Comment("A small panel on the screen with the previous, the current and the next line. The current line fills in while it is sung, so you can sing along. Uses your font, colors and the word sweep color, and can be combined with the other modes.")
-		public static boolean hudMode = D.hudMode;
-	}
-
-	@Category("Media player")
-	public static final class MediaCat {
-		@ConfigEntry(id = "mediaPlayer")
-		@Comment("A small player window on the screen with cover, title, progress and previous / play-pause / next buttons. Open chat or the pause menu to get the mouse cursor and click the buttons, or bind keys in Options > Controls > SLyrics. Works with Spotify (needs Premium and a new /slyrics login) and with the Others source.")
-		public static boolean mediaPlayer = D.mediaPlayer;
-
-		@ConfigEntry(id = "mediaOpacity")
-		@Comment("How opaque the window is")
-		@Range(min = 20, max = 100)
-		@Slider
-		public static int mediaOpacity = D.mediaOpacity;
-
-		@ConfigEntry(id = "mediaCover")
-		@Comment("Show the album cover (if the player provides one)")
-		public static boolean mediaCover = D.mediaCover;
-	}
-
 	@Category("Floating & walls")
 	public static final class CommonCat {
 		@ConfigEntry(id = "floatSpeed")
@@ -372,7 +320,7 @@ public final class ConfigLayout {
 	@Category("HUD editor")
 	public static final class HudEditorCat {
 		@ConfigButton(title = "Open HUD editor", text = "Open")
-		@Comment("Drag the lyric line, the karaoke panel and the media player in OneConfig's HUD editor. Also: /slyrics hud")
+		@Comment("Add the lyric line, the karaoke panel or the media player in OneConfig's HUD editor to show it; drag and scale it there and click it for its settings. Also: /slyrics hud")
 		public static final Runnable editHud = dev.slyrics.compat.oneconfig.OneConfigBridge::openHudEditor;
 	}
 

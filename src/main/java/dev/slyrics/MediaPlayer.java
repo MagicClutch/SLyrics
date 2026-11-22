@@ -135,10 +135,18 @@ public final class MediaPlayer implements HudElement {
 			|| s instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>;
 	}
 
-	public static boolean visible() {
-		Config c = Config.INSTANCE;
-		return c.enabled && c.mediaPlayer && Spotify.track != null;
+	/** A song to show (with OneConfig the element itself decides whether it is on screen: it is added in the HUD editor). */
+	public static boolean hasSong() {
+		return Config.INSTANCE.enabled && Spotify.track != null;
 	}
+
+	/** True while the window is on screen: with OneConfig when its HUD element drew it a moment ago, without when it is switched on. */
+	public static boolean visible() {
+		if (!hasSong()) return false;
+		return HudMode.oneConfig ? System.currentTimeMillis() - hudDrawnAt < 250 : Config.INSTANCE.mediaPlayer;
+	}
+
+	private static volatile long hudDrawnAt;
 
 	/** The window's box {x, y, width, height} in screen pixels, or null while it is hidden. */
 	static float[] rect(int guiW, int guiH) {
@@ -211,6 +219,7 @@ public final class MediaPlayer implements HudElement {
 		Minecraft mc = Minecraft.getInstance();
 		var m = g.pose();
 		hudPlace = new float[]{m.m20(), m.m21(), m.m00()}; // the transform OneConfig put on the element: corner and scale
+		hudDrawnAt = System.currentTimeMillis();
 		float[] p = hudPlace;
 		draw(g, t, Spotify.positionMs(), p[0], p[1], p[2], interactive(mc.gui.screen()), true);
 	}

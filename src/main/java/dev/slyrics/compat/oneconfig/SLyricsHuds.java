@@ -8,21 +8,32 @@ import dev.slyrics.SLyricsClient;
 import dev.slyrics.Spotify;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import org.polyfrost.oneconfig.api.config.v1.annotations.Slider;
+import org.polyfrost.oneconfig.api.config.v1.annotations.Switch;
 import org.polyfrost.oneconfig.api.hud.v1.Hud;
 import org.polyfrost.oneconfig.api.hud.v1.HudManager;
 import org.polyfrost.oneconfig.api.hud.v1.LegacyHud;
 
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.WeakHashMap;
+
 /**
- * The three HUD elements of SLyrics (lyric line, karaoke panel, media player) as OneConfig HUD elements, so they are moved and
- * scaled in OneConfig's own HUD editor. They draw with the same code as without OneConfig. The place and size are not stored
- * by OneConfig alone: they are kept in step with {@link Config} (percent of the screen), so profiles and the settings
- * see the same values.
+ * The three HUD elements of SLyrics (lyric line, karaoke panel, media player) as OneConfig HUD elements: added, moved, scaled
+ * and set up in OneConfig's own HUD editor (each element has its settings there). An element shows while it is added in the
+ * editor. They draw with the same code as without OneConfig. Place, size and settings are kept in step with {@link Config}
+ * (place and size as percent of the screen), so profiles see the same values. The editor works on copies of the registered
+ * elements, so the copies that are really on screen are the ones kept in step.
  */
 final class SLyricsHuds {
 	private static final float EPS_POS = 0.05f, EPS_SCALE = 0.0005f;
 	private static final long SAVE_DELAY_MS = 400;
 
-	private static Link[] links;
+	private static boolean registered;
+	/** Per element on screen: its place-and-size link and the last values of its settings. */
+	private static final Map<Base, Link> links = new WeakHashMap<>();
+	private static final Map<Base, Map<String, Object>> seenSettings = new WeakHashMap<>();
 	private static boolean dirty;
 	private static long dirtySince;
 
@@ -36,26 +47,28 @@ final class SLyricsHuds {
 			h.setUseGuiScale(true); // scale 1.0 = the size the mod draws at without OneConfig, so the numbers match the config
 			HudManager.register(h);
 		}
-		links = new Link[]{new Link(line), new Link(panel), new Link(media)};
+		registered = true;
 		HudMode.oneConfig = true;
 	}
 
 	/** Called every client tick. */
 	static void tick() {
-		Link[] ls = links;
-		if (ls == null) return;
+		if (!registered) return;
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.getWindow() == null) return;
 		float gw = mc.getWindow().getGuiScaledWidth(), gh = mc.getWindow().getGuiScaledHeight();
 		if (gw <= 0 || gh <= 0) return;
-		for (Link l : ls) {
+		for (Hud h : HudManager.instances()) {
+			if (!(h instanceof Base hud)) continue;
 			try {
-				if (l.sync(gw, gh)) {
+				boolean changed = links.computeIfAbsent(hud, Link::new).sync(gw, gh);
+				changed |= syncSettings(hud);
+				if (changed) {
 					dirty = true;
 					dirtySince = System.currentTimeMillis();
 				}
-			} catch (RuntimeException e) {
-				SLyricsClient.LOGGER.warn("OneConfig HUD sync failed for {}", l.hud.getClass().getSimpleName(), e);
+			} catch (ReflectiveOperationException | RuntimeException e) {
+				SLyricsClient.LOGGER.warn("OneConfig HUD sync failed for {}", hud.getClass().getSimpleName(), e);
 			}
 		}
 		if (dirty && System.currentTimeMillis() - dirtySince > SAVE_DELAY_MS) { // not while the mouse is still dragging
@@ -73,6 +86,29 @@ final class SLyricsHuds {
 		return HudManager.INSTANCE.isEditing();
 	}
 
+	/**
+	 * The element's settings (its fields with a OneConfig annotation, named like the Config fields) and the config in step:
+	 * whichever side changed since the last pass wins; at the start the config is the truth. Returns true if the config changed.
+	 */
+	private static boolean syncSettings(Base hud) throws ReflectiveOperationException {
+		Map<String, Object> seen = seenSettings.computeIfAbsent(hud, k -> new HashMap<>());
+		boolean changed = false;
+		for (Field f : hud.getClass().getDeclaredFields()) {
+			if (!f.isAnnotationPresent(Switch.class) && !f.isAnnotationPresent(Slider.class)) continue;
+			Field cf = Config.class.getField(f.getName());
+			Object hv = f.get(hud), cv = cf.get(Config.INSTANCE), last = seen.get(f.getName());
+			if (last != null && !hv.equals(last)) { // changed in the HUD editor
+				cf.set(Config.INSTANCE, hv);
+				seen.put(f.getName(), hv);
+				changed = true;
+			} else if (!cv.equals(last)) { // first pass, or changed elsewhere (profile)
+				f.set(hud, cv);
+				seen.put(f.getName(), cv);
+			}
+		}
+		return changed;
+	}
+
 	// ------------------------------------------------------------------ the elements
 
 	private abstract static class Base extends LegacyHud {
@@ -83,6 +119,11 @@ final class SLyricsHuds {
 		@Override
 		public boolean update() {
 			return true;
+		}
+
+		@Override
+		public boolean multipleInstancesAllowed() {
+			return false; // one of each: they all share the same place and settings in the config
 		}
 
 		/** Size in the element's own units (before the scale). */
@@ -105,6 +146,18 @@ final class SLyricsHuds {
 	private static final class LineHud extends Base {
 		static final float W = 160f, H = 14f;
 
+		@Switch(title = "Scrolling line", description = "The line scrolls through like a ticker: the word being sung stays in the middle and the text keeps running past it.")
+		public boolean lineScroll = Config.INSTANCE.lineScroll;
+
+		@Slider(title = "Words at once", description = "How many words are shown at once (0 = the whole line). With scrolling: how many words are visible around the middle.", min = 0, max = 16, step = 1)
+		public int lineMaxWords = Config.INSTANCE.lineMaxWords;
+
+		@Switch(title = "Previous and next line", description = "Show the previous and the next line, dimmed")
+		public boolean showNeighbors = Config.INSTANCE.showNeighbors;
+
+		@Switch(title = "Status message", description = "A short message when nothing is playing or no lyrics were found")
+		public boolean showStatus = Config.INSTANCE.showStatus;
+
 		LineHud() {
 			super("slyrics_line", "SLyrics lyric line");
 		}
@@ -122,7 +175,7 @@ final class SLyricsHuds {
 		@Override
 		public boolean shouldShow() {
 			Config c = Config.INSTANCE;
-			return editing() || c.enabled && (c.lineMode || Spotify.lyrics.isEmpty());
+			return editing() || c.enabled;
 		}
 
 		@Override
@@ -163,7 +216,7 @@ final class SLyricsHuds {
 		@Override
 		public boolean shouldShow() {
 			Config c = Config.INSTANCE;
-			return editing() || c.enabled && c.hudMode && !Spotify.lyrics.isEmpty();
+			return editing() || c.enabled && !Spotify.lyrics.isEmpty();
 		}
 
 		@Override
@@ -174,6 +227,11 @@ final class SLyricsHuds {
 
 	/** The media player window. */
 	private static final class MediaHud extends Base {
+		@Slider(title = "Opacity", description = "How opaque the window is", min = 20, max = 100, step = 1)
+		public int mediaOpacity = Config.INSTANCE.mediaOpacity;
+
+		@Switch(title = "Album cover", description = "Show the album cover (if the player provides one)")
+		public boolean mediaCover = Config.INSTANCE.mediaCover;
 		MediaHud() {
 			super("slyrics_media", "SLyrics media player");
 			setShowInChat(true); // the buttons only work while a screen is open
@@ -192,7 +250,7 @@ final class SLyricsHuds {
 
 		@Override
 		public boolean shouldShow() {
-			return editing() || MediaPlayer.visible();
+			return editing() || MediaPlayer.hasSong();
 		}
 
 		@Override
