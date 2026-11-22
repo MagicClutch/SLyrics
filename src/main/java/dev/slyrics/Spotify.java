@@ -69,10 +69,6 @@ public final class Spotify {
 
 	private Spotify() {}
 
-	public static boolean isLoggedIn() {
-		return refreshToken != null;
-	}
-
 	/** Current song position in ms (interpolated between polls). */
 	public static long positionMs() {
 		long p = progressAtFetch;
@@ -195,12 +191,48 @@ public final class Spotify {
 
 	// ---------------- Polling ----------------
 
+	private static String loggedStatus = "", loggedError = "";
+	/**
+	 * Spotify limits how often an app may ask (many clients asking every second at once got it blocked for hours). So:
+	 * every second while a song plays, every 5 s when nothing plays, right at the end of a song so the next one is picked
+	 * up at once, and not at all while no world is open.
+	 */
+	private static final long POLL_PLAYING_MS = 1000, POLL_IDLE_MS = 5000;
+	private static volatile long nextPollAt;
+
+	/** Asks Spotify on the next tick regardless of the usual pace (after the player buttons). */
+	private static void pollNow() {
+		nextPollAt = 0;
+		pollSafe();
+	}
+
 	private static void pollSafe() {
+		long t0 = System.currentTimeMillis();
+		if (t0 < nextPollAt) return;
+		if (net.minecraft.client.Minecraft.getInstance().player == null) return; // nothing to show yet
+		nextPollAt = t0 + POLL_IDLE_MS;
 		try {
 			poll();
 		} catch (Exception e) {
-			SLyricsClient.LOGGER.debug("Spotify poll error", e);
+			String err = e.getClass().getSimpleName() + ": " + e.getMessage();
+			if (!err.equals(loggedError)) { // once per kind of error, not every second
+				loggedError = err;
+				SLyricsClient.LOGGER.warn("Spotify request failed: {}", err);
+			}
 			status = "Spotify unreachable";
+		} catch (Throwable t) { // must not escape: the scheduler would silently stop polling for good
+			SLyricsClient.LOGGER.error("Spotify polling hit an unexpected error", t);
+			status = "Spotify error: " + t;
+		}
+		if (playing && track != null) { // next poll: the usual pace, or just after this song ends
+			long left = track.durationMs() - positionMs();
+			nextPollAt = System.currentTimeMillis() + Math.max(500, Math.min(POLL_PLAYING_MS, left + 300));
+		}
+		String now = status;
+		if (now != null && !now.equals(loggedStatus)) { // every change of state once, so a log shows what happened
+			loggedStatus = now;
+			SLyricsClient.LOGGER.info("Spotify: {} (source {}, logged in {}, playing {}, lyrics {})",
+				now.isEmpty() ? "lyrics ready" : now, Config.INSTANCE.musicSource, refreshToken != null, playing, lyrics.size());
 		}
 	}
 
@@ -216,17 +248,22 @@ public final class Spotify {
 		HttpResponse<String> res = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
 		int code = res.statusCode();
 		if (code == 429) {
-			pausedUntil = System.currentTimeMillis() + res.headers().firstValueAsLong("Retry-After").orElse(5) * 1000L;
+			long wait = res.headers().firstValueAsLong("Retry-After").orElse(5);
+			pausedUntil = System.currentTimeMillis() + wait * 1000L;
+			status = "Spotify rate limit: asked to wait " + wait + " s";
+			if (wait >= 60) chat("SLyrics: Spotify is limiting this app for about " + Math.round(wait / 60.0) + " min (too many requests). Lyrics come back by themselves after that.");
 			return;
 		}
 		if (code == 401) {
 			accessToken = null;
+			status = "Spotify login expired, renewing...";
 			return;
 		}
 		if (code == 204 || code != 200) {
 			if (yieldToOthers()) return;
 			playing = false;
 			if (code == 204) status = "Spotify is not playing anything";
+			else status = "Spotify answered " + code + ": " + res.body().replaceAll("\\s+", " ").trim(); // e.g. 403 when the account may not use this app
 			return;
 		}
 		JsonObject root = JsonParser.parseString(res.body()).getAsJsonObject();
@@ -267,6 +304,13 @@ public final class Spotify {
 			.header("Authorization", "Bearer " + accessToken).timeout(Duration.ofSeconds(8))
 			.method(method, HttpRequest.BodyPublishers.noBody()).build();
 		return HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+	}
+
+	private static void chat(String msg) {
+		var mc = net.minecraft.client.Minecraft.getInstance();
+		mc.execute(() -> {
+			if (mc.player != null) mc.player.sendSystemMessage(net.minecraft.network.chat.Component.literal(msg));
+		});
 	}
 
 	/** The saved login was made before the player buttons existed and lacks the permission to control playback. */
@@ -354,7 +398,7 @@ public final class Spotify {
 					if (action.equals("play") || action.equals("pause")) setProgress(positionMs(), action.equals("play"));
 					else if (action.equals("seek")) setProgress(arg, playing);
 					pausedUntil = System.currentTimeMillis() + 900; // let Spotify catch up before the next poll reads the old state
-					EXEC.schedule(Spotify::pollSafe, 1000, TimeUnit.MILLISECONDS);
+					EXEC.schedule(Spotify::pollNow, 1000, TimeUnit.MILLISECONDS);
 				}
 			} catch (Exception e) {
 				SLyricsClient.LOGGER.debug("Spotify control error", e);

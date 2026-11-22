@@ -3,7 +3,7 @@
 	"minVersion": "0.8",
 	"package": "dev.slyrics.mixin",
 	"compatibilityLevel": "JAVA_21",
-	"client": ["CameraMixin", "FontManagerMixin"],
+	"client": ["CameraMixin"],
 	"injectors": {
 		"defaultRequire": 1
 	}

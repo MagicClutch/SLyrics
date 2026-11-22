@@ -3,8 +3,8 @@ package dev.slyrics.compat.oneconfig;
 import net.fabricmc.loader.api.FabricLoader;
 
 /**
- * Entry point for the optional OneConfig support. Nothing here may touch a OneConfig class unless OneConfig is installed:
- * the real work sits in {@link SLyricsOneConfig}, which is only loaded after the mod check.
+ * Entry point for the OneConfig page and HUD elements; the real work sits in {@link SLyricsOneConfig}. OneConfig is a
+ * required dependency, but a failure in it is caught here so it never takes the rest of the mod down.
  */
 public final class OneConfigBridge {
 	/** Set once the OneConfig page exists; a plain Runnable so this class never names a OneConfig type. */
@@ -16,12 +16,12 @@ public final class OneConfigBridge {
 		if (!FabricLoader.getInstance().isModLoaded("oneconfig")) return;
 		try {
 			SLyricsOneConfig.register();
-		} catch (Throwable t) { // OneConfig is optional: a version mismatch must never break the mod
+		} catch (Throwable t) { // a OneConfig problem must never break the rest of the mod
 			dev.slyrics.SLyricsClient.LOGGER.warn("OneConfig support could not be started", t);
 		}
 	}
 
-	/** Opens the SLyrics page in OneConfig. False if OneConfig is not there (or could not do it): the caller then uses Resourceful Config. */
+	/** Opens the SLyrics page in OneConfig. False if it could not be opened. */
 	public static boolean openConfig() {
 		if (syncer == null) return false;
 		try {
@@ -32,7 +32,7 @@ public final class OneConfigBridge {
 		}
 	}
 
-	/** Opens OneConfig's HUD editor. False if OneConfig is not there: the caller then uses the mod's own editor. */
+	/** Opens OneConfig's HUD editor. False if it could not be opened. */
 	public static boolean openHudEditor() {
 		if (syncer == null) return false;
 		try {

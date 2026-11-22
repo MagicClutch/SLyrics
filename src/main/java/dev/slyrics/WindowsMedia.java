@@ -142,7 +142,7 @@ final class WindowsMedia {
 				JsonObject o = e.getAsJsonObject();
 				String id = str(o, "id");
 				String lower = id.toLowerCase();
-				if (lower.contains("spotify")) continue; // that one is the Spotify source
+				if (filter.isEmpty() && lower.contains("spotify")) continue; // that one is the Spotify source, unless asked for by name
 				if (!filter.isEmpty() && !lower.contains(filter)) continue;
 				if (str(o, "title").isBlank()) continue;
 				// a playing player beats a paused one; among those, one that knows the artist (clean metadata) wins

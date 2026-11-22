@@ -11,16 +11,14 @@ import java.util.Map;
 /**
  * Runtime settings used by the whole mod, read as {@code Config.INSTANCE.xyz}.
  * <p>
- * The settings screen and the user-facing values live in Resourceful Config ({@link RcConfig}, config/slyrics.jsonc);
- * {@link ConfigSync} copies them into this class by field name. The file config/slyrics-extra.json keeps what
- * Resourceful Config cannot store: the emoji word lists.
+ * Everything is stored in config/slyrics.json. The OneConfig page ({@link ConfigLayout}) edits these fields directly.
  */
 public class Config {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	/** Not "slyrics.json": Resourceful Config treats that name as an old-format file of its own config and deletes it. */
-	private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("slyrics-extra.json");
-	/** Where earlier versions kept everything; read once on upgrade. */
-	private static final Path LEGACY_FILE = FabricLoader.getInstance().getConfigDir().resolve("slyrics.json");
+	private static final Path DIR = FabricLoader.getInstance().getConfigDir();
+	private static final Path FILE = DIR.resolve("slyrics.json");
+	/** Versions with Resourceful Config kept the settings in slyrics.jsonc and the rest in slyrics-extra.json; read once on upgrade. */
+	private static final Path OLD_EXTRA = DIR.resolve("slyrics-extra.json"), OLD_RC = DIR.resolve("slyrics.jsonc");
 	/** Bump when new default emoji words are added: they are merged into existing word lists once. */
 	private static final int EMOJI_VERSION = 4;
 
@@ -63,11 +61,13 @@ public class Config {
 	/** Closest / farthest distance of the words in blocks. */
 	public float near = 7.5f;
 	public float far = 9.5f;
+	/** How far over the screen Aura words spread: 0 = close around the middle, 100 = about 3/4 of the screen. */
+	public int auraSpread = 80;
 	/** Words follow you when you walk. */
 	public boolean follow = false;
-	/** Keep words out of blocks: they are moved in front of walls/terrain and never placed inside the ground. */
-	public boolean blockClipping = false;
-	public boolean throughWalls = true;
+
+	/** How far ahead the prediction looks, in seconds. */
+	public float predictSeconds = 1.5f;
 
 	/** Floating mode: words keep drifting through the world instead of staying where they appeared (not for stick-on-blocks). */
 	public boolean floating = false;
@@ -92,8 +92,8 @@ public class Config {
 	public boolean skyMode = true;
 	/** Distance of the sky words in blocks. */
 	public float skyDistance = 106.6204f;
-	/** Preferred height above the horizon in degrees. */
-	public float skyElevation = 30f;
+	/** How far over the screen sky words spread: 0 = close around the middle, 100 = about 3/4 of the screen. */
+	public int skySpread = 40;
 	/** Height of the letters in degrees of your view. */
 	public float skyTextDeg = 6.3174f;
 
@@ -103,8 +103,6 @@ public class Config {
 	public boolean stickMode = false;
 	/** How far away blocks may be to get a word, in blocks. */
 	public float stickRange = 14f;
-	/** Size of the stuck words in percent. */
-	public int stickSize = 100;
 
 	// ------------------------------------------------------------------ effects
 
@@ -123,7 +121,7 @@ public class Config {
 
 	// ------------------------------------------------------------------ text
 
-	/** Font as identifier, e.g. minecraft:default, minecraft:uniform, minecraft:alt or a custom one from a resource pack. */
+	/** Font as identifier: minecraft:default or one of the fonts that come with the mod (see Fonts), e.g. slyrics:bebas_neue. */
 	public String font = "minecraft:default";
 	/** Colors as RGB hex without alpha. */
 	public String color = "FFFFFF";
@@ -135,20 +133,16 @@ public class Config {
 	public boolean background = false;
 	/** Fade in/out time in ms. */
 	public int fadeMs = 38;
-	/** How long a sung word stays before it fades out, in ms (0 = automatic, depends on the song speed). */
+	/** How long a word stays after it has been sung, in ms (0 = the default of 2 seconds). */
 	public int wordHoldMs = 0;
-	/** Viral-caption style animation of each sung word (see RcConfig.TextAnim). */
+	/** Viral-caption style animation of each sung word (see ConfigLayout.TextAnim). */
 	public String textAnim = "None";
 	public int animSpeed = 237;
 
 	// ------------------------------------------------------------------ emojis
 
-	/** Symbols after keywords (love -> love ♥). The word is kept. */
+	/** Emojis after keywords (love -> love ♥, diamond -> a real diamond icon), each in its own color. The word is kept. */
 	public boolean emojis = true;
-	/** Give every emoji its own color instead of the text color. */
-	public boolean emojiColors = true;
-	/** Use real Minecraft icons (items, blocks, hearts, ...) for words that have one; other words still use the symbols. */
-	public boolean emojiSprites = true;
 	/** Word (lowercase) -> symbol. Can be freely edited in slyrics.json. */
 	public Map<String, String> emojiMap = Emojis.defaults();
 	/** Word (lowercase) -> sprite: "item:diamond", "block:poppy" or "gui:hud/heart/full". Can be edited in slyrics.json. */
@@ -159,10 +153,10 @@ public class Config {
 	/** The word being sung is colored from left to right, and the color goes off when the next word starts. */
 	public boolean sweepMode = true;
 	public String sweepColor = "FF4D4D";
+	/** How long the sweep color takes to go off after the word, in ms. */
+	public int sweepFadeMs = 76;
 	/** Color the whole word at once instead of sweeping across it. */
 	public boolean sweepWhole = false;
-	/** How long the color takes to fade out once the word is over (0 = instantly). */
-	public int sweepFadeMs = 76;
 	public boolean sweepGlow = false;
 
 	// ------------------------------------------------------------------ AFK camera
@@ -242,8 +236,9 @@ public class Config {
 	// ------------------------------------------------------------------ file
 
 	public static void load() {
+		boolean upgrade = Files.exists(OLD_EXTRA) || Files.exists(OLD_RC);
 		try {
-			Path source = Files.exists(FILE) ? FILE : LEGACY_FILE;
+			Path source = Files.exists(OLD_EXTRA) ? OLD_EXTRA : FILE; // with the old files around, slyrics.json is an even older leftover
 			if (Files.exists(source)) {
 				Config c = GSON.fromJson(Files.readString(source), Config.class);
 				if (c != null) {
@@ -258,7 +253,86 @@ public class Config {
 		} catch (Exception e) {
 			SLyricsClient.LOGGER.warn("Could not load config", e);
 		}
+		if (upgrade) upgradeFromResourcefulConfig();
+		migrate();
+		if (!Fonts.isKnown(INSTANCE.font)) INSTANCE.font = "minecraft:default"; // fonts from this computer are no longer supported
 		save();
+	}
+
+	/** Takes the settings over from the Resourceful Config files once, then moves those files out of the way. */
+	private static void upgradeFromResourcefulConfig() {
+		if (Files.exists(OLD_RC)) {
+			try (var in = Files.newBufferedReader(OLD_RC)) {
+				var reader = new com.google.gson.stream.JsonReader(in);
+				reader.setStrictness(com.google.gson.Strictness.LENIENT);
+				var root = com.google.gson.JsonParser.parseReader(reader);
+				if (root.isJsonObject()) applyOld(root.getAsJsonObject());
+			} catch (Exception e) {
+				SLyricsClient.LOGGER.warn("Could not read the old slyrics.jsonc", e);
+			}
+		}
+		for (Path old : new Path[]{OLD_RC, OLD_EXTRA}) {
+			try {
+				if (Files.exists(old)) Files.move(old, old.resolveSibling(old.getFileName() + ".old"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			} catch (Exception e) {
+				SLyricsClient.LOGGER.warn("Could not move {} away", old, e);
+			}
+		}
+		SLyricsClient.LOGGER.info("Settings moved from Resourceful Config to config/slyrics.json");
+	}
+
+	/** Every value in the old file, matched to a field here by name; sections are only folders, so their layout does not matter. */
+	private static void applyOld(com.google.gson.JsonObject o) {
+		for (var e : o.entrySet()) {
+			if (e.getValue().isJsonObject()) {
+				applyOld(e.getValue().getAsJsonObject());
+				continue;
+			}
+			if (!e.getValue().isJsonPrimitive()) continue;
+			var v = e.getValue().getAsJsonPrimitive();
+			try {
+				var cf = Config.class.getField(e.getKey());
+				Class<?> t = cf.getType();
+				if (t == boolean.class && v.isBoolean()) cf.setBoolean(INSTANCE, v.getAsBoolean());
+				else if (t == int.class && v.isNumber()) cf.setInt(INSTANCE, v.getAsInt());
+				else if (t == float.class && v.isNumber()) cf.setFloat(INSTANCE, v.getAsFloat());
+				else if (t == String.class) {
+					if (v.isNumber()) cf.set(INSTANCE, String.format("%06X", v.getAsInt() & 0xFFFFFF)); // colors were stored as numbers
+					else if (e.getKey().equals("textAnim")) cf.set(INSTANCE, ConfigLayout.TextAnim.valueOf(v.getAsString()).label);
+					else if (e.getKey().equals("musicSource")) cf.set(INSTANCE, ConfigLayout.MusicSource.valueOf(v.getAsString()).label);
+					else cf.set(INSTANCE, v.getAsString());
+				}
+			} catch (NoSuchFieldException | IllegalArgumentException ignored) {
+				// not a setting (any more)
+			} catch (IllegalAccessException ex) {
+				SLyricsClient.LOGGER.warn("Could not take over {}", e.getKey(), ex);
+			}
+		}
+	}
+
+	/** Once: switch to the Auto music source (Spotify first) and move the media player from its old default spot into the corner. */
+	private static void migrate() {
+		Config c = INSTANCE;
+		if (c.mediaVersion >= 7) return;
+		if (c.mediaVersion < 1) {
+			c.musicSource = "Auto";
+			if (c.mediaX == 1.5f && c.mediaY == 2f) {
+				c.mediaX = 0.4f;
+				c.mediaY = 0.6f;
+			}
+		}
+		if (c.mediaVersion < 5) c.lineMode = !c.anyWorld(); // the lyric line used to show only while no world mode was on
+		c.mediaVersion = 7;
+	}
+
+	/** Saves and starts the Spotify login (the link appears in chat). */
+	public static void connectSpotify() {
+		save();
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		mc.execute(() -> {
+			mc.gui.setScreen(null);
+			if (mc.player != null) mc.player.connection.sendCommand("slyrics login");
+		});
 	}
 
 	public static void save() {

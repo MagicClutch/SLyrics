@@ -2,13 +2,13 @@ package dev.slyrics.compat.oneconfig;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.teamresourceful.resourcefulconfig.api.annotations.Comment;
-import com.teamresourceful.resourcefulconfig.api.annotations.ConfigButton;
-import com.teamresourceful.resourcefulconfig.api.annotations.ConfigEntry;
-import com.teamresourceful.resourcefulconfig.api.annotations.ConfigOption;
 import dev.slyrics.Config;
-import dev.slyrics.ConfigSync;
-import dev.slyrics.RcConfig;
+import dev.slyrics.ConfigLayout;
+import dev.slyrics.LayoutAnnotations.Comment;
+import dev.slyrics.LayoutAnnotations.ConfigButton;
+import dev.slyrics.LayoutAnnotations.ConfigEntry;
+import dev.slyrics.LayoutAnnotations.Page;
+import dev.slyrics.LayoutAnnotations.Range;
 import dev.slyrics.SLyricsClient;
 import org.polyfrost.compose.render.PolyColor;
 import org.polyfrost.oneconfig.api.config.v1.Tree;
@@ -23,10 +23,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The SLyrics page in OneConfig. It is built from the annotations of {@link RcConfig}, so every option has the same name,
- * category, order, range and comment as in the Resourceful Config screen. The values are not stored here: they are read from and
- * written to {@link Config#INSTANCE} (which Resourceful Config and the rest of the mod use), and the page is marked UI-only so
- * OneConfig never writes a file of its own for it.
+ * The SLyrics page in OneConfig, built from the annotations of {@link ConfigLayout} (names, tabs, order, ranges, descriptions).
+ * The values are not stored here: they are read from and written to {@link Config#INSTANCE}, which saves them to
+ * config/slyrics.json, and the page is marked UI-only so OneConfig never writes a file of its own for it.
  */
 public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v1.Config {
 	/** One option on the page and the {@link Config} field behind it. */
@@ -35,12 +34,10 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 		Field field;
 		Object[] enumValues;
 		boolean color;
-		boolean map;
 		Object last;
 
 		/** What the Config field holds, as the OneConfig widget wants it. */
 		Object toWidget(Object v) {
-			if (map) return SLyricsExtras.mapToLines(v);
 			if (color) return new PolyColor(0xFF000000 | parseHex((String) v), false, 1f);
 			if (enumValues != null) {
 				for (int i = 0; i < enumValues.length; i++) if (enumValues[i].toString().equals(v)) return i;
@@ -51,7 +48,6 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 
 		/** What the widget holds, as the Config field wants it. */
 		Object toConfig(Object w) {
-			if (map) return SLyricsExtras.linesToMap(w);
 			if (color) return String.format("%06X", ((PolyColor) w).getArgb() & 0xFFFFFF);
 			if (enumValues != null) return enumValues[Math.max(0, Math.min(enumValues.length - 1, (Integer) w))].toString();
 			return w;
@@ -84,16 +80,15 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 
 	/** Shows the SLyrics page in OneConfig's own screen. */
 	static boolean open() {
-		org.polyfrost.oneconfig.api.ui.v1.OneConfigUI.open(new org.polyfrost.oneconfig.internal.ui.navigation.graph.ModConfigRoute("slyrics", null));
+		org.polyfrost.oneconfig.api.ui.v1.OneConfigUI.open(new org.polyfrost.oneconfig.internal.ui.navigation.graph.ModConfigRoute("slyrics", null, null));
 		return true;
 	}
 
-	/** Used by SLyricsExtras for options that have no Resourceful Config entry. */
-	private void addBinding(ConfigDSL.Prop<Object> prop, Field field, boolean map) {
+	/** Used by SLyricsExtras for options that are not plain ConfigLayout entries. */
+	private void addBinding(ConfigDSL.Prop<Object> prop, Field field) {
 		Binding b = new Binding();
 		b.prop = prop;
 		b.field = field;
-		b.map = map;
 		try {
 			b.last = b.toWidget(field.get(Config.INSTANCE));
 		} catch (IllegalAccessException e) {
@@ -106,15 +101,15 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 		try { return Integer.parseInt(s.replace("#", ""), 16) & 0xFFFFFF; } catch (NumberFormatException e) { return 0xFFFFFF; }
 	}
 
-	/** Builds the page from RcConfig. The page is UI-only: the values stay in Config.INSTANCE / Resourceful Config. */
+	/** Builds the page from ConfigLayout. The page is UI-only: the values stay in Config.INSTANCE. */
 	@Override
 	protected Tree makeTree() {
 		ConfigDSL dsl = new ConfigDSL("slyrics", "SLyrics", "Spotify lyrics as floating words in the world");
 		JsonObject lang = loadLang();
 		try {
-			var top = RcConfig.class.getAnnotation(com.teamresourceful.resourcefulconfig.api.annotations.Config.class);
+			Page top = ConfigLayout.class.getAnnotation(Page.class);
 			for (Class<?> cat : top.categories()) {
-				com.teamresourceful.resourcefulconfig.api.annotations.Category c = cat.getAnnotation(com.teamresourceful.resourcefulconfig.api.annotations.Category.class);
+				dev.slyrics.LayoutAnnotations.Category c = cat.getAnnotation(dev.slyrics.LayoutAnnotations.Category.class);
 				String catName = c.value();
 				for (Class<?> sub : c.categories()) addCategory(dsl, lang, catName, sub);
 				if (c.categories().length == 0) addCategory(dsl, lang, catName, cat);
@@ -132,10 +127,11 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 	/** Options that stay visible with Developer mode off: everything else is hidden until it is switched on. */
 	private static final java.util.Set<String> EASY = java.util.Set.of(
 		"enabled", "musicSource", "offsetMs", "devMode", "clientId", "connect", "spotifyLogout",
-		"font", "fontPick", "pickFont", "color", "textAnim", "sweepMode",
+		"font", "fontPick", "color", "glow", "emojis", "textAnim", "sweepMode",
 		"hologram", "skyMode", "lineMode", "hudMode", "mediaPlayer", "afkEnabled",
+		"size", "skyTextDeg", "scale", "near", "far",
 		"keyPlayPause", "keyNext", "keyPrevious",
-		"profilePick", "profileLoad", "profileUpdate", "profileDelete", "profileName", "profileSave");
+		"profilePick", "profileLoad", "profileUpdate", "profileDelete", "profileName", "profileSave", "profileExport", "profileImport");
 
 	/** Hides every option that is not in {@link #EASY} while the Developer mode switch is off. */
 	private static void applyDevMode(Tree tree) {
@@ -152,7 +148,7 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 	}
 
 	private void addCategory(ConfigDSL dsl, JsonObject lang, String catName, Class<?> cls) {
-		com.teamresourceful.resourcefulconfig.api.annotations.Category sc = cls.getAnnotation(com.teamresourceful.resourcefulconfig.api.annotations.Category.class);
+		dev.slyrics.LayoutAnnotations.Category sc = cls.getAnnotation(dev.slyrics.LayoutAnnotations.Category.class);
 		String subName = sc == null ? catName : sc.value();
 		for (Field f : cls.getDeclaredFields()) {
 			try {
@@ -163,23 +159,6 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 				String desc = comment == null ? "" : comment.value();
 				if (button != null && Runnable.class.isAssignableFrom(f.getType())) {
 					Runnable action = (Runnable) f.get(null);
-					if (f.getName().equals("editHud")) { // OneConfig's own HUD editor is the main one; the mod's editor stays as an extra
-						ConfigDSL.RunnableProp main = dsl.button(SLyricsHuds::openEditor);
-						main.setId("editHudOneConfig");
-						main.setTitle("Open HUD editor");
-						main.setDescription("Drag the lyric line, the karaoke panel and the media player in OneConfig's HUD editor. Also: /slyrics hud");
-						main.setText("Open");
-						main.setCategory("Features"); // not its own tab: that tab would stay empty with Developer mode off
-						main.setSubcategory("HUD editor");
-						ConfigDSL.RunnableProp classic = dsl.button(action);
-						classic.setId(f.getName());
-						classic.setTitle("Open classic HUD editor");
-						classic.setDescription("The mod's own editor (the one used without OneConfig, also in Resourceful Config). " + desc);
-						classic.setText("Open");
-						classic.setCategory("Features");
-						classic.setSubcategory("HUD editor");
-						continue;
-					}
 					ConfigDSL.RunnableProp p = dsl.button(action);
 					p.setId(f.getName());
 					p.setTitle(button.title());
@@ -208,13 +187,13 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 					String[] labels = new String[b.enumValues.length];
 					for (int i = 0; i < labels.length; i++) labels[i] = b.enumValues[i].toString();
 					p = dsl.dropdown((Integer) b.toWidget(initial), labels);
-				} else if (f.isAnnotationPresent(ConfigOption.Color.class)) {
+				} else if (f.isAnnotationPresent(dev.slyrics.LayoutAnnotations.Color.class)) {
 					b.color = true;
 					ConfigDSL.ColorProp cp = dsl.color((PolyColor) b.toWidget(initial));
 					cp.setAlpha(false);
 					p = cp;
-				} else if (f.isAnnotationPresent(ConfigOption.Slider.class) && f.isAnnotationPresent(ConfigOption.Range.class)) {
-					ConfigOption.Range r = f.getAnnotation(ConfigOption.Range.class);
+				} else if (f.isAnnotationPresent(dev.slyrics.LayoutAnnotations.Slider.class) && f.isAnnotationPresent(Range.class)) {
+					Range r = f.getAnnotation(Range.class);
 					if (t == int.class) {
 						ConfigDSL.IntProp ip = dsl.slider((Integer) initial);
 						ip.setMin((int) r.min());
@@ -241,9 +220,8 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 				prop.setTitle(lang.has(key) ? lang.get(key).getAsString() : id);
 				prop.setTitleKey(key);
 				prop.setDescription(desc);
-				boolean sweep = id.equals("sweepMode") || id.equals("sweepColor"); // word sweep lives under Features
-				prop.setCategory(sweep ? "Features" : catName);
-				prop.setSubcategory(sweep ? (id.equals("sweepMode") ? "Select features" : "Word sweep") : subName);
+				prop.setCategory(catName);
+				prop.setSubcategory(subName);
 				b.prop = prop;
 				b.last = b.toWidget(initial);
 				bindings.add(b);
@@ -277,11 +255,11 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 			if (s.isEmpty()) {
 				if (!Config.INSTANCE.clientId.isEmpty()) {
 					Config.INSTANCE.clientId = "";
-					ConfigSync.saveAll();
+					Config.save();
 				}
 			} else if (s.matches("[0-9a-fA-F]{32}")) {
 				Config.INSTANCE.clientId = s;
-				ConfigSync.saveAll();
+				Config.save();
 				net.minecraft.client.Minecraft.getInstance().execute(() -> p.getProperty().set(clientIdStars()));
 			}
 			return true;
@@ -323,12 +301,11 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 				SLyricsClient.LOGGER.warn("OneConfig sync failed for {}", b.field.getName(), e);
 			}
 		}
-		if (write) ConfigSync.saveAll();
+		if (write) Config.save();
 	}
 
 	private static boolean same(Object a, Object b) {
 		if (a instanceof PolyColor x && b instanceof PolyColor y) return (x.getArgb() & 0xFFFFFF) == (y.getArgb() & 0xFFFFFF);
-		if (a instanceof String[] x && b instanceof String[] y) return java.util.Arrays.equals(x, y);
 		return a == null ? b == null : a.equals(b);
 	}
 }

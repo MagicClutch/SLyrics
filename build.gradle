@@ -14,28 +14,21 @@ repositories {
 	maven { url = 'https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1' }
 }
 
-// Skia's native library for the dev client's own OS
-def osName = System.getProperty("os.name").toLowerCase()
-def arm = System.getProperty("os.arch").contains("aarch64") || System.getProperty("os.arch").contains("arm")
-def skikoPlatform = osName.contains("win") ? "windows-x64" : osName.contains("mac") ? (arm ? "macos-arm64" : "macos-x64") : (arm ? "linux-arm64" : "linux-x64")
-
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-	implementation "maven.modrinth:resourceful-config:${project.rconfig_version}"
 	// DevAuth: log in with your real Microsoft/Minecraft account in the dev client
 	runtimeOnly "me.djtheredstoner:DevAuth-fabric:1.2.1"
 	// Newer Minecraft no longer bundles Apache HttpClient, which DevAuth needs
 	runtimeOnly "org.apache.httpcomponents:httpclient:4.5.14"
-	// OneConfig (optional at runtime) so the dev client has it; run with -PnoOneConfig to test the mod without it
-	if (!project.hasProperty("noOneConfig")) {
-		runtimeOnly "maven.modrinth:oneconfig:${project.oneconfig_version}"
-		runtimeOnly "maven.modrinth:fabric-language-kotlin:SKW1BTL3"
-		runtimeOnly "maven.modrinth:compose-multiplatform:bMhjbdhu"
-		runtimeOnly "org.jetbrains.skiko:skiko-awt-runtime-${skikoPlatform}:0.153.0"
-		runtimeOnly "org.jetbrains.skiko:skiko-awt:0.153.0"
-		runtimeOnly("org.jetbrains.compose.ui:ui-skiko-desktop:1.13.0-alpha02") { transitive = false }
+	// OneConfig holds the settings page; it needs PolyCompose and Fabric Language Kotlin
+	runtimeOnly "maven.modrinth:oneconfig:${project.oneconfig_version}"
+	runtimeOnly "maven.modrinth:fabric-language-kotlin:SKW1BTL3"
+	runtimeOnly "maven.modrinth:polycompose:${project.polycompose_version}"
+	// Polydium (Polyfrost's performance mod) to reproduce shader-pack clashes; run with -PnoPolydium to leave it out
+	if (!project.hasProperty("noPolydium")) {
+		runtimeOnly "maven.modrinth:polydium:DdODy1g5"
 	}
 }
 
@@ -67,22 +60,23 @@ java {
 	targetCompatibility = JavaVersion.VERSION_25
 }
 
-// OneConfig is optional: its jars are only on the compile classpath (never bundled). The modules sit nested inside the mod jar,
+// OneConfig is a dependency players install themselves: its jars are only on the compile classpath (never bundled). The modules sit nested inside the mod jar,
 // so they are unpacked from it for compiling. OneConfig's HUD classes extend Compose / Kotlin types, so the runtime pieces of
-// those (Compose Multiplatform, Fabric Language Kotlin) are unpacked the same way.
+// those (PolyCompose, Fabric Language Kotlin) are unpacked the same way.
 configurations { oneConfigJar; composeJar; kotlinJar }
 dependencies {
 	oneConfigJar "maven.modrinth:oneconfig:${project.oneconfig_version}"
-	composeJar "maven.modrinth:compose-multiplatform:bMhjbdhu"
+	composeJar "maven.modrinth:polycompose:${project.polycompose_version}"
 	kotlinJar "maven.modrinth:fabric-language-kotlin:SKW1BTL3"
 }
 def oneConfigLibs = layout.buildDirectory.dir('oneconfig-libs')
-tasks.register('unpackOneConfig', Copy) {
+tasks.register('unpackOneConfig', Sync) {
 	from({ zipTree(configurations.oneConfigJar.singleFile).matching { include 'META-INF/jars/*.jar' } }) {
 		eachFile { it.path = it.name }
 		includeEmptyDirs = false
 	}
-	from({ zipTree(configurations.composeJar.singleFile).matching { include 'META-INF/jars/runtime-desktop*.jar', 'META-INF/jars/runtime-annotation*.jar' } }) {
+	from({ configurations.oneConfigJar.singleFile }) // LegacyHud and the other version-specific classes sit in the mod jar itself
+	from({ zipTree(configurations.composeJar.singleFile).matching { include 'META-INF/jars/polycompose-core*.jar', 'META-INF/jars/runtime-desktop*.jar', 'META-INF/jars/runtime-annotation*.jar' } }) {
 		eachFile { it.path = it.name }
 		includeEmptyDirs = false
 	}
@@ -92,5 +86,5 @@ tasks.register('unpackOneConfig', Copy) {
 	}
 	into oneConfigLibs
 }
-dependencies { compileOnly fileTree(dir: oneConfigLibs, include: ['config*.jar', 'ui*.jar', 'utils*.jar', 'hud*.jar', 'events*.jar', 'poly-compose*.jar', 'internal*.jar', '26.3-fabric*.jar', 'runtime-*.jar', 'kotlin-stdlib*.jar']) }
+dependencies { compileOnly fileTree(dir: oneConfigLibs, include: ['oneconfig-*.jar', 'config*.jar', 'ui*.jar', 'utils*.jar', 'hud*.jar', 'events*.jar', 'polycompose-core*.jar', 'internal*.jar', 'runtime-*.jar', 'kotlin-stdlib*.jar']) }
 tasks.named('compileJava') { dependsOn 'unpackOneConfig' }

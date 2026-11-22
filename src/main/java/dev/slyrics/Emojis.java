@@ -309,7 +309,7 @@ public final class Emojis {
 		while (m.find()) {
 			String w = m.group();
 			String key = w.toLowerCase(Locale.ROOT);
-			String spec = c.emojiSprites ? c.emojiSpriteMap.get(key) : null;
+			String spec = c.emojiSpriteMap.get(key);
 			String e = spec != null ? String.valueOf(spriteChar(spec)) : c.emojiMap.get(key);
 			m.appendReplacement(sb, Matcher.quoteReplacement(e == null ? w : w + sep + e));
 		}

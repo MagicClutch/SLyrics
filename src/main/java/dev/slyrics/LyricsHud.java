@@ -39,7 +39,7 @@ public class LyricsHud implements HudElement {
 		if (!c.lineMode && !lines.isEmpty()) return; // the lyric line is its own feature; the other modes show the lyrics elsewhere
 		if (lines.isEmpty() || !Spotify.playing && Spotify.track == null) {
 			String msg = c.showStatus ? Spotify.noLyricsMessage() : null; // only "No lyrics found", and only for 10 seconds
-			if (msg != null) draw(g, font, msg, cx, cy, k * Math.min(1f, c.scale) / c.scale * 0.7f, 0xAAAAAA, 0.8f * Spotify.noLyricsAlpha(), c, 1f);
+			if (msg != null) draw(g, font, msg, cx, cy, k * Math.min(1f, c.scale) / c.scale * 0.7f, 0xAAAAAA, 0.8f * Spotify.noLyricsAlpha(), c);
 			return;
 		}
 
@@ -79,15 +79,15 @@ public class LyricsHud implements HudElement {
 				alpha = Math.max(alpha, Math.min(1f, sinceStart / 120f)); // do not fade while typing
 				if (sinceStart < len - c.fadeMs) alpha = 1f;
 			}
-			draw(g, font, text, cx, cy, k, c.rgb(), alpha, c, 1f);
+			draw(g, font, text, cx, cy, k, c.rgb(), alpha, c);
 		}
 
 		if (c.showNeighbors) {
 			float small = k * 0.6f;
 			if (idx > 0 && !lines.get(idx - 1).text().isEmpty())
-				draw(g, font, lines.get(idx - 1).text(), cx, cy - 14 * k, small, c.rgb(), 0.45f, c, 1f);
+				draw(g, font, lines.get(idx - 1).text(), cx, cy - 14 * k, small, c.rgb(), 0.45f, c);
 			if (idx + 1 < lines.size() && !lines.get(idx + 1).text().isEmpty())
-				draw(g, font, lines.get(idx + 1).text(), cx, cy + 14 * k, small, c.rgb(), 0.45f, c, 1f);
+				draw(g, font, lines.get(idx + 1).text(), cx, cy + 14 * k, small, c.rgb(), 0.45f, c);
 		}
 	}
 
@@ -140,16 +140,16 @@ public class LyricsHud implements HudElement {
 			int k = first[0];
 			for (int i = first[0]; i < all.size() && all.get(i).start() <= pos; i++) k = i;
 			boolean started = all.get(k).start() <= pos;
-			float f = 0f;
-			if (k + 1 < all.size() && started) {
-				long gap = Math.max(1, all.get(k + 1).start() - all.get(k).start());
-				f = Math.max(0f, Math.min(1f, (pos - all.get(k).start()) / (float) Math.min(gap, 350L))); // glide quickly, also over a long pause
-				f = f * f * (3f - 2f * f);
+			// The strip runs continuously: the position is sampled around now and averaged, so it never stops and starts abruptly
+			float[] ps = new float[SCROLL_SAMPLES];
+			for (int j = 0; j < ps.length; j++) {
+				long t = pos + Math.round(SCROLL_SMOOTH_MS * (2f * j / (ps.length - 1) - 1f));
+				ps[j] = scrollPos(all, t);
 			}
 			List<String> texts = new java.util.ArrayList<>();
 			for (Word w : all) texts.add(w.text());
 			int left = max > 0 ? (max - 1) / 2 : 1000, right = max > 0 ? max / 2 : 1000;
-			drawStrip(g, font, c, texts, k, f, left, right, false, started, cx, cy, sz, 1f, half); // no fade between lines: it keeps running
+			drawStrip(g, font, c, texts, k, ps, left, right, false, started, cx, cy, sz, 1f, half); // no fade between lines: it keeps running
 			return true;
 		}
 		String[] ws = lines.get(idx).text().trim().split("\\s+");
@@ -162,15 +162,35 @@ public class LyricsHud implements HudElement {
 		int from = cw / max * max, to = Math.min(ws.length, from + max);
 		List<String> part = new java.util.ArrayList<>();
 		for (int i = from; i < to; i++) part.add(Emojis.decorate(ws[i], " ", c));
-		drawStrip(g, font, c, part, cw - from, 0f, 1000, 1000, true, at[cw] <= pos, cx, cy, sz, alpha, half);
+		drawStrip(g, font, c, part, cw - from, null, 1000, 1000, true, at[cw] <= pos, cx, cy, sz, alpha, half);
 		return true;
 	}
 
+	/** How far around now the scroll position is averaged (each side), and how many samples. */
+	private static final float SCROLL_SMOOTH_MS = 220f;
+	private static final int SCROLL_SAMPLES = 9;
+	/** Over a longer pause the strip waits and only glides this long before the next word. */
+	private static final long SCROLL_MAX_GLIDE_MS = 1400;
+
+	/** The scroll position at time t as a word index: word i is in the middle when it starts, between words it moves evenly. */
+	private static float scrollPos(List<Word> all, long t) {
+		int n = all.size();
+		if (t <= all.get(0).start()) return 0f;
+		int k = 0;
+		while (k + 1 < n && all.get(k + 1).start() <= t) k++;
+		if (k + 1 >= n) return n - 1;
+		long s0 = all.get(k).start(), s1 = all.get(k + 1).start();
+		long from = Math.max(s0, s1 - SCROLL_MAX_GLIDE_MS);
+		if (t <= from) return k;
+		return k + (t - from) / (float) Math.max(1, s1 - from);
+	}
+
 	/**
-	 * Draws words in a row. rowCentered: the whole row is centered at cx. Otherwise word cur (moved on by f toward the next one)
-	 * is centered at cx, and only left/right words around it are shown, fading in and out at the ends.
+	 * Draws words in a row; word cur is the one being sung. rowCentered: the whole row is centered at cx. Otherwise the strip
+	 * scrolls: ps are word positions (fractional indices) sampled around now, their mean place in the row is at cx, and only
+	 * left/right words around it are shown, fading in and out at the ends.
 	 */
-	private static void drawStrip(GuiGraphicsExtractor g, Font font, Config c, List<String> words, int cur, float f, int left, int right,
+	private static void drawStrip(GuiGraphicsExtractor g, Font font, Config c, List<String> words, int cur, float[] ps, int left, int right,
 								  boolean rowCentered, boolean highlight, float cx, float cy, float scale, float alpha, float half) {
 		int n = words.size();
 		if (n == 0) return;
@@ -185,11 +205,19 @@ public class LyricsHud implements HudElement {
 			lx[i] = x;
 			x += wd[i] + space;
 		}
-		float anchor;
-		if (rowCentered) anchor = (x - space) / 2f;
-		else {
-			float c0 = lx[cur] + wd[cur] / 2f, c1 = cur + 1 < n ? lx[cur + 1] + wd[cur + 1] / 2f : c0;
-			anchor = c0 + (c1 - c0) * f;
+		float anchor, p = cur;
+		if (rowCentered || ps == null) anchor = (x - space) / 2f;
+		else { // averaged in pixels, so words of different widths still pass at an even speed
+			float sum = 0f, sumP = 0f;
+			for (float q : ps) {
+				q = Math.max(0f, Math.min(n - 1, q));
+				int i0 = (int) q, i1 = Math.min(n - 1, i0 + 1);
+				float c0 = lx[i0] + wd[i0] / 2f, c1 = lx[i1] + wd[i1] / 2f;
+				sum += c0 + (c1 - c0) * (q - i0);
+				sumP += q;
+			}
+			anchor = sum / ps.length;
+			p = sumP / ps.length;
 		}
 		int base = c.rgb();
 		int hi = c.sweepMode ? sweepRgb(c) : base;
@@ -197,16 +225,21 @@ public class LyricsHud implements HudElement {
 		g.pose().translate(cx, cy);
 		g.pose().scale(scale, scale);
 		for (int i = 0; i < n; i++) {
-			float d = i - (cur + f);
+			float d = i - p;
 			float vis = rowCentered ? 1f : d < 0 ? Math.max(0f, Math.min(1f, left + 1 + d)) : Math.max(0f, Math.min(1f, right + 1 - d));
 			if (vis <= 0f) continue;
 			float xs = (lx[i] - anchor) * scale, xe = (lx[i] + wd[i] - anchor) * scale;
 			if (xs < -half || xe > half) continue;
 			boolean now = i == cur;
-			int a = Math.round(255 * alpha * vis * (now ? 1f : Math.max(0.35f, 0.78f - 0.1f * Math.abs(d))));
+			// brightness follows the distance to the middle, so words brighten and dim smoothly while they pass
+			float dim = rowCentered ? (now ? 1f : 0.78f) : Math.max(0.35f, 1f - 0.25f * Math.abs(d));
+			int a = Math.round(255 * alpha * vis * (now ? Math.max(dim, 0.9f) : dim));
 			if (a < 4) continue;
 			int rgb = now && highlight ? hi : base;
-			g.text(font, comps[i], Math.round(lx[i] - anchor), -font.lineHeight / 2, (a << 24) | rgb, c.shadow);
+			g.pose().pushMatrix();
+			g.pose().translate(lx[i] - anchor, 0f); // sub-pixel steps, so the slow scroll does not jitter pixel by pixel
+			g.text(font, comps[i], 0, -font.lineHeight / 2, (a << 24) | rgb, c.shadow);
+			g.pose().popMatrix();
 		}
 		g.pose().popMatrix();
 	}
@@ -290,15 +323,6 @@ public class LyricsHud implements HudElement {
 
 	static final String[] SAMPLE = {"The line before", "The line being sung now", "The line after"};
 
-	/** The lyrics panel with sample text at its configured place (for the HUD editor): {x, y, scale, width, height} in screen pixels. */
-	static float[] sampleBox(Font font, Config c, int guiW, int guiH) {
-		return panelBox(font, c, guiW, guiH, SAMPLE[0], SAMPLE[1], SAMPLE[2], false);
-	}
-
-	static void drawSample(GuiGraphicsExtractor g, Font font, Config c, float[] box) {
-		drawPanelBox(g, font, c, SAMPLE[0], SAMPLE[1], SAMPLE[2], 0.5f, box);
-	}
-
 	/**
 	 * Where the panel goes and how big it is: {x, y, scale, width, height} (width and height in screen pixels, scale included).
 	 * With dodge=true the panel moves out of the way of the media player, so the two never overlap.
@@ -381,7 +405,7 @@ public class LyricsHud implements HudElement {
 	/** With colored=true every emoji gets its own color (the rest keeps the color the text is drawn with). */
 	public static MutableComponent styled(String s, Config c, boolean colored) {
 		Style base = Style.EMPTY.withBold(c.bold);
-		Identifier id = dev.slyrics.font.UserFont.isSystem(c.font) ? dev.slyrics.font.UserFont.ID : Identifier.tryParse(c.font);
+		Identifier id = Identifier.tryParse(c.font);
 		Style userStyle = id != null ? base.withFont(new FontDescription.Resource(id)) : base;
 		Style emojiStyle = base.withFont(FontDescription.DEFAULT);
 		MutableComponent out = Component.empty();
@@ -399,7 +423,7 @@ public class LyricsHud implements HudElement {
 				continue;
 			}
 			boolean em = c.emojis && Emojis.isEmojiChar(ch, c);
-			Integer own = colored && c.emojiColors && em ? Emojis.colorOf(ch) : null;
+			Integer own = colored && em ? Emojis.colorOf(ch) : null;
 			if (own != null) { // a colored emoji is its own run
 				if (run.length() > 0) {
 					out.append(Component.literal(run.toString()).withStyle(runEmoji ? emojiStyle : userStyle));
@@ -421,8 +445,7 @@ public class LyricsHud implements HudElement {
 	}
 
 	/** Draws centered text at (cx, cy) with scaling. */
-	public static void draw(GuiGraphicsExtractor g, Font font, String s, float cx, float cy, float scale,
-							int rgb, float alpha, Config c, float unused) {
+	public static void draw(GuiGraphicsExtractor g, Font font, String s, float cx, float cy, float scale, int rgb, float alpha, Config c) {
 		int a = Math.round(alpha * 255);
 		if (a < 4) return;
 		MutableComponent comp = styled(s, c, true);

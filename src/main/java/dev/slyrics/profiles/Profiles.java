@@ -5,8 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.slyrics.Config;
-import dev.slyrics.ConfigSync;
-import dev.slyrics.RcConfig;
+import dev.slyrics.ConfigLayout;
 import dev.slyrics.SLyricsClient;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -18,11 +17,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-/** Named copies of all settings in config/slyrics-profiles/<name>.json. Your Spotify client ID is never stored in them. */
+/**
+ * Named copies of the look and feel in config/slyrics-profiles/<name>.json. What belongs to your setup rather than to a look
+ * (music source, player, client ID, lyrics offset, on/off, Developer mode) is never stored in them, so loading or sharing a
+ * profile does not change it.
+ */
 public final class Profiles {
-	private static final String SKIP = "clientId";
-	/** The HUD layout is set in the HUD editor, not in the settings screen, but it belongs to a profile like any other setting. */
-	private static final List<String> LAYOUT = List.of("mediaX", "mediaY", "mediaScale", "hudX", "hudY", "hudScale", "xPercent", "yPercent");
+	private static final java.util.Set<String> SKIP = java.util.Set.of("clientId", "musicSource", "otherPlayer", "offsetMs", "enabled", "devMode");
+	/** Settings that are not plain ConfigLayout fields (the HUD layout from the HUD editor, the font from its dropdown) but belong to a profile like any other. */
+	private static final List<String> LAYOUT = List.of("mediaX", "mediaY", "mediaScale", "hudX", "hudY", "hudScale", "xPercent", "yPercent", "font");
 
 	private Profiles() {}
 
@@ -55,9 +58,9 @@ public final class Profiles {
 	/** The names of all settings the config screen knows. */
 	private static List<Field> settingFields() {
 		List<Field> out = new ArrayList<>();
-		for (Class<?> cat : RcConfig.class.getDeclaredClasses()) {
+		for (Class<?> cat : ConfigLayout.class.getDeclaredClasses()) {
 			for (Field rf : cat.getDeclaredFields()) {
-				if (!Modifier.isStatic(rf.getModifiers()) || Modifier.isFinal(rf.getModifiers()) || rf.getName().equals(SKIP)) continue;
+				if (!Modifier.isStatic(rf.getModifiers()) || Modifier.isFinal(rf.getModifiers()) || SKIP.contains(rf.getName())) continue;
 				try {
 					out.add(Config.class.getField(rf.getName()));
 				} catch (NoSuchFieldException ignored) {
@@ -104,24 +107,6 @@ public final class Profiles {
 		return o;
 	}
 
-	/** True if a profile is active and the current settings differ from what is saved in it. */
-	public static boolean modified() {
-		String name = active();
-		if (name.isEmpty() || !exists(name)) return false;
-		try {
-			JsonObject now = snapshot();
-			JsonObject saved = JsonParser.parseString(Files.readString(folder().resolve(clean(name) + ".json"))).getAsJsonObject();
-			for (var e : now.entrySet()) {
-				JsonElement other = saved.get(e.getKey());
-				if (other == null && LAYOUT.contains(e.getKey())) continue; // a profile saved before the layout was part of it
-				if (other == null || !other.isJsonPrimitive() || !other.getAsString().equals(e.getValue().getAsString())) return true;
-			}
-			return false;
-		} catch (Exception e) {
-			return false;
-		}
-	}
-
 	/** Saves the current settings under this name (replacing a profile of the same name) and makes it the active profile. Null if the name is empty. */
 	public static String save(String rawName) throws Exception {
 		String name = clean(rawName);
@@ -147,7 +132,7 @@ public final class Profiles {
 			else if (t == String.class && v.isString()) f.set(Config.INSTANCE, v.getAsString());
 		}
 		setActive(clean(rawName));
-		ConfigSync.saveAll();
+		Config.save();
 		return true;
 	}
 
@@ -198,16 +183,6 @@ public final class Profiles {
 		return name;
 	}
 
-	public static Path exportsFolder() {
-		Path dir = folder().resolve("exports");
-		try {
-			Files.createDirectories(dir);
-		} catch (Exception ignored) {
-			// reported when writing
-		}
-		return dir;
-	}
-
 	/**
 	 * Creates the built-in profiles (Aura, Sky, AFK, Performance) once. Each starts from the mod's default settings and
 	 * changes what makes that style work well. Existing files are never replaced, and a deleted one does not come back.
@@ -217,13 +192,13 @@ public final class Profiles {
 		try {
 			make("Aura", c -> {
 				c.hologram = true; c.skyMode = false; c.stickMode = false; c.floating = false;
-				c.near = 5f; c.far = 8f; c.follow = false; c.blockClipping = true; c.throughWalls = true;
+				c.near = 5f; c.far = 8f; c.follow = false;
 				c.glow = 40; c.outline = 60; c.blur = 40; c.bounce = 100; c.textAnim = "TikTok pop"; c.sweepMode = true;
 				c.afkEnabled = false;
 			});
 			make("Sky", c -> {
 				c.hologram = false; c.skyMode = true; c.stickMode = false; c.floating = false;
-				c.blockClipping = true; c.skyDistance = 100f; c.skyElevation = 30f; c.skyTextDeg = 7f; c.throughWalls = true;
+				c.skyDistance = 100f; c.skyTextDeg = 7f;
 				c.glow = 60; c.outline = 40; c.blur = 40; c.bounce = 60; c.textAnim = "None"; c.sweepMode = true;
 				c.afkEnabled = false;
 			});
@@ -231,12 +206,12 @@ public final class Profiles {
 				c.afkEnabled = true; c.afkSeconds = 10; c.afkOnlyWhilePlaying = true;
 				c.afkFollowWord = true; c.afkFollowStrength = 70; c.afkTextNear = 3f; c.afkTextFar = 5f;
 				c.afkCutEveryLines = 3; c.afkCloseUpPercent = 45; c.afkRadius = 7f; c.afkHeight = 1.5f; c.afkMaxDistance = 8f; c.afkSpeed = 12f;
-				c.hologram = true; c.skyMode = true; c.stickMode = false; c.floating = false; c.blockClipping = true;
+				c.hologram = true; c.skyMode = true; c.stickMode = false; c.floating = false;
 				c.glow = 50; c.outline = 60; c.blur = 40; c.bounce = 100; c.textAnim = "TikTok pop"; c.sweepMode = true;
 			});
 			make("Performance", c -> {
 				c.hologram = true; c.skyMode = false; c.stickMode = false; c.floating = false;
-				c.blockClipping = false; c.afkEnabled = false;
+				c.afkEnabled = false;
 				c.glow = 0; c.outline = 0; c.blur = 0; c.bounce = 0; c.depth3d = false; c.flicker = false;
 				c.textAnim = "None"; c.sweepMode = false;
 			});

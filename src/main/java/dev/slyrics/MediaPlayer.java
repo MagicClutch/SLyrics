@@ -47,8 +47,6 @@ public final class MediaPlayer implements HudElement {
 		return new KeyMapping[]{keyPlay, keyNext, keyPrev};
 	}
 
-	/** True while the position editor is open: the editor draws the window itself. */
-	static volatile boolean editing;
 	/** True while the progress bar is held with the mouse: the bar follows the mouse and the song only jumps on release. */
 	private static volatile boolean scrubbing;
 	private static volatile double scrubFraction;
@@ -139,7 +137,7 @@ public final class MediaPlayer implements HudElement {
 
 	public static boolean visible() {
 		Config c = Config.INSTANCE;
-		return !editing && c.enabled && c.mediaPlayer && Spotify.track != null;
+		return c.enabled && c.mediaPlayer && Spotify.track != null;
 	}
 
 	/** The window's box {x, y, width, height} in screen pixels, or null while it is hidden. */

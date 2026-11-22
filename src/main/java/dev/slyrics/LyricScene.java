@@ -16,6 +16,29 @@ import java.util.Random;
 public final class LyricScene {
 	public static final long POP_MS = 300L;
 	public static final long FADE_MS = 500L;
+	/** Extra room in degrees kept between two words. */
+	private static final double WORD_MARGIN = 1.0;
+	/** How long a word stays after it has been sung (unless Word hold is set), and how much of a long sung word counts. */
+	private static final long WORD_HOLD_MS = 2000, MAX_SUNG_MS = 3000;
+	/** A word must fit inside the view with at least this much room (degrees) to the screen edge. */
+	private static final double EDGE_DEG = 2.0;
+	/**
+	 * Spread (0..100) as the share of the view, measured from the middle to each side, that words may use: 0 keeps them
+	 * close around the middle, 100 lets them use about 3/4 of the screen (3/8 to each side).
+	 */
+	private static double spreadV(int spread) {
+		return 0.1 + 0.275 * Math.max(0, Math.min(100, spread)) / 100.0;
+	}
+
+	private static double spreadH(int spread) {
+		return 0.15 + 0.225 * Math.max(0, Math.min(100, spread)) / 100.0;
+	}
+	/** Room (degrees) left at the side of a sky word for its slow drift. */
+	private static final double SKY_DRIFT_DEG = 3.0;
+	/** Sky words never come lower than this many degrees above the horizon (measured to the bottom of the word). */
+	private static final double SKY_MIN_ELEV = 4.0;
+	/** Each new word stands about this much (blocks) behind the farthest one showing; past far + DEPTH_OVERFLOW it starts in front again. */
+	private static final double DEPTH_STEP = 0.6, DEPTH_OVERFLOW = 2.5;
 	/** Words are placed this long before they are sung (hidden until then), so the AFK camera can swing to them in time. */
 	private static final long PLACE_LEAD_MS = 1000L;
 	/** Without the AFK camera words are placed only this long before they are sung, so they fit the view of that moment. */
@@ -38,9 +61,11 @@ public final class LyricScene {
 		public double relYaw, relPitch, dist;
 		/** Shrink factor applied to the world size so it fits the view. */
 		public final float fit;
-		/** Rough angular size in degrees, used to keep words apart. */
+		/** Half size used to keep words apart: in degrees, except for stuck words, where it is in blocks. */
 		public final double spanH, spanV;
 		public final float seed;
+		/** World size of one font pixel when the word was placed (the general text size); fit scales it. */
+		public final float base = unitNow();
 		public final boolean sky;
 		public final boolean stick;
 		public long fadeAt = Long.MAX_VALUE;
@@ -67,7 +92,7 @@ public final class LyricScene {
 		}
 	}
 
-	private record Queued(String word, long sungAt, long heldUntil, long fadeAt, int order, int mode) {}
+	private record Queued(String word, long sungAt, long heldUntil, long fadeAt, int mode) {}
 
 	private final Random rng = new Random();
 	public final List<Item> items = new ArrayList<>();
@@ -183,22 +208,18 @@ public final class LyricScene {
 			if (c.hologram) enabled.add(0);
 			if (c.skyMode) enabled.add(1);
 			if (c.stickMode) enabled.add(2);
-			long gap = words.length > 1 ? (start[words.length - 1] - start[0]) / (words.length - 1) : 300;
-			long life = Math.max(1200, Math.min(2400, gap * 4));
+			// every word stays the same time after it has been sung (a word that is held longer stays that much longer); the
+			// sung part counts at most MAX_SUNG_MS, so the last word before a long pause does not stand there for ages
+			long hold = c.wordHoldMs > 0 ? c.wordHoldMs : WORD_HOLD_MS;
 			for (int i = 0; i < words.length; i++) {
 				int mode = enabled.get(rng.nextInt(enabled.size()));
-				long fadeAt = mode == 1 ? Math.max(start[i] + 2600, end[i] + 1400) : Math.max(Math.max(start[i] + 1200, end[i] + 500), start[i] + life);
+				long fadeAt = start[i] + Math.min(MAX_SUNG_MS, Math.max(0, end[i] - start[i])) + hold;
 				if (c.floating && mode != 2) fadeAt = Math.max(fadeAt, start[i] + 3200); // floating words need time to travel
-				if (c.wordHoldMs > 0) fadeAt = start[i] + c.wordHoldMs; // user-set: fade this long after the word is sung
 				if (fadeAt < now) continue;
-				queue.add(new Queued(words[i], start[i], end[i], fadeAt, i, mode));
+				queue.add(new Queued(words[i], start[i], end[i], fadeAt, mode));
 			}
 		}
 		trim();
-	}
-
-	private static Vec3 eye0(net.minecraft.world.entity.player.Player p) {
-		return AfkCamera.eye(Minecraft.getInstance());
 	}
 
 	private void trim() {
@@ -210,15 +231,20 @@ public final class LyricScene {
 	public void frame(Minecraft mc, long now) {
 		var player = mc.player;
 		if (player == null) return;
+		MovePredictor.update(mc);
 		followCamera(mc, now);
 		smoothFollow(player.position());
 		carryUnsung(now);
 
+		// words whose moment has passed while a later one is already being sung (the line started midway, the song was
+		// skipped ahead, the position jumped) are left out, so words never pop up in a bunch: only the one being sung shows
+		long latestStarted = Long.MIN_VALUE;
+		for (Queued q : queue) if (q.sungAt() <= now) latestStarted = Math.max(latestStarted, q.sungAt());
 		for (int i = 0; i < queue.size(); i++) {
 			Queued q = queue.get(i);
 			if (now < q.sungAt() - (AfkCamera.active() ? PLACE_LEAD_MS : PLACE_LEAD_NORMAL_MS)) continue;
 			queue.remove(i--);
-			if (now > q.fadeAt()) continue;
+			if (now > q.fadeAt() || q.sungAt() < latestStarted) continue;
 			String[] w = {q.word()};
 			if (q.mode() == 1) {
 				placeSky(mc, w, new long[]{q.sungAt()}, new long[]{q.heldUntil()}).fadeAt = q.fadeAt();
@@ -232,18 +258,23 @@ public final class LyricScene {
 				}
 				// no block in sight: fall through and float it like a normal word
 			}
-			Vec3 spot = pick(mc, w, q.sungAt(), q.fadeAt() - q.sungAt(), false);
+			Vec3 spot = pick(mc, w);
 			Vec3 eye = AfkCamera.eye(mc);
-			Vec3 safe = Config.INSTANCE.blockClipping ? safeSpot(mc, eye, spot, w) : spot;
+			// a spot behind the ground or a wall comes forward to just in front of it, and shrinks by as much, so the word looks
+			// just as big where you look but stands in the world (small, on the ground)
+			Vec3 safe = inFrontOfBlocks(mc, eye, spot, w);
 			float shrink = (float) Math.min(1.0, safe.distanceTo(eye) / Math.max(0.01, spot.distanceTo(eye)) * 1.1);
-			place(mc, w, new long[]{q.sungAt()}, new long[]{q.heldUntil()}, safe, 2, shrink).fadeAt = q.fadeAt();
+			Item placed = place(mc, w, new long[]{q.sungAt()}, new long[]{q.heldUntil()}, safe, shrink);
+			placed.fadeAt = q.fadeAt();
 		}
 		trim();
 		updateFloating(mc, now);
 
 		Vec3 me = player.position();
 		boolean fm = Config.INSTANCE.follow;
-		items.removeIf(it -> now - it.fadeAt > FADE_MS || (!it.sky && worldPos(it, fm).distanceToSqr(me) > 3600)); // sky words stand far away on purpose
+		// words left far behind go; the limit grows with speed, or words placed far ahead while flying would vanish at once
+		double keep = 80 + MovePredictor.reachAhead(Config.INSTANCE.predictSeconds) + Config.INSTANCE.far;
+		items.removeIf(it -> now - it.fadeAt > FADE_MS || (!it.sky && worldPos(it, fm).distanceToSqr(me) > keep * keep)); // sky words stand far away on purpose
 	}
 
 	/**
@@ -253,7 +284,7 @@ public final class LyricScene {
 	private void carryUnsung(long now) {
 		Vec3 prev = lastCarry;
 		lastCarry = follow;
-		if (prev == null || follow == null || Config.INSTANCE.follow) return;
+		if (prev == null || follow == null || Config.INSTANCE.follow || MovePredictor.enabled()) return; // predicted words already sit on the path ahead
 		double dx = follow.x - prev.x, dz = follow.z - prev.z;
 		if (dx == 0 && dz == 0) return;
 		for (Item it : items) {
@@ -297,6 +328,11 @@ public final class LyricScene {
 	// ------------------------------------------------------------------ placement
 
 	private float unit() {
+		return unitNow();
+	}
+
+	/** World size of one font pixel for new words (the general text size; sky words work out their own). */
+	static float unitNow() {
 		return 0.05f * Config.INSTANCE.size / 100f;
 	}
 
@@ -311,10 +347,10 @@ public final class LyricScene {
 		return new Vec3(-Math.sin(y) * Math.cos(p), -Math.sin(p), Math.cos(y) * Math.cos(p));
 	}
 
+	/** Horizontal field of view in degrees. */
 	private static double hFov(Minecraft mc) {
-		double v = Math.toRadians(mc.options.fov().get());
 		double aspect = (double) mc.getWindow().getGuiScaledWidth() / Math.max(1, mc.getWindow().getGuiScaledHeight());
-		return Math.toDegrees(2 * Math.atan(Math.tan(v / 2) * aspect));
+		return Math.toDegrees(2 * Math.atan(Math.tan(Math.toRadians(mc.options.fov().get()) / 2) * aspect));
 	}
 
 	private int pixelWidth(Minecraft mc, String[] words) {
@@ -325,43 +361,63 @@ public final class LyricScene {
 	}
 
 	/**
-	 * Chooses where a word goes: the view is split into six slots (3 across, 2 up/down) that are
-	 * used in turn; around the slot centre several random spots are tried and the one farthest
-	 * from the words already visible wins.
+	 * Chooses where a floating (Aura) word goes: spots are tried from the middle of the view outward, and the best one is as
+	 * central as possible, clear of the words you can see, whole on screen and inside the band around the crosshair. Each new
+	 * word stands a little behind the ones before it. The prediction (see MovePredictor) moves everything to where you are
+	 * heading. In the AFK camera the words stand beside the player instead.
 	 */
-	private Vec3 pick(Minecraft mc, String[] words, long from, long life, boolean wholeLine) {
+	private Vec3 pick(Minecraft mc, String[] words) {
 		Config c = Config.INSTANCE;
 		var p = mc.player;
 		Vec3 eye = AfkCamera.eye(mc);
+		long now = System.currentTimeMillis();
 		double fovH = hFov(mc), fovV = mc.options.fov().get();
-		double reachH = Math.min(fovH * 0.22, 20), reachV = Math.min(fovV * 0.18, 11);
-		int slot = wholeLine ? 0 : (slotCursor++ % 6);
-		double cx = wholeLine ? 0 : (slot % 3 - 1) * reachH * 0.8;
-		double cy = wholeLine ? -0.15 * reachV : (slot / 3 == 0 ? 0.55 : -0.4) * reachV;
+		int side = (slotCursor++ % 2 == 0) ? -1 : 1; // AFK camera: words alternate left and right of the player
 		double near = c.near, far = Math.max(near + 0.5, c.far);
 		double width = pixelWidth(mc, words) * unit();
+		boolean predict = MovePredictor.enabled();
+		Vec3 base = predict ? MovePredictor.eyeIn(mc, c.predictSeconds) : eye;
+		double yawOff = predict ? MovePredictor.yawOffset(mc, c.predictSeconds, Math.max(0, fovH / 2 - 8)) : 0;
+		// words go back in the order they are sung: each one a little behind the farthest word still showing
+		double behind = farthestWord(eye, now) + DEPTH_STEP;
+		if (behind > far + DEPTH_OVERFLOW) behind = 0; // the row has gone far enough back: start in front again (the old words fade out in their own time)
+		double minD = Math.max(near, behind), maxD = Math.min(Math.max(far, minD + 0.5), minD + DEPTH_STEP * 2);
+		boolean afk = AfkCamera.active() && p != null;
+		double s = Math.max(0, Math.min(100, c.auraSpread)) / 100.0;
+		double maxH = fovH * spreadH(c.auraSpread), maxV = fovV * spreadV(c.auraSpread);
 
+		// try spots from the middle of the view outward: the first ones close to the centre, later ones spread wider
 		Vec3 best = null;
 		double bestScore = -1e9;
-		for (int i = 0; i < 24; i++) {
-			double j = 2 + i * 0.5;
-			double dx = Math.max(-reachH * 1.2, Math.min(reachH * 1.2, cx + rng.nextGaussian() * j));
-			double dy = Math.max(-reachV * 1.2, Math.min(reachV * 1.2, cy + rng.nextGaussian() * j * 0.55));
-			double dist = near + rng.nextDouble() * (far - near);
-			Vec3 dirV = dirOf(AfkCamera.yaw(mc) + dx, AfkCamera.pitch(mc) + dy);
-			boolean afk = AfkCamera.active() && p != null;
-			Vec3 afkSpot = null;
-			if (afk) { // AFK camera: the words stand left and right of the player, close to them, never behind or in front
-				afkSpot = besideThePlayer(eye, p, wholeLine ? (rng.nextBoolean() ? 1 : -1) : (slot % 2 == 0 ? -1 : 1), c);
-				dist = Math.max(0.5, afkSpot.distanceTo(eye));
-			}
-			double fit = Math.min(1.0, 2 * dist * Math.tan(Math.toRadians(fovH * 0.38)) / Math.max(width, 0.01));
-			double spanH = Math.toDegrees(Math.atan(width * fit / (2 * dist)));
-			double spanV = Math.toDegrees(Math.atan(9 * unit() * fit / (2 * dist)));
-			Vec3 spot = afk ? afkSpot : eye.add(dirV.scale(dist));
-			if (c.blockClipping) spot = liftFromGround(mc, spot);
-			double room = clearance(eye, spot, spanH, spanV, c.follow);
-			double score = Math.min(room, 7) * 9 - (afk ? 0 : Math.hypot(dx - cx, dy - cy) * 0.35);
+		for (int i = 0; i < 48; i++) {
+			double spread = (3 + i * 0.8) * (0.4 + s);
+			double dx = yawOff + rng.nextGaussian() * spread, dy = rng.nextGaussian() * spread * 0.7;
+			double dist = minD + rng.nextDouble() * (maxD - minD);
+			Vec3 spot = afk ? besideThePlayer(eye, p, side, c)
+				: base.add(dirOf(AfkCamera.yaw(mc) + dx, AfkCamera.pitch(mc) + dy).scale(dist));
+			if (!afk && spot.distanceTo(eye) < minD) spot = eye.add(spot.subtract(eye).normalize().scale(minD)); // measured from where you are now
+
+			// the size the word will be drawn at (see place), as seen from where you are now
+			double d = Math.max(0.5, spot.distanceTo(eye));
+			double grow = afk ? 1 : Math.max(1, d / far);
+			double fit = Math.min(grow, 2 * d * Math.tan(Math.toRadians(fovH * 0.38)) / Math.max(width, 0.01));
+			double spanH = Math.toDegrees(Math.atan(width * fit / (2 * d)));
+			double spanV = Math.toDegrees(Math.atan(9 * unit() * fit / (2 * d)));
+
+			// where it lands on screen, in degrees from the crosshair
+			Vec3 to = spot.subtract(eye);
+			double offH = MovePredictor.wrap(Math.toDegrees(Math.atan2(-to.x, to.z)) - AfkCamera.yaw(mc));
+			double offV = Math.toDegrees(Math.atan2(-to.y, Math.hypot(to.x, to.z))) - AfkCamera.pitch(mc);
+
+			double room = clearance(eye, spot, spanH, spanV, c.follow, now);
+			double score = Math.min(room, 7) * 9 - (afk ? 0 : Math.hypot(offH - yawOff, offV) * (0.9 - 0.6 * s)); // less pull to the middle when spread wide
+			// in this order: whole on screen, not on top of a word you can see, inside the spread area (a word wider than the
+			// area may still sit in its middle)
+			boolean onScreen = Math.abs(offH) + spanH <= fovH / 2 - EDGE_DEG && Math.abs(offV) + spanV <= fovV / 2 - EDGE_DEG;
+			boolean inArea = Math.abs(offH) + spanH <= Math.max(maxH, spanH + 1) && Math.abs(offV) + spanV <= Math.max(maxV, spanV + 1);
+			if (!afk && !onScreen) score -= 1000;
+			if (room < 0) score -= 300;
+			if (!afk && !inArea) score -= 200;
 			if (coversPlayer(mc, eye, spot, spanH, spanV)) score -= 200;
 			if (score > bestScore) {
 				bestScore = score;
@@ -370,6 +426,7 @@ public final class LyricScene {
 		}
 		return best != null ? best : ahead(p, 0, (near + far) / 2);
 	}
+
 
 	/**
 	 * A spot to the left (sign -1) or right (+1) of the player as the AFK camera sees them: mostly sideways,
@@ -389,41 +446,101 @@ public final class LyricScene {
 	}
 
 	/** Angular room (degrees) between a spot and the nearest visible word, capped at 7. */
-	private double clearance(Vec3 eye, Vec3 spot, double spanH, double spanV, boolean followMe) {
-		Vec3 a = spot.subtract(eye).normalize();
+	private double clearance(Vec3 eye, Vec3 spot, double spanH, double spanV, boolean followMe, long now) {
 		double room = 7;
 		for (Item it : items) {
-			Vec3 b = worldPos(it, followMe).subtract(eye).normalize();
-			double sep = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, a.dot(b)))));
-			double need = Math.max(spanH + it.spanH, spanV + it.spanV);
-			room = Math.min(room, sep - need * 0.75);
+			if (now > it.fadeAt) continue; // already on its way out
+			Vec3 at = worldPos(it, followMe);
+			double h = it.spanH, v = it.spanV;
+			if (it.stick) { // its size is in blocks: as seen from here, in degrees
+				double d = Math.max(0.5, at.distanceTo(eye));
+				h = Math.toDegrees(Math.atan(h / d));
+				v = Math.toDegrees(Math.atan(v / d));
+			}
+			room = Math.min(room, gap(eye, spot, spanH, spanV, at, h, v));
 		}
 		return room;
 	}
 
-	private Item place(Minecraft mc, String[] words, long[] sung, long[] held, Vec3 spot, int faceMode, float fitLimit) {
+	/**
+	 * Free space in degrees between two words as seen from the eye (half sizes spanH / spanV): the larger of the sideways and
+	 * the up-down gap, so words side by side or on top of each other both count as apart. Negative when they overlap.
+	 */
+	private static double gap(Vec3 eye, Vec3 a, double hA, double vA, Vec3 b, double hB, double vB) {
+		Vec3 da = a.subtract(eye), db = b.subtract(eye);
+		double yawA = Math.toDegrees(Math.atan2(-da.x, da.z)), yawB = Math.toDegrees(Math.atan2(-db.x, db.z));
+		double pitchA = Math.toDegrees(Math.atan2(da.y, Math.hypot(da.x, da.z))), pitchB = Math.toDegrees(Math.atan2(db.y, Math.hypot(db.x, db.z)));
+		double dYaw = Math.abs(((yawA - yawB) % 360 + 540) % 360 - 180);
+		return Math.max(dYaw - (hA + hB) - WORD_MARGIN, Math.abs(pitchA - pitchB) - (vA + vB) - WORD_MARGIN);
+	}
+
+	/**
+	 * Moves the spot toward the eye until the whole word (centre and its four edges) has a clear line of sight, so it is
+	 * never hidden inside the ground or behind a wall.
+	 */
+	private Vec3 inFrontOfBlocks(Minecraft mc, Vec3 eye, Vec3 spot, String[] words) {
+		if (mc.level == null) return spot;
+		double halfW = pixelWidth(mc, words) * unit() / 2, halfH = 9 * unit() / 2;
+		Vec3 dir = spot.subtract(eye);
+		double len = dir.length();
+		if (len < 0.01) return spot;
+		Vec3 side = new Vec3(-dir.z, 0, dir.x).normalize();
+		Vec3[] pts = {spot, spot.add(side.scale(halfW)), spot.subtract(side.scale(halfW)), spot.add(0, halfH, 0), spot.add(0, -halfH, 0)};
+		double ratio = 1.0;
+		for (Vec3 pt : pts) {
+			var hit = mc.level.clip(new ClipContext(eye, pt, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+			if (hit.getType() == HitResult.Type.MISS) continue;
+			double r = hit.getLocation().subtract(eye).length() / Math.max(0.01, pt.subtract(eye).length());
+			ratio = Math.min(ratio, r);
+		}
+		if (ratio >= 1.0) return spot;
+		double newLen = Math.max(0.8, len * ratio - 0.3);
+		return eye.add(dir.scale(newLen / len));
+	}
+
+	/**
+	 * True if nothing (terrain, trees, buildings) is between the eye and a sky word at this direction and distance: checked
+	 * at its centre and its four edges (half sizes in degrees).
+	 */
+	private static boolean openSky(Minecraft mc, Vec3 eye, double yaw, double elev, double dist, double spanH, double spanV) {
+		if (mc.level == null) return true;
+		double[][] pts = {{0, 0}, {-spanH, 0}, {spanH, 0}, {0, spanV}, {0, -spanV}};
+		for (double[] o : pts) {
+			Vec3 to = eye.add(dirOf(yaw + o[0], -(elev + o[1])).scale(dist));
+			if (mc.level.clip(new ClipContext(eye, to, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, mc.player)).getType() != HitResult.Type.MISS) return false;
+		}
+		return true;
+	}
+
+	/** Distance from the eye to the farthest floating word that is still showing (0 if none). Sky and stuck words do not count. */
+	private double farthestWord(Vec3 eye, long now) {
+		boolean fm = Config.INSTANCE.follow;
+		double far = 0;
+		for (Item it : items) if (!it.sky && !it.stick && now <= it.fadeAt) far = Math.max(far, worldPos(it, fm).distanceTo(eye));
+		return far;
+	}
+
+	/** Makes a floating word at this spot, turned toward you; fitLimit shrinks it (a spot pulled in front of a wall). */
+	private Item place(Minecraft mc, String[] words, long[] sung, long[] held, Vec3 spot, float fitLimit) {
 		var p = mc.player;
 		Vec3 eye = AfkCamera.eye(mc);
 		double dist = Math.max(0.5, spot.distanceTo(eye));
 		double width = pixelWidth(mc, words) * unit();
-		float fit = (float) Math.min(fitLimit, 2 * dist * Math.tan(Math.toRadians(hFov(mc) * 0.38)) / Math.max(width, 0.01));
+		// placed beyond the usual range (the prediction puts words far ahead while running or flying): grow with the distance
+		double grow = AfkCamera.active() ? 1 : Math.max(1, dist / Math.max(1, Config.INSTANCE.far));
+		float fit = (float) Math.min(fitLimit * grow, 2 * dist * Math.tan(Math.toRadians(hFov(mc) * 0.38)) / Math.max(width, 0.01));
 		double spanH = Math.toDegrees(Math.atan(width * fit / (2 * dist)));
 		double spanV = Math.toDegrees(Math.atan(9 * unit() * fit / (2 * dist)));
 
-		float yaw, pitch = 0, roll = 0;
+		// turned toward the player; single words are also knocked slightly off square
 		Vec3 off = spot.subtract(eye);
-		if (faceMode == 2 || faceMode == 1) {
-			// turned toward the player; single words are also knocked slightly off square
-			float k = words.length > 1 ? 0f : 1f;
-			yaw = (float) Math.toDegrees(Math.atan2(off.z, off.x)) - 90f + (rng.nextFloat() - 0.5f) * 44f * k;
-			pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
-			roll = (rng.nextFloat() - 0.5f) * 14f * k;
-			if (words.length > 1) { // keep long lines square so their far end does not smear
-				yaw = AfkCamera.yaw(mc) * -1f;
-				pitch = 0;
-			}
-		} else {
+		float k = words.length > 1 ? 0f : 1f;
+		float yaw = (float) Math.toDegrees(Math.atan2(off.z, off.x)) - 90f + (rng.nextFloat() - 0.5f) * 44f * k;
+		float pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
+		float roll = (rng.nextFloat() - 0.5f) * 14f * k;
+		if (words.length > 1) { // keep long lines square so their far end does not smear
 			yaw = -AfkCamera.yaw(mc);
+			pitch = 0;
 		}
 		Item it = new Item(words, sung, held, spot, follow != null ? follow : p.position(), yaw, pitch, roll, fit, spanH, spanV, rng.nextFloat() * 100f, false, false);
 		items.add(it);
@@ -459,16 +576,33 @@ public final class LyricScene {
 				double spanH = Math.toDegrees(Math.atan(width / 2 / dist));
 				double spanV = Math.toDegrees(Math.atan(9 * unit / 2 / dist));
 
-				double dxLimit = Math.max(0, fovH / 2 - spanH - 4);
-				double dx = (rng.nextDouble() * 2 - 1) * dxLimit;
-				double room = fovV * 0.5 - spanV - 4;
-				double elev = c.skyElevation + rng.nextGaussian() * 9;
-				elev = Math.max(viewElev - room, Math.min(viewElev + room, elev));
-				elev = Math.max(Math.min(6, viewElev + room), elev); // stays in view even when looking steeply down
+				// sideways: whole word on screen with room for the slow cloud drift, mostly near the middle
+				// looking down, the band lies below the horizon and only a strip at the top of the screen is left: then the whole
+				// width of that strip is used, so the words do not pile up on each other
+				boolean squeezed = viewElev + fovV * spreadV(c.skySpread) < SKY_MIN_ELEV + 2 * spanV;
+				double wide = fovH / 2 - EDGE_DEG - SKY_DRIFT_DEG;
+				double dxLimit = Math.max(0, (squeezed ? wide : Math.min(wide, fovH * spreadH(c.skySpread))) - spanH);
+				double dx = squeezed ? (rng.nextDouble() * 2 - 1) * dxLimit : Math.max(-dxLimit, Math.min(dxLimit, rng.nextGaussian() * dxLimit * 0.6));
+				// up and down, in this order: always above the horizon (below it the word would be inside the ground), whole
+				// on screen (looking down, that means up at the top edge), and if both allow it in the band around the middle
+				double band = Math.max(0, fovV * spreadV(c.skySpread) - spanV);
+				double elev = viewElev + Math.max(-band, Math.min(band, band * 0.35 + rng.nextGaussian() * band * 0.45));
+				double top = viewElev + fovV / 2 - spanV - EDGE_DEG, bottom = viewElev - fovV / 2 + spanV + EDGE_DEG;
+				elev = Math.max(elev, bottom);
+				elev = Math.min(elev, top);
+				elev = Math.max(elev, SKY_MIN_ELEV + spanV); // above the horizon wins over everything else
+				// in front of open sky, not of a mountain or a forest: go up step by step until nothing is in the way
+				boolean open = openSky(mc, eye, viewYaw + dx, elev, dist, spanH, spanV);
+				for (double up = elev + 3; !open && up <= Math.max(elev, top); up += 3) {
+					if (openSky(mc, eye, viewYaw + dx, up, dist, spanH, spanV)) {
+						elev = up;
+						open = true;
+					}
+				}
 
 				Vec3 spot = eye.add(dirOf(viewYaw + dx, -elev).scale(dist));
 				double gap = skyGap(eye, spot, spanH, spanV);
-				if (c.blockClipping && blocked(mc, eye, spot, width / 2, 9 * unit / 2)) gap -= 60;
+				if (!open) gap -= 500; // terrain in front of it: only if there is no open sky anywhere
 				if (coversPlayer(mc, eye, spot, spanH, spanV)) gap -= 80;
 				if (gap > bestGap) {
 					bestGap = gap;
@@ -521,7 +655,7 @@ public final class LyricScene {
 		double yawV = AfkCamera.yaw(mc), pitchV = AfkCamera.pitch(mc);
 		double fovH = hFov(mc), fovV = mc.options.fov().get();
 
-		double unitW = 0.05 * c.stickSize / 100.0;
+		double unitW = unitNow();
 		double width = pixelWidth(mc, words) * unitW;
 		double scale = width > 3.5 ? 3.5 / width : 1.0;
 		double unit = unitW * scale;
@@ -529,8 +663,10 @@ public final class LyricScene {
 
 		Item best = null;
 		double bestScore = -1e9;
+		double yawOff = MovePredictor.enabled() ? MovePredictor.yawOffset(mc, c.predictSeconds, fovH * 0.3) : 0;
 		for (int i = 0; i < 32; i++) {
-			double dx = (rng.nextDouble() * 2 - 1) * fovH * 0.38, dy = (rng.nextDouble() * 2 - 1) * fovV * 0.38;
+			double dx = Math.max(-fovH * 0.42, Math.min(fovH * 0.42, yawOff + (rng.nextDouble() * 2 - 1) * fovH * (yawOff != 0 ? 0.2 : 0.38)));
+			double dy = (rng.nextDouble() * 2 - 1) * fovV * 0.38;
 			Vec3 dir = dirOf(yawV + dx, pitchV + dy);
 			var hit = mc.level.clip(new ClipContext(eye, eye.add(dir.scale(Math.max(3, c.stickRange))), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
 			if (!(hit instanceof net.minecraft.world.phys.BlockHitResult bhr) || hit.getType() != HitResult.Type.BLOCK) continue;
@@ -545,7 +681,7 @@ public final class LyricScene {
 				if (!it.stick) continue;
 				gap = Math.min(gap, spot.distanceTo(it.pos) - (halfW + it.spanH) * 1.1);
 			}
-			double score = Math.min(gap, 6) * 10 - Math.hypot(dx, dy) * 0.05 + facing * 25;
+			double score = Math.min(gap, 6) * 10 - Math.hypot(dx - yawOff, dy) * 0.05 + facing * 25;
 			double sd = Math.max(1, spot.distanceTo(eye));
 			if (coversPlayer(mc, eye, spot, Math.toDegrees(Math.atan(halfW / sd)), Math.toDegrees(Math.atan(halfH / sd)))) score -= 200;
 			if (score > bestScore) {
@@ -564,53 +700,6 @@ public final class LyricScene {
 		}
 		if (best != null) items.add(best);
 		return best;
-	}
-
-	/** True if a block is between the eye and the word's centre or any of its four edges. */
-	private boolean blocked(Minecraft mc, Vec3 eye, Vec3 spot, double halfW, double halfH) {
-		if (mc.level == null) return false;
-		Vec3 dir = spot.subtract(eye);
-		Vec3 side = new Vec3(-dir.z, 0, dir.x).normalize();
-		Vec3[] pts = {spot, spot.add(side.scale(halfW)), spot.subtract(side.scale(halfW)), spot.add(0, halfH, 0), spot.add(0, -halfH, 0)};
-		for (Vec3 pt : pts) {
-			var hit = mc.level.clip(new ClipContext(eye, pt, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
-			if (hit.getType() != HitResult.Type.MISS) return true;
-		}
-		return false;
-	}
-
-	/**
-	 * Moves the spot toward the eye until the whole word (centre and its four edges) has a clear
-	 * line of sight, so it is never drawn inside a block.
-	 */
-	private Vec3 safeSpot(Minecraft mc, Vec3 eye, Vec3 spot, String[] words) {
-		if (mc.level == null) return spot;
-		double halfW = pixelWidth(mc, words) * unit() / 2, halfH = 9 * unit() / 2;
-		Vec3 dir = spot.subtract(eye);
-		double len = dir.length();
-		if (len < 0.01) return spot;
-		Vec3 side = new Vec3(-dir.z, 0, dir.x).normalize();
-		Vec3[] pts = {spot, spot.add(side.scale(halfW)), spot.subtract(side.scale(halfW)), spot.add(0, halfH, 0), spot.add(0, -halfH, 0)};
-		double ratio = 1.0;
-		for (Vec3 pt : pts) {
-			var hit = mc.level.clip(new ClipContext(eye, pt, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
-			if (hit.getType() == HitResult.Type.MISS) continue;
-			double r = hit.getLocation().subtract(eye).length() / Math.max(0.01, pt.subtract(eye).length());
-			ratio = Math.min(ratio, r);
-		}
-		if (ratio >= 1.0) return spot;
-		double newLen = Math.max(0.8, len * ratio - 0.6);
-		return eye.add(dir.scale(newLen / len));
-	}
-
-	/** If a block is between the eye and the spot, the spot moves to just in front of it. */
-	private Vec3 clipToWalls(Minecraft mc, Vec3 eye, Vec3 spot) {
-		if (mc.level == null) return spot;
-		var hit = mc.level.clip(new ClipContext(eye, spot, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
-		if (hit.getType() == HitResult.Type.MISS) return spot;
-		Vec3 dir = hit.getLocation().subtract(eye);
-		double len = dir.length();
-		return len < 1.2 ? eye.add(dir.scale(0.5)) : eye.add(dir.scale((len - 0.5) / len));
 	}
 
 	/**
@@ -635,15 +724,4 @@ public final class LyricScene {
 		return dYaw < halfWDeg + bodyHalfW && dPitch < halfHDeg + bodyHalfH;
 	}
 
-	/** Moves a spot up if it would sit inside the ground. */
-	private Vec3 liftFromGround(Minecraft mc, Vec3 spot) {
-		if (mc.level == null) return spot;
-		Vec3 s = spot;
-		for (int i = 0; i < 3; i++) {
-			var pos = net.minecraft.core.BlockPos.containing(s.x, s.y, s.z);
-			if (mc.level.getBlockState(pos).getCollisionShape(mc.level, pos).isEmpty()) return s;
-			s = s.add(0, 1, 0);
-		}
-		return s;
-	}
 }

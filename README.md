@@ -28,15 +28,15 @@ Turn on any combination. Every word is sent to one of the enabled modes.
 
 | Mode | What it does |
 |---|---|
-| **Aura** | Each word pops up around your crosshair when it is sung, glowing and tilted toward you. |
-| **Sky** | Huge words far away that flash up and drift like clouds. |
+| **Aura** | Each word pops up around your crosshair when it is sung, glowing and tilted toward you, always whole on screen and never on top of another word. |
+| **Sky** | Huge words far away that flash up and drift like clouds, always above the horizon and in front of open sky. |
 | **Stick on blocks** | Words stick flat onto the walls and floors you look at, like stickers. |
 | **Floating** | Words keep drifting through the world instead of standing still. |
 
-Extras: words stay out of blocks (or can be seen through walls, your choice), 3D text, glow, outline, motion blur, bounce, flicker and follow-me.
+Extras: **Spread** sets how far over the screen Aura and Sky words go (from close around the middle to about 3/4 of the screen). Words are placed where you are heading (also when flying with an elytra), are hidden behind blocks and come forward to just in front of the ground when you look down. Plus 3D text, glow, outline, motion blur, bounce, flicker and follow-me.
 
 ### Lyrics on the screen
-- **Lyric line:** the current line at the bottom. Limit how many words show at once, or let it **scroll** like a ticker with the sung word always in the middle.
+- **Lyric line:** the current line at the bottom. Limit how many words show at once, or let it **scroll** smoothly like a ticker with the sung word always in the middle.
 - **Karaoke mode:** a small panel with the previous, current and next line. The current line fills in while it is sung.
 - **Word sweep:** the sung word is colored from left to right in time with the singing.
 
@@ -47,21 +47,18 @@ A small window with cover, title, progress bar and previous / play-pause / next 
 - Hold the progress bar to scrub, let go to jump.
 
 ### HUD editor
-Run `/slyrics hud` to place everything where you want it.
-- Drag the media player, karaoke panel and lyric line.
-- Scroll over one to resize it.
-- Edges and the screen center snap with guide lines, and the modules never overlap.
+Run `/slyrics hud` to open OneConfig's HUD editor, then drag and resize the media player, karaoke panel and lyric line.
 
 ### AFK camera
 After you are idle, the camera leaves first person and plays cinematic shots around you (orbit, rise, fly-by, push in, ...) with the lyrics in view. Any input ends it.
 
 ### Look
-- Any Minecraft font, a font from a resource pack, or a font installed on your computer.
+- Minecraft's fonts or one of the caption fonts that come with the mod: Poppins, Bebas Neue, Anton, Luckiest Guy, Titan One, Bangers, Permanent Marker, Pacifico.
 - Text animations: TikTok pop, Slam, Shake, Wobble, Wave, Spin in, Slide up.
 - Emojis: real Minecraft icons or colored symbols after keywords in many languages (love ♥, fight ⚔, ...).
 
 ### Profiles
-Save all settings, including the HUD layout, under a name. Load, update, delete, import and export them. A **Save profile** button appears whenever the active profile has unsaved changes.
+Save all settings, including the HUD layout, under a name. Load, update and delete them, or share them through the clipboard (Profiles tab > Share).
 
 ---
 
@@ -82,8 +79,6 @@ All commands are client-side and need no permissions.
 | `/slyrics profile update` | Overwrite the active profile with your current settings. |
 | `/slyrics profile load <name>` | Load a profile. |
 | `/slyrics profile delete <name>` | Delete a profile. |
-| `/slyrics resourceful` | Open the Resourceful Config screen (useful when OneConfig is installed). |
-| `/slyrics classichud` | Open the mod's own HUD editor (useful when OneConfig is installed). |
 
 ---
 
@@ -126,21 +121,17 @@ Or add `org.mpris.MediaPlayer2.*` under *Session Bus -> Talk* in **Flatseal**.
 
 ## Settings
 
-Open them with `/slyrics config`.
+Open them with `/slyrics config`: SLyrics has its own page in OneConfig.
 
 | Category | What is in it |
 |---|---|
 | **Connectivity** | Music source, Spotify Client ID, other players. |
-| **Text Settings** | Font, effects, animations, word sweep, size. |
-| **Features** | Choose which features are on, then one page each for Aura, Sky, Stick on blocks, Lyric line, Media player, Floating & walls and AFK camera. |
-| **Profiles** | Save, load, import and export setups. |
-| **HUD editor** | Place and resize the on-screen modules. |
+| **Text Settings** | Font, size, color, effects, animations, word sweep, emojis. |
+| **Features** | The lyrics in the world: which modes are on, then Aura, Sky, Stick on blocks, Floating & walls and the AFK camera. |
+| **HUD** | Everything on the screen: the HUD editor, the lyric line, the karaoke panel and the media player, each with its own on/off switch. |
+| **Profiles** | Save, load, update, delete and share setups. |
 
-Settings are saved automatically.
-
-### Config screens
-- **Resourceful Config** (required): the default settings screen.
-- **OneConfig** (optional): if installed, it becomes the main config. SLyrics gets its own page with every setting, plus a HUD editor for the lyric line, karaoke panel and media player. Both screens change the same values, so you can use either. Without OneConfig nothing changes.
+Settings are saved automatically to `config/slyrics.json`. With **Developer mode** off (Connectivity > General) only the everyday settings are shown.
 
 ---
 
@@ -156,10 +147,9 @@ Settings are saved automatically.
 
 ### Required mods
 - [Fabric API](https://modrinth.com/mod/fabric-api)
-- [Resourceful Config](https://modrinth.com/mod/resourceful-config) (5.0.0 or newer)
-
-### Optional mods
-- [OneConfig](https://modrinth.com/mod/oneconfig) (1.4.1 or newer): alternative settings page and HUD editor.
+- [OneConfig](https://modrinth.com/mod/oneconfig) (1.9.1 or newer): the settings page and the HUD editor.
+- [PolyCompose](https://modrinth.com/mod/polycompose) (3.0.0 or newer), needed by OneConfig.
+- [Fabric Language Kotlin](https://modrinth.com/mod/fabric-language-kotlin), needed by OneConfig.
 
 ---
 

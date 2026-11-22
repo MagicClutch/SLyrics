@@ -1,11 +1,9 @@
 package dev.slyrics.compat.oneconfig;
 
 import dev.slyrics.Config;
-import dev.slyrics.ConfigSync;
 import dev.slyrics.HudMode;
 import dev.slyrics.LyricsHud;
 import dev.slyrics.MediaPlayer;
-import dev.slyrics.RcConfig;
 import dev.slyrics.SLyricsClient;
 import dev.slyrics.Spotify;
 import net.minecraft.client.Minecraft;
@@ -17,8 +15,8 @@ import org.polyfrost.oneconfig.api.hud.v1.LegacyHud;
 /**
  * The three HUD elements of SLyrics (lyric line, karaoke panel, media player) as OneConfig HUD elements, so they are moved and
  * scaled in OneConfig's own HUD editor. They draw with the same code as without OneConfig. The place and size are not stored
- * by OneConfig alone: they are kept in step with {@link Config} (percent of the screen), so the mod's own editor, profiles and
- * Resourceful Config see the same values.
+ * by OneConfig alone: they are kept in step with {@link Config} (percent of the screen), so profiles and the settings
+ * see the same values.
  */
 final class SLyricsHuds {
 	private static final float EPS_POS = 0.05f, EPS_SCALE = 0.0005f;
@@ -62,7 +60,7 @@ final class SLyricsHuds {
 		}
 		if (dirty && System.currentTimeMillis() - dirtySince > SAVE_DELAY_MS) { // not while the mouse is still dragging
 			dirty = false;
-			ConfigSync.saveAll();
+			Config.save();
 		}
 	}
 
@@ -73,11 +71,6 @@ final class SLyricsHuds {
 
 	private static boolean editing() {
 		return HudManager.INSTANCE.isEditing();
-	}
-
-	/** Hidden while the mod's own editor is open: it draws the elements itself. */
-	private static boolean hiddenByClassic() {
-		return HudMode.classicEditor();
 	}
 
 	// ------------------------------------------------------------------ the elements
@@ -129,16 +122,17 @@ final class SLyricsHuds {
 		@Override
 		public boolean shouldShow() {
 			Config c = Config.INSTANCE;
-			return !hiddenByClassic() && (editing() || c.enabled && (c.lineMode || Spotify.lyrics.isEmpty()));
+			return editing() || c.enabled && (c.lineMode || Spotify.lyrics.isEmpty());
 		}
 
 		@Override
 		public void render(GuiGraphicsExtractor g) {
 			Config c = Config.INSTANCE;
 			Minecraft mc = Minecraft.getInstance();
-			float half = (g.guiWidth() / 2f - 6f) / Math.max(0.01f, getEffectiveScale());
+			float room = g.guiWidth();
+			float half = (room / 2f - 6f) / Math.max(0.01f, getEffectiveScale());
 			if (editing() && Spotify.lyrics.isEmpty()) {
-				LyricsHud.draw(g, mc.font, "The lyric line", W / 2f, H / 2f, 1f, c.rgb(), 1f, c, 1f);
+				LyricsHud.draw(g, mc.font, "The lyric line", W / 2f, H / 2f, 1f, c.rgb(), 1f, c);
 				return;
 			}
 			LyricsHud.drawLine(g, mc.font, c, W / 2f, H / 2f, 1f, half);
@@ -169,7 +163,7 @@ final class SLyricsHuds {
 		@Override
 		public boolean shouldShow() {
 			Config c = Config.INSTANCE;
-			return !hiddenByClassic() && (editing() || c.enabled && c.hudMode && !Spotify.lyrics.isEmpty());
+			return editing() || c.enabled && c.hudMode && !Spotify.lyrics.isEmpty();
 		}
 
 		@Override
@@ -198,7 +192,7 @@ final class SLyricsHuds {
 
 		@Override
 		public boolean shouldShow() {
-			return !hiddenByClassic() && (editing() || MediaPlayer.visible());
+			return editing() || MediaPlayer.visible();
 		}
 
 		@Override
@@ -235,7 +229,6 @@ final class SLyricsHuds {
 			if (hud instanceof LineHud) {
 				s = Math.max(0.5f, Math.min(5f, s));
 				c.scale = s;
-				RcConfig.SizeCat.scale = s;
 				c.xPercent = (x + LineHud.W * s / 2f) / gw * 100f;
 				c.yPercent = (y + LineHud.H * s / 2f) / gh * 100f;
 			} else if (hud instanceof PanelHud) {

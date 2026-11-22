@@ -20,8 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * What SLyrics offers outside the Resourceful Config screen, rebuilt as OneConfig options: the profile actions, the media
- * player buttons, the Spotify logout and the emoji word lists. Every action calls the same method the old screen or command uses.
+ * The OneConfig options that are not plain fields of {@link dev.slyrics.ConfigLayout}: the profile actions, the keybinds,
+ * the Spotify logout, the font list and the emoji switches. Every action calls the same method the matching command uses.
  */
 final class SLyricsExtras {
 	/** The last name typed into the profile field. */
@@ -29,7 +29,7 @@ final class SLyricsExtras {
 
 	/** Adds a value that lives in Config.INSTANCE and has to be kept in sync (see SLyricsOneConfig#sync). */
 	interface Binder {
-		void bind(ConfigDSL.Prop<Object> prop, Field field, boolean map);
+		void bind(ConfigDSL.Prop<Object> prop, Field field);
 	}
 
 	private SLyricsExtras() {}
@@ -37,7 +37,6 @@ final class SLyricsExtras {
 	static void add(ConfigDSL dsl, Binder binder) {
 		try {
 			profiles(dsl);
-			media(dsl);
 			spotify(dsl);
 			emojis(dsl, binder);
 			fonts(dsl);
@@ -96,70 +95,38 @@ final class SLyricsExtras {
 	// ------------------------------------------------------------------ font dropdown
 
 	private static ConfigDSL.OptionsProp<Integer> fontPick;
-	private static final java.util.List<String> fontLabels = new ArrayList<>();
-	private static final java.util.List<String> fontValues = new ArrayList<>();
 	private static int fontLast = -1;
 
-	private static void fontAdd(String label, String value) {
-		fontLabels.add(label);
-		fontValues.add(value);
-	}
-
+	/** The font dropdown: Minecraft's fonts and the ones that come with the mod (see {@link dev.slyrics.Fonts}). */
 	private static void fonts(ConfigDSL dsl) {
-		fontLabels.clear();
-		fontValues.clear();
-		fontAdd("Minecraft (default)", "minecraft:default");
-		fontAdd("Minecraft uniform", "minecraft:uniform");
-		fontAdd("Minecraft alternate (enchanting table)", "minecraft:alt");
-		fontAdd("Minecraft illager", "minecraft:illageralt");
-		String cur = Config.INSTANCE.font;
-		if (!fontValues.contains(cur)) fontAdd(fontName(cur), cur);
-		fontPick = dsl.dropdown(fontValues.indexOf(cur), fontLabels.toArray(new String[0]));
-		fontLast = fontValues.indexOf(cur);
+		var all = dev.slyrics.Fonts.ALL;
+		String[] labels = new String[all.size()];
+		for (int i = 0; i < labels.length; i++) labels[i] = all.get(i).label();
+		fontLast = dev.slyrics.Fonts.indexOf(Config.INSTANCE.font);
+		fontPick = dsl.dropdown(fontLast, labels);
 		fontPick.setId("fontPick");
-		fontPick.setTitle("Choose font");
-		fontPick.setDescription("Minecraft's fonts and every TrueType font installed on this computer (the installed ones appear a moment after the game started). Same as the Choose button and the font field.");
+		fontPick.setTitle("Font");
+		fontPick.setDescription("The font of the lyrics. Minecraft's own fonts and a few caption fonts that come with the mod. Characters a font does not have (emojis, other scripts) use the Minecraft font.");
 		fontPick.setCategory("Text Settings");
 		fontPick.setSubcategory("Text");
-		Thread t = new Thread(() -> {
-			var found = dev.slyrics.font.SystemFonts.list();
-			Minecraft.getInstance().execute(() -> {
-				for (var e : found) {
-					String v = dev.slyrics.font.UserFont.PREFIX + e.file().toAbsolutePath();
-					if (!fontValues.contains(v)) fontAdd(e.name(), v);
-				}
-				fontRefill();
-			});
-		}, "SLyrics-Fonts-OneConfig");
-		t.setDaemon(true);
-		t.start();
-	}
-
-	private static String fontName(String value) {
-		return value.startsWith(dev.slyrics.font.UserFont.PREFIX) ? java.nio.file.Path.of(value.substring(dev.slyrics.font.UserFont.PREFIX.length())).getFileName().toString() : value;
-	}
-
-	private static void fontRefill() {
-		if (fontPick == null) return;
-		fontPick.setOptionKeys(fontLabels.toArray(new String[0]));
-		fontLast = Math.max(0, fontValues.indexOf(Config.INSTANCE.font));
-		fontPick.getProperty().set(fontLast);
 	}
 
 	/** Dropdown to config and back: whichever side changed since the last tick wins. */
 	private static void tickFont() {
 		if (fontPick == null) return;
 		Integer idx = fontPick.getProperty().get();
-		if (idx == null || idx < 0 || idx >= fontValues.size()) return;
+		var all = dev.slyrics.Fonts.ALL;
+		if (idx == null || idx < 0 || idx >= all.size()) return;
 		if (idx != fontLast) { // picked in OneConfig
 			fontLast = idx;
-			if (!fontValues.get(idx).equals(Config.INSTANCE.font)) {
-				Config.INSTANCE.font = fontValues.get(idx);
-				dev.slyrics.ConfigSync.saveAll();
+			if (!all.get(idx).id().equals(Config.INSTANCE.font)) {
+				Config.INSTANCE.font = all.get(idx).id();
+				Config.save();
 			}
-		} else if (!fontValues.get(idx).equals(Config.INSTANCE.font)) { // changed elsewhere (font field, picker screen, profile)
-			if (!fontValues.contains(Config.INSTANCE.font)) fontAdd(fontName(Config.INSTANCE.font), Config.INSTANCE.font);
-			fontRefill();
+		} else if (!all.get(idx).id().equals(Config.INSTANCE.font)) { // changed elsewhere (profile)
+			if (!dev.slyrics.Fonts.isKnown(Config.INSTANCE.font)) Config.INSTANCE.font = "minecraft:default";
+			fontLast = dev.slyrics.Fonts.indexOf(Config.INSTANCE.font);
+			fontPick.getProperty().set(fontLast);
 		}
 	}
 
@@ -279,14 +246,27 @@ final class SLyricsExtras {
 			chat(n.isEmpty() ? "no profile picked" : Profiles.delete(n) ? "deleted profile '" + n + "'" : "no profile named '" + n + "'");
 			refreshProfiles();
 		});
-	}
 
-	private static void media(ConfigDSL dsl) {
-		String cat = "Features";
-		String sub = "Media player";
-		button(dsl, "mediaPrevious", "Previous song", "Previous", "Same as the player's previous button and its key binding.", cat, sub, MediaPlayer::previous);
-		button(dsl, "mediaPlayPause", "Play / pause", "Play / pause", "Same as the player's play/pause button and its key binding.", cat, sub, MediaPlayer::togglePlay);
-		button(dsl, "mediaNext", "Next song", "Next", "Same as the player's next button and its key binding.", cat, sub, MediaPlayer::next);
+		String shareSub = "Share";
+		button(dsl, "profileExport", "Export to clipboard", "Export", "Copies the profile picked above to the clipboard, so you can send it to someone. Your Spotify client ID is not part of it.", cat, shareSub, () -> {
+			try {
+				String n = picked();
+				if (n.isEmpty() || !Profiles.exists(n)) { chat("pick the profile to export"); return; }
+				Minecraft.getInstance().keyboardHandler.setClipboard(Profiles.exportText(n, false));
+				chat("copied profile '" + n + "' to the clipboard");
+			} catch (Exception e) {
+				chat("could not export: " + e.getMessage());
+			}
+		});
+		button(dsl, "profileImport", "Import from clipboard", "Import", "Adds the profile in the clipboard. It is saved under the name typed in New profile name, or under its own name.", cat, shareSub, () -> {
+			try {
+				String n = Profiles.importText(Minecraft.getInstance().keyboardHandler.getClipboard(), profileName);
+				chat("imported profile '" + n + "'");
+				refreshProfiles();
+			} catch (Exception e) {
+				chat("could not import: " + e.getMessage());
+			}
+		});
 	}
 
 	private static void spotify(ConfigDSL dsl) {
@@ -300,30 +280,14 @@ final class SLyricsExtras {
 		String cat = "Text Settings";
 		String sub = "Emojis";
 		for (String[] s : new String[][]{
-			{"emojis", "Emojis", "Symbols after keywords (love -> love ♥). The word is kept."},
-			{"emojiColors", "Emoji colors", "Give every emoji its own color instead of the text color."},
-			{"emojiSprites", "Minecraft icons", "Use real Minecraft icons (items, blocks, hearts, ...) for words that have one; other words still use the symbols."}}) {
+			{"emojis", "Enable emojis", "Adds an emoji after matching words in the lyrics (love -> love ♥, diamond -> a real diamond icon). The word is kept."}}) {
 			ConfigDSL.Prop<Object> p = bool(dsl, Config.class.getField(s[0]).getBoolean(Config.INSTANCE));
 			p.setId(s[0]);
 			p.setTitle(s[1]);
 			p.setDescription(s[2]);
 			p.setCategory(cat);
 			p.setSubcategory(sub);
-			binder.bind(p, Config.class.getField(s[0]), false);
-		}
-		for (String[] s : new String[][]{
-			{"emojiMap", "Emoji words", "One entry per word: word=symbol, e.g. love=♥. Stored in config/slyrics-extra.json."},
-			{"emojiSpriteMap", "Icon words", "One entry per word: word=sprite, e.g. diamond=item:diamond, flower=block:poppy or heart=gui:hud/heart/full."}}) {
-			Field f = Config.class.getField(s[0]);
-			ConfigDSL.TextListProp p = dsl.textList(mapToLines(f.get(Config.INSTANCE)));
-			p.setId(s[0]);
-			p.setTitle(s[1]);
-			p.setDescription(s[2]);
-			p.setCategory(cat);
-			p.setSubcategory(sub);
-			p.setReorderable(false);
-			@SuppressWarnings("unchecked") ConfigDSL.Prop<Object> prop = (ConfigDSL.Prop<Object>) (ConfigDSL.Prop<?>) p;
-			binder.bind(prop, f, true);
+			binder.bind(p, Config.class.getField(s[0]));
 		}
 	}
 
@@ -334,22 +298,5 @@ final class SLyricsExtras {
 		return (ConfigDSL.Prop<Object>) m.invoke(dsl, initial);
 	}
 
-	static String[] mapToLines(Object map) {
-		var lines = new ArrayList<String>();
-		for (var e : ((Map<?, ?>) map).entrySet()) lines.add(e.getKey() + "=" + e.getValue());
-		return lines.toArray(new String[0]);
-	}
-
-	static Map<String, String> linesToMap(Object lines) {
-		Map<String, String> out = new LinkedHashMap<>();
-		for (String line : (String[]) lines) {
-			int i = line == null ? -1 : line.indexOf('=');
-			if (i <= 0) continue;
-			String word = line.substring(0, i).trim().toLowerCase(java.util.Locale.ROOT);
-			String value = line.substring(i + 1).trim();
-			if (!word.isEmpty() && !value.isEmpty()) out.put(word, value);
-		}
-		return out;
-	}
 
 }

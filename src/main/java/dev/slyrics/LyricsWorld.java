@@ -21,23 +21,33 @@ public final class LyricsWorld {
 	public static net.minecraft.world.phys.Vec3 currentWordPos(long now) {
 		return SCENE.currentWordPos(now, Config.INSTANCE.follow);
 	}
-	private static final int OUTLINE_RGB = 0x080B16;
 
-	/** Glow offsets {dx, dy, unused, weight}: four rings around the glyph, the weight falls off outward. */
+	private static final int OUTLINE_RGB = 0x080B16;
+	/**
+	 * Depth between two text layers, in text pixels: enough for the depth buffer to tell them apart, too little to see.
+	 * Copies on one plane would fight over the same pixels and flicker (worst far away, where the depth buffer is coarse).
+	 */
+	private static final float LAYER_GAP = 0.25f;
+	/** The glow copies are spread over this much depth behind the outline, each one on its own. */
+	private static final float GLOW_DEPTH = 1.2f;
+
+	/** Glow offsets {dx, dy, depth, weight}: three rings around the glyph, the weight falls off outward. */
 	private static final float[][] GLOW;
 	/** Unit-circle offsets used for the outline and the sweep glow. */
 	private static final float[][] RING8 = new float[8][];
 
 	static {
-		float[] radius = {0.45f, 0.9f, 1.5f, 2.3f}, weight = {0.34f, 0.26f, 0.15f, 0.08f};
-		int[] count = {8, 10, 12, 14};
+		// three rings, the outer (faintest) one first: copies are drawn back to front, each a little deeper than the next
+		float[] radius = {2.0f, 1.2f, 0.6f}, weight = {0.12f, 0.24f, 0.4f};
+		int[] count = {10, 8, 6};
 		java.util.List<float[]> g = new java.util.ArrayList<>();
-		for (int k = 0; k < 4; k++) {
+		for (int k = 0; k < radius.length; k++) {
 			for (int i = 0; i < count[k]; i++) {
 				double ang = (i + 0.5 * k) * 2 * Math.PI / count[k];
 				g.add(new float[]{(float) Math.cos(ang) * radius[k], (float) Math.sin(ang) * radius[k], 0f, weight[k]});
 			}
 		}
+		for (int i = 0; i < g.size(); i++) g.get(i)[2] = 1f - (float) i / g.size(); // depth: 1 = farthest back
 		GLOW = g.toArray(new float[0][]);
 		for (int i = 0; i < 8; i++) RING8[i] = new float[]{(float) Math.cos(i * Math.PI / 4), (float) Math.sin(i * Math.PI / 4)};
 	}
@@ -48,7 +58,6 @@ public final class LyricsWorld {
 	}
 
 	private static boolean stickNow;
-	private static boolean behindPlayer;
 	private static String lastTrack = "";
 	private static int lastLine = -1;
 	private static boolean wasPlaying;
@@ -190,16 +199,13 @@ public final class LyricsWorld {
 
 		stickNow = it.stick;
 		Vec3 at = SCENE.worldPos(it, c.follow);
-		// through-walls text would shine through the player's body: depth-test words the player stands in front of
-		behindPlayer = mc.player != null && (!mc.options.getCameraType().isFirstPerson() || AfkCamera.active())
-			&& mc.player.getBoundingBox().inflate(0.15).clip(cam, at).isPresent();
 		if (it.sky) { // slow sideways drift, like a cloud
 			Vec3 d = at.subtract(cam);
 			double len = Math.max(1.0, Math.hypot(d.x, d.z));
 			double drift = (now - it.sungAt[0]) / 1000.0 * len * 0.006;
 			at = at.add(-d.z / len * drift, 0, d.x / len * drift);
 		}
-		float s = 0.05f * (c.size / 100f) * it.fit * scaleAnim;
+		float s = it.base * it.fit * scaleAnim;
 		ps.pushPose();
 		ps.translate((float) (at.x - cam.x), (float) (at.y - cam.y + lift), (float) (at.z - cam.z));
 		ps.rotateDegrees(Axis.YP, -it.yaw);
@@ -343,39 +349,45 @@ public final class LyricsWorld {
 	private static void drawWord(Component text, Component colored, String raw, float x, float y, float a, float smear, float glitch, float boost, float away, float sweepProg, float sweepAlpha, Sink sink) {
 		Config c = Config.INSTANCE;
 		float glow = c.glow / 100f, outline = c.outline / 100f;
-		boolean see = c.throughWalls && !behindPlayer;
-		var under = see ? Font.DisplayMode.SEE_THROUGH : stickNow ? Font.DisplayMode.POLYGON_OFFSET : Font.DisplayMode.NORMAL;
-		var top = see ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.POLYGON_OFFSET;
+		// depth-tested: blocks always hide the lyrics behind them. The layers sit a little behind each other (glow at the back,
+		// then outline and effects, the text in front): on one plane they would fight over the same pixels and flicker,
+		// most of all far away (sky words), where the depth buffer is coarse.
+		var under = stickNow ? Font.DisplayMode.POLYGON_OFFSET : Font.DisplayMode.NORMAL;
+		var top = Font.DisplayMode.POLYGON_OFFSET;
+		float zGlow = away * LAYER_GAP * 3f, zUnder = away * LAYER_GAP;
 		if (glitch > 0f) {
 			x += (glitch - 0.5f) * 4f;
 			a *= 0.55f + 0.3f * glitch;
 		}
 
-		if (glow > 0.02f) { // soft halo: many tiny-offset copies on four rings, fading outward, so it reads as smooth light
+		if (glow > 0.02f) { // soft halo: tiny-offset copies on three rings, fading outward, so it reads as smooth light
 			int rgb = hex(c.glowColor, 0xDDE9FF);
 			float r = (0.6f + 0.9f * glow) * (0.8f + 0.2f * Math.min(boost, 1.6f));
 			float strength = a * Math.min(1f, 0.35f * glow + 0.1f) * Math.min(boost, 1.6f);
 			for (float[] g : GLOW) {
 				int col = argb(strength * g[3], rgb);
-				if (col != 0) sink.draw(text, x + g[0] * r, y + g[1] * r, col, under);
+				if (col != 0) sink.draw(text, x + g[0] * r, y + g[1] * r, zGlow + away * GLOW_DEPTH * g[2], col, under);
 			}
 		}
 		if (smear > 0.01f) {
 			int col = argb(a * 0.28f, c.rgb());
 			if (col != 0) for (int k = 1; k <= 2; k++) {
-				sink.draw(text, x - k * 1.6f * smear, y, col, under);
-				sink.draw(text, x + k * 1.6f * smear, y, col, under);
+				sink.draw(text, x - k * 1.6f * smear, y, zUnder, col, under);
+				sink.draw(text, x + k * 1.6f * smear, y, zUnder, col, under);
 			}
 		}
 		if (glitch > 0f) {
 			float split = 1f + 2f * glitch;
 			int cyan = argb(a * 0.6f, 0x5CE1FF), pink = argb(a * 0.6f, 0xFF51B8);
-			if (cyan != 0) sink.draw(text, x - split, y, cyan, under);
-			if (pink != 0) sink.draw(text, x + split, y, pink, under);
+			if (cyan != 0) sink.draw(text, x - split, y, zUnder, cyan, under);
+			if (pink != 0) sink.draw(text, x + split, y, zUnder, pink, under);
 		}
 		if (outline > 0.02f) {
 			int col = argb(a * 0.3f * outline, OUTLINE_RGB);
-			if (col != 0) for (float[] o : RING8) sink.draw(text, x + o[0] * 0.8f, y + o[1] * 0.8f, col, under);
+			if (col != 0) for (int i = 0; i < RING8.length; i++) {
+				float[] o = RING8[i];
+				sink.draw(text, x + o[0] * 0.8f, y + o[1] * 0.8f, zUnder + away * LAYER_GAP * (RING8.length - i) / RING8.length, col, under);
+			}
 		}
 		if (c.depth3d && c.depthSize > 0.1f) {
 			// stacked copies from the back to just behind the front face, darker toward the back
@@ -386,7 +398,7 @@ public final class LyricsWorld {
 				float shade = 0.72f - 0.4f * f;                    // back is darker
 				int rgb = ((int) (((base >> 16) & 255) * shade) << 16) | ((int) (((base >> 8) & 255) * shade) << 8) | (int) ((base & 255) * shade);
 				int col = argb(a * 0.97f, rgb);
-				if (col != 0) sink.draw(text, x, y, away * c.depthSize * f, col, under);
+				if (col != 0) sink.draw(text, x, y, away * (LAYER_GAP + c.depthSize * f), col, under);
 			}
 		}
 		int main = argb(a * (1f - 0.55f * smear), c.rgb());
@@ -399,13 +411,16 @@ public final class LyricsWorld {
 			float exact = c.sweepWhole ? n : sweepProg * n;
 			int whole = Math.min(n, (int) Math.floor(exact));
 			float frac = exact - whole;
-			float z = -away * 0.08f; // a hair in front of the base text
+			float z = -away * LAYER_GAP; // a little in front of the base text
 			Component prefix = whole > 0 ? LyricsHud.styled(raw.substring(0, whole), c, true) : null;
 			int col = argb(a * sweepAlpha, rgb);
 			if (col != 0) {
 				if (c.sweepGlow) {
 					int gcol = argb(a * sweepAlpha * 0.16f, rgb);
-					if (gcol != 0 && prefix != null) for (float[] o : RING8) sink.draw(prefix, x + o[0] * 1.2f, y + o[1] * 1.2f, z, gcol, under);
+					if (gcol != 0 && prefix != null) for (int i = 0; i < RING8.length; i++) { // between the base text and the sweep, each copy on its own depth
+						float[] o = RING8[i];
+						sink.draw(prefix, x + o[0] * 1.2f, y + o[1] * 1.2f, z * (i + 1) / (RING8.length + 1), gcol, under);
+					}
 				}
 				if (prefix != null) sink.draw(prefix, x, y, z, col, top);
 				if (whole < n && frac > 0.02f) {

@@ -59,7 +59,7 @@ final class LinuxMedia {
 		int chosenScore = -1;
 		for (String name : players()) {
 			String lower = name.toLowerCase();
-			if (lower.contains("spotify")) continue; // that one is the Spotify source
+			if (filter.isEmpty() && lower.contains("spotify")) continue; // that one is the Spotify source, unless asked for by name
 			if (!filter.isEmpty() && !lower.contains(filter)) continue;
 			String state = prop(name, "PlaybackStatus");
 			if (state == null) continue;

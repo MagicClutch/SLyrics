@@ -24,21 +24,16 @@ public class SLyricsClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		Config.load();
-		ConfigSync.init();
 		dev.slyrics.compat.oneconfig.OneConfigBridge.init();
 		dev.slyrics.profiles.Profiles.ensureDefaults();
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(c -> {
-			ConfigSync.tick();
 			dev.slyrics.compat.oneconfig.OneConfigBridge.tick();
-			dev.slyrics.font.UserFont.tick();
 		});
-		dev.slyrics.profiles.SaveProfileButton.init();
 		Spotify.start();
 		OtherPlayers.start();
 		LyricsWorld.init();
 		AfkCamera.init();
 		MediaPlayer.init();
-		HudEditor.initRedirect();
 		// first start after installing: tell the user where to enter their own Spotify Client ID
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
 			Spotify.resetNoLyricsTimer();
@@ -52,18 +47,8 @@ public class SLyricsClient implements ClientModInitializer {
 			ClientCommands.literal("slyrics")
 				.executes(ctx -> openConfig())
 				.then(ClientCommands.literal("config").executes(ctx -> openConfig()))
-				.then(ClientCommands.literal("resourceful").executes(ctx -> { // the Resourceful Config screen, also with OneConfig installed
-					Minecraft.getInstance().execute(ConfigSync::openScreen);
-					return 1;
-				}))
 				.then(ClientCommands.literal("hud").executes(ctx -> {
-					Minecraft.getInstance().execute(() -> {
-						if (!dev.slyrics.compat.oneconfig.OneConfigBridge.openHudEditor()) HudEditor.open();
-					});
-					return 1;
-				}))
-				.then(ClientCommands.literal("classichud").executes(ctx -> {
-					HudEditor.open();
+					Minecraft.getInstance().execute(dev.slyrics.compat.oneconfig.OneConfigBridge::openHudEditor);
 					return 1;
 				}))
 				.then(ClientCommands.literal("login").executes(ctx -> login(ctx.getSource())))
@@ -124,14 +109,14 @@ public class SLyricsClient implements ClientModInitializer {
 					}))))
 				.then(ClientCommands.literal("toggle").executes(ctx -> {
 					Config.INSTANCE.enabled = !Config.INSTANCE.enabled;
-					ConfigSync.saveAll();
+					Config.save();
 					ctx.getSource().sendFeedback(Component.literal("SLyrics: " + (Config.INSTANCE.enabled ? "on" : "off")));
 					return 1;
 				}))
 				.then(ClientCommands.literal("offset")
 					.then(ClientCommands.argument("ms", IntegerArgumentType.integer(-10000, 10000)).executes(ctx -> {
 						Config.INSTANCE.offsetMs = IntegerArgumentType.getInteger(ctx, "ms");
-						ConfigSync.saveAll();
+						Config.save();
 						ctx.getSource().sendFeedback(Component.literal("SLyrics: Offset " + Config.INSTANCE.offsetMs + " ms"));
 						return 1;
 					})))));
@@ -140,7 +125,7 @@ public class SLyricsClient implements ClientModInitializer {
 	private static int openConfig() {
 		Minecraft mc = Minecraft.getInstance();
 		mc.execute(() -> {
-			if (!dev.slyrics.compat.oneconfig.OneConfigBridge.openConfig()) ConfigSync.openScreen(); // OneConfig is the main config, Resourceful Config the fallback
+			if (!dev.slyrics.compat.oneconfig.OneConfigBridge.openConfig()) SLyricsClient.LOGGER.warn("The OneConfig page could not be opened");
 		});
 		return 1;
 	}
