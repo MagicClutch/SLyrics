@@ -40,6 +40,17 @@ public class Config {
 	/** Developer mode: shows all the detailed settings in the OneConfig page. Off = only the easy, everyday settings. */
 	public boolean devMode = false;
 
+	// ------------------------------------------------------------------ experimental
+
+	/** Experimental: lyrics in the OneClient lobby (main menu background), placed in the lobby camera's view. */
+	public boolean lobbyLyrics = false;
+	/** Lobby lyrics: distance of the words from the lobby camera in blocks. */
+	public float lobbyDistance = 14f;
+	/** Lobby lyrics: how much of the screen the words spread over, in percent. */
+	public int lobbySpread = 85;
+	/** Lobby lyrics: size of the words on the screen, in percent. */
+	public int lobbyTextSize = 100;
+
 	// ------------------------------------------------------------------ bookkeeping (only in slyrics.json)
 
 	/** The profile that was last saved or loaded (empty = none). Not a setting: it is not part of any profile. */
@@ -158,6 +169,32 @@ public class Config {
 	/** Color the whole word at once instead of sweeping across it. */
 	public boolean sweepWhole = false;
 	public boolean sweepGlow = false;
+
+	// ------------------------------------------------------------------ Pretty Lyrics
+
+	/** Pretty Lyrics: a smooth karaoke style for the panel, the lyric line and the words in the world (soft sweep, lift, glow). */
+	public boolean prettyLyrics = false;
+	/** How strongly the words grow and lift while sung, in percent (0 = only sweep and glow). */
+	public int prettyMotion = 100;
+	/** Strength of the glow while a word is sung, in percent. */
+	public int prettyGlow = 100;
+	/** Width of the soft edge of the sweep: 20 = about the height of a letter (the same for every word). */
+	public int prettyEdge = 20;
+	/** Brightness of the sung and the not yet sung part, in percent. */
+	public int prettySung = 85;
+	public int prettyUnsung = 50;
+	/** Every letter hops and grows while the sweep passes it (held notes more, with their own glow). */
+	public boolean prettyLetters = true;
+	/** How long a word has to be held to count as a held note, in ms. */
+	public int prettyEmphasisMs = 1000;
+	/** Three dots during an instrumental pause. */
+	public boolean prettyDots = true;
+	/** From how long a gap between two lines counts as a pause, in ms. */
+	public int prettyPauseMs = 4000;
+	/** Karaoke panel: rows farther from the one being sung are a little dimmer. */
+	public boolean prettySoftNeighbors = true;
+	/** Use the exact word times when the lyrics have them (Enhanced LRC); otherwise they are estimated. */
+	public boolean prettyWordTimes = true;
 
 	// ------------------------------------------------------------------ AFK camera
 
@@ -323,6 +360,51 @@ public class Config {
 		}
 		if (c.mediaVersion < 5) c.lineMode = !c.anyWorld(); // the lyric line used to show only while no world mode was on
 		c.mediaVersion = 7;
+	}
+
+	private static long resetAskedAt;
+
+	/**
+	 * The "Reset all settings" button: the first press only asks, a second press within 5 seconds resets everything to how
+	 * a fresh download starts (see {@link #resetAll()}).
+	 */
+	public static void resetAllButton() {
+		long now = System.currentTimeMillis();
+		if (now - resetAskedAt > 5000) {
+			resetAskedAt = now;
+			chat("Press Reset again within 5 seconds to reset ALL SLyrics settings. This also removes your Spotify Client ID and login. Profiles are kept.");
+			return;
+		}
+		resetAskedAt = 0;
+		resetAll();
+		chat("All settings are back to their defaults. Spotify Client ID and login were removed.");
+	}
+
+	/**
+	 * Every setting back to its default, as after a fresh download: the Spotify Client ID and login (and a login that is
+	 * still waiting) go too, and the media keys get their default keys. Saved profiles stay.
+	 */
+	public static void resetAll() {
+		Config fresh = new Config();
+		fresh.defaultProfilesVersion = INSTANCE.defaultProfilesVersion; // deleted built-in profiles must not come back
+		fresh.emojiVersion = EMOJI_VERSION; // the fresh word lists already have every default word
+		INSTANCE = fresh;
+		migrate(); // what the first start does with a new config
+		save();
+		Spotify.logout();
+		Spotify.checkClientId();
+		var mc = net.minecraft.client.Minecraft.getInstance();
+		for (var km : MediaPlayer.keyMappings()) km.setKey(km.getDefaultKey());
+		net.minecraft.client.KeyMapping.resetMapping();
+		mc.options.save();
+		SLyricsClient.LOGGER.info("All settings were reset to their defaults");
+	}
+
+	private static void chat(String msg) {
+		var mc = net.minecraft.client.Minecraft.getInstance();
+		mc.execute(() -> {
+			if (mc.player != null) mc.player.sendSystemMessage(net.minecraft.network.chat.Component.literal("SLyrics: " + msg));
+		});
 	}
 
 	/** Saves and starts the Spotify login (the link appears in chat). */

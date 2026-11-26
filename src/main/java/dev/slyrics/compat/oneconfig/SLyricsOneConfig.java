@@ -65,6 +65,13 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 
 	private final List<Binding> bindings = new ArrayList<>();
 
+	/**
+	 * A fresh config, as after a new download. Every option is created with its value from here, because OneConfig
+	 * remembers the value an option starts with as its default (for "Reset to default"); the first {@link #sync()} then
+	 * shows the real value from Config.INSTANCE.
+	 */
+	static final Config DEFAULTS = new Config();
+
 	private SLyricsOneConfig() {
 		super("slyrics", "SLyrics", Category.UTILITY);
 	}
@@ -90,7 +97,7 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 		b.prop = prop;
 		b.field = field;
 		try {
-			b.last = b.toWidget(field.get(Config.INSTANCE));
+			b.last = b.toWidget(field.get(DEFAULTS)); // the prop was created with the default; sync() brings in the real value
 		} catch (IllegalAccessException e) {
 			throw new IllegalStateException(e);
 		}
@@ -108,16 +115,16 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 		JsonObject lang = loadLang();
 		try {
 			Page top = ConfigLayout.class.getAnnotation(Page.class);
-			for (Class<?> cat : top.categories()) {
-				dev.slyrics.LayoutAnnotations.Category c = cat.getAnnotation(dev.slyrics.LayoutAnnotations.Category.class);
-				String catName = c.value();
-				for (Class<?> sub : c.categories()) addCategory(dsl, lang, catName, sub);
-				if (c.categories().length == 0) addCategory(dsl, lang, catName, cat);
-			}
+			for (Class<?> cat : top.categories()) if (cat != ConfigLayout.Experimental.class) addTab(dsl, lang, cat);
 		} catch (Throwable t) {
 			SLyricsClient.LOGGER.warn("Could not build the OneConfig page", t);
 		}
 		SLyricsExtras.add(dsl, this::addBinding);
+		try {
+			addTab(dsl, lang, ConfigLayout.Experimental.class); // always the last tab, after the extra tabs (keybinds, profiles)
+		} catch (Throwable t) {
+			SLyricsClient.LOGGER.warn("Could not build the Experimental tab", t);
+		}
 		Tree tree = dsl.getTree();
 		applyDevMode(tree);
 		Tree_extensionsKt.setUiOnly(tree, true);
@@ -127,10 +134,11 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 	/** Options that stay visible with Developer mode off: everything else is hidden until it is switched on. */
 	private static final java.util.Set<String> EASY = java.util.Set.of(
 		"enabled", "musicSource", "offsetMs", "devMode", "clientId", "connect", "spotifyLogout",
-		"font", "fontPick", "color", "glow", "emojis", "textAnim", "sweepMode",
+		"font", "fontPick", "color", "glow", "emojis", "textAnim", "sweepMode", "prettyLyrics", "prettyMotion", "prettyGlow",
 		"hologram", "skyMode", "afkEnabled",
 		"size", "skyTextDeg", "near", "far",
 		"keyPlayPause", "keyNext", "keyPrevious",
+		"lobbyLyrics", "lobbyDistance", "lobbySpread", "lobbyTextSize",
 		"profilePick", "profileLoad", "profileUpdate", "profileDelete", "profileName", "profileSave", "profileExport", "profileImport");
 
 	/** Hides every option that is not in {@link #EASY} while the Developer mode switch is off. */
@@ -145,6 +153,14 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 			if (EASY.contains(p.getID())) continue;
 			p.addDisplayCondition(devProp, true);
 		}
+	}
+
+	/** One tab of ConfigLayout with its sections. */
+	private void addTab(ConfigDSL dsl, JsonObject lang, Class<?> cat) {
+		dev.slyrics.LayoutAnnotations.Category c = cat.getAnnotation(dev.slyrics.LayoutAnnotations.Category.class);
+		String catName = c.value();
+		for (Class<?> sub : c.categories()) addCategory(dsl, lang, catName, sub);
+		if (c.categories().length == 0) addCategory(dsl, lang, catName, cat);
 	}
 
 	private void addCategory(ConfigDSL dsl, JsonObject lang, String catName, Class<?> cls) {
@@ -179,7 +195,7 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 				Binding b = new Binding();
 				b.field = cf;
 				ConfigDSL.Prop<?> p;
-				Object initial = cf.get(Config.INSTANCE);
+				Object initial = cf.get(DEFAULTS); // the default, so OneConfig resets to it; sync() then shows the saved value
 				if (t == boolean.class) {
 					p = (ConfigDSL.Prop<?>) SWITCH.invoke(dsl, (Boolean) initial); // "switch" is a Java keyword, so it can only be called by reflection
 				} else if (t.isEnum()) {
@@ -231,6 +247,10 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 		}
 	}
 
+	private static ConfigDSL.TextProp clientIdProp;
+	/** The Client ID the field shows stars for (it starts empty, which is also its default). */
+	private static String clientIdShown = "";
+
 	/** One star per character of the saved Client ID (nothing if none is saved). */
 	private static String clientIdStars() {
 		return "*".repeat(Config.INSTANCE.clientId.length());
@@ -241,7 +261,9 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 	 * characters) replaces it and the field turns back into stars; emptying the field removes the saved ID.
 	 */
 	private static void clientIdField(ConfigDSL dsl, JsonObject lang, String cat, String sub, String desc) {
-		ConfigDSL.TextProp p = dsl.text(clientIdStars());
+		ConfigDSL.TextProp p = dsl.text(""); // empty = the default, so "Reset to default" removes the ID (and the login with it)
+		clientIdProp = p;
+		clientIdShown = "";
 		p.setId("clientId");
 		String key = "slyrics.config.clientId";
 		p.setTitle(lang.has(key) ? lang.get(key).getAsString() : "Client ID");
@@ -255,11 +277,15 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 			if (s.isEmpty()) {
 				if (!Config.INSTANCE.clientId.isEmpty()) {
 					Config.INSTANCE.clientId = "";
+					clientIdShown = "";
 					Config.save();
+					dev.slyrics.Spotify.checkClientId(); // no ID: the old login, its token and a waiting login server go
 				}
 			} else if (s.matches("[0-9a-fA-F]{32}")) {
 				Config.INSTANCE.clientId = s;
+				clientIdShown = s;
 				Config.save();
+				dev.slyrics.Spotify.checkClientId(); // another app: the old login does not belong to it
 				net.minecraft.client.Minecraft.getInstance().execute(() -> p.getProperty().set(clientIdStars()));
 			}
 			return true;
@@ -280,6 +306,10 @@ public final class SLyricsOneConfig extends org.polyfrost.oneconfig.api.config.v
 
 	void sync() {
 		SLyricsExtras.tick();
+		if (clientIdProp != null && !Config.INSTANCE.clientId.equals(clientIdShown)) { // saved, emptied or reset elsewhere
+			clientIdShown = Config.INSTANCE.clientId;
+			clientIdProp.getProperty().set(clientIdStars());
+		}
 		if (!logged && !bindings.isEmpty()) {
 			logged = true;
 			SLyricsClient.LOGGER.info("OneConfig page ready: {} synced options, tree uiOnly={}", bindings.size(), Tree_extensionsKt.getUiOnly(getTree()));

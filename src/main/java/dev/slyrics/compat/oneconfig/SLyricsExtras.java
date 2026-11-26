@@ -102,7 +102,7 @@ final class SLyricsExtras {
 		var all = dev.slyrics.Fonts.ALL;
 		String[] labels = new String[all.size()];
 		for (int i = 0; i < labels.length; i++) labels[i] = all.get(i).label();
-		fontLast = dev.slyrics.Fonts.indexOf(Config.INSTANCE.font);
+		fontLast = dev.slyrics.Fonts.indexOf(SLyricsOneConfig.DEFAULTS.font); // the default (for "Reset to default"); tickFont() then shows the saved font
 		fontPick = dsl.dropdown(fontLast, labels);
 		fontPick.setId("fontPick");
 		fontPick.setTitle("Font");
@@ -142,7 +142,7 @@ final class SLyricsExtras {
 		keyProps.clear();
 		var maps = MediaPlayer.keyMappings();
 		for (int i = 0; i < maps.length; i++) {
-			int code = code(maps[i]);
+			int code = defaultCode(maps[i]); // the default (for "Reset to default"); tickKeys() then shows the bound key
 			var p = dsl.keybind(bind(code));
 			p.setId(KEY_IDS[i]);
 			p.setTitle(KEY_TITLES[i]);
@@ -162,6 +162,11 @@ final class SLyricsExtras {
 
 	private static int code(KeyMapping km) {
 		InputConstants.Key k = KeyMappingHelper.getBoundKeyOf(km);
+		return k.getType() == InputConstants.Type.KEYBOARD ? k.getValue() : -1;
+	}
+
+	private static int defaultCode(KeyMapping km) {
+		InputConstants.Key k = km.getDefaultKey();
 		return k.getType() == InputConstants.Type.KEYBOARD ? k.getValue() : -1;
 	}
 
@@ -281,7 +286,7 @@ final class SLyricsExtras {
 		String sub = "Emojis";
 		for (String[] s : new String[][]{
 			{"emojis", "Enable emojis", "Adds an emoji after matching words in the lyrics (love -> love ♥, diamond -> a real diamond icon). The word is kept."}}) {
-			ConfigDSL.Prop<Object> p = bool(dsl, Config.class.getField(s[0]).getBoolean(Config.INSTANCE));
+			ConfigDSL.Prop<Object> p = bool(dsl, Config.class.getField(s[0]).getBoolean(SLyricsOneConfig.DEFAULTS)); // default; sync() shows the saved value
 			p.setId(s[0]);
 			p.setTitle(s[1]);
 			p.setDescription(s[2]);

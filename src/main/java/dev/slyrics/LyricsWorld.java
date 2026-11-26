@@ -16,6 +16,17 @@ import java.util.List;
 /** Decides which line is being sung and draws the scene's words in the world. */
 public final class LyricsWorld {
 	private static final LyricScene SCENE = new LyricScene();
+	/** Experimental: the lyrics in the OneClient lobby, placed in the lobby camera's view. */
+	private static final LyricScene LOBBY = new LyricScene();
+	private static String lobbyTrack = "";
+	private static int lobbyLine = -1;
+	private static boolean lobbyWasPlaying;
+
+	/** True when lyrics should show in the OneClient lobby right now (the song is then polled without a player too). */
+	public static boolean lobbyWanted() {
+		Config c = Config.INSTANCE;
+		return c.enabled && c.lobbyLyrics && dev.slyrics.compat.polyplus.PolyPlusLobby.inLobby();
+	}
 
 	/** Where the word being sung is, or the next one just before it appears (for the AFK camera), or null. */
 	public static net.minecraft.world.phys.Vec3 currentWordPos(long now) {
@@ -58,6 +69,13 @@ public final class LyricsWorld {
 	}
 
 	private static boolean stickNow;
+	/** True while a word is drawn that the camera sees from behind: its text is drawn from the back (mirrored, like a 3D object). */
+	private static boolean backNow;
+	/** True while the lobby scene is drawn (its words never turn around). */
+	private static boolean lobbyNow;
+	/** The pose stack of the frame being drawn (the sink draws with it), and where the frame's geometry goes. */
+	private static PoseStack poseNow;
+	private static net.minecraft.client.renderer.SubmitNodeCollector collectorNow;
 	private static String lastTrack = "";
 	private static int lastLine = -1;
 	private static boolean wasPlaying;
@@ -97,6 +115,14 @@ public final class LyricsWorld {
 		Config c = Config.INSTANCE;
 		long now = System.currentTimeMillis();
 		Track track = Spotify.track;
+		if (dev.slyrics.compat.polyplus.PolyPlusLobby.inLobby()) {
+			SCENE.clear();
+			lastLine = -1;
+			lobbyTick(c, track, now);
+			return;
+		}
+		if (!LOBBY.items.isEmpty()) LOBBY.clear();
+		lobbyLine = -1;
 		if (mc.player == null) {
 			SCENE.clear();
 			lastLine = -1;
@@ -133,7 +159,47 @@ public final class LyricsWorld {
 			return;
 		}
 		long end = idx + 1 < lines.size() ? lines.get(idx + 1).timeMs() : line.timeMs() + 5000;
-		SCENE.setLine(mc, line.text(), line.timeMs(), end, pos, now);
+		dev.slyrics.pretty.PrettyTimes.ensure(lines, c);
+		var times = dev.slyrics.pretty.PrettyTimes.line(idx); // exact word times, or Pretty Lyrics' estimate (the last word may be held)
+		boolean use = times != null && (c.prettyLyrics || times.real);
+		SCENE.setLine(mc, line.text(), line.timeMs(), end, pos, now, use ? times.start : null, use ? times.end : null);
+	}
+
+	/** Experimental: the same line tracking as {@link #tick}, for the OneClient lobby (no player, no AFK camera). */
+	private static void lobbyTick(Config c, Track track, long now) {
+		if (track == null || !c.enabled || !c.lobbyLyrics) {
+			if (!LOBBY.items.isEmpty()) LOBBY.fadeAll(now);
+			lobbyLine = -1;
+			return;
+		}
+		if (!track.id().equals(lobbyTrack)) {
+			lobbyTrack = track.id();
+			lobbyLine = -1;
+			LOBBY.fadeAll(now);
+		}
+		if (!Spotify.playing) {
+			if (lobbyWasPlaying) LOBBY.fadeAll(now);
+			lobbyWasPlaying = false;
+			return;
+		}
+		lobbyWasPlaying = true;
+		List<LyricLine> lines = Spotify.lyrics;
+		if (lines.isEmpty()) return;
+		long pos = Spotify.positionMs() - c.offsetMs;
+		int idx = lineAt(lines, pos);
+		if (idx == lobbyLine) return;
+		lobbyLine = idx;
+		if (idx < 0) return;
+		LyricLine line = lines.get(idx);
+		if (line.text().isEmpty()) {
+			LOBBY.fadeAll(now);
+			return;
+		}
+		long end = idx + 1 < lines.size() ? lines.get(idx + 1).timeMs() : line.timeMs() + 5000;
+		dev.slyrics.pretty.PrettyTimes.ensure(lines, c);
+		var times = dev.slyrics.pretty.PrettyTimes.line(idx);
+		boolean use = times != null && (c.prettyLyrics || times.real);
+		LOBBY.setLobbyLine(line.text(), line.timeMs(), end, pos, now, use ? times.start : null, use ? times.end : null);
 	}
 
 	// ------------------------------------------------------------------ drawing
@@ -141,25 +207,51 @@ public final class LyricsWorld {
 	private static void render(LevelRenderContext ctx) {
 		Config c = Config.INSTANCE;
 		Minecraft mc = Minecraft.getInstance();
+		if (dev.slyrics.compat.polyplus.PolyPlusLobby.isRendering()) {
+			if (c.enabled && c.lobbyLyrics) renderLobby(ctx, mc);
+			return;
+		}
 		if (mc.level == null || mc.player == null || !c.enabled || !c.anyWorld()) return;
 		long now = System.currentTimeMillis();
 		SCENE.frame(mc, now);
 		if (SCENE.items.isEmpty()) return;
+		drawScene(ctx, mc, SCENE, c.follow, now);
+	}
 
+	/** Experimental: the lobby line, placed from the lobby camera (where you look at the menu, not where your character looks). */
+	private static void renderLobby(LevelRenderContext ctx, Minecraft mc) {
+		var cam = ctx.levelState().cameraRenderState;
+		if (cam == null || cam.pos == null) return;
+		long now = System.currentTimeMillis();
+		double vFov = 70, hFov = 70 * 16 / 9.0;
+		if (cam.projectionMatrix != null && cam.projectionMatrix.m11() > 0.01f && cam.projectionMatrix.m00() > 0.01f) {
+			vFov = Math.toDegrees(2 * Math.atan(1.0 / cam.projectionMatrix.m11()));
+			hFov = Math.toDegrees(2 * Math.atan(1.0 / cam.projectionMatrix.m00()));
+		}
+		LOBBY.frameLobby(mc, cam.pos, cam.yRot, cam.xRot, hFov, vFov, now);
+		if (LOBBY.items.isEmpty()) return;
+		drawScene(ctx, mc, LOBBY, false, now);
+	}
+
+	private static void drawScene(LevelRenderContext ctx, Minecraft mc, LyricScene scene, boolean followMe, long now) {
 		PoseStack ps = ctx.poseStack();
+		poseNow = ps;
+		lobbyNow = scene == LOBBY;
 		Vec3 cam = ctx.levelState().cameraRenderState.pos;
 		var collector = ctx.submitNodeCollector();
+		collectorNow = collector;
 		Sink sink = (text, x, y, z, argb, mode) -> {
 			if (z != 0f) ps.pushPose();
 			if (z != 0f) ps.translate(0f, 0f, z);
-			collector.submitText(ps, x, y, text.getVisualOrderText(), false, mode, LightCoordsUtil.FULL_BRIGHT, argb, 0, 0);
+			if (backNow) BackFace.submitText(collector, ps, text.getVisualOrderText(), x, y, argb, mode, LightCoordsUtil.FULL_BRIGHT);
+			else collector.submitText(ps, x, y, text.getVisualOrderText(), false, mode, LightCoordsUtil.FULL_BRIGHT, argb, 0, 0);
 			if (z != 0f) ps.popPose();
 		};
 
 		// far to near, so near words end up on top
-		List<LyricScene.Item> order = new java.util.ArrayList<>(SCENE.items);
-		order.sort((a, b) -> Double.compare(SCENE.worldPos(b, c.follow).distanceToSqr(cam), SCENE.worldPos(a, c.follow).distanceToSqr(cam)));
-		for (LyricScene.Item it : order) drawItem(mc, ps, cam, it, now, sink);
+		List<LyricScene.Item> order = new java.util.ArrayList<>(scene.items);
+		order.sort((a, b) -> Double.compare(scene.worldPos(b, followMe).distanceToSqr(cam), scene.worldPos(a, followMe).distanceToSqr(cam)));
+		for (LyricScene.Item it : order) drawItem(mc, ps, cam, scene.worldPos(it, followMe), it, now, sink);
 	}
 
 	private static float clamp01(float v) {
@@ -177,7 +269,7 @@ public final class LyricsWorld {
 		return 0.4f + 0.6f * smooth(t) + 0.18f * (float) Math.sin(Math.PI * t) * (1f - t);
 	}
 
-	private static void drawItem(Minecraft mc, PoseStack ps, Vec3 cam, LyricScene.Item it, long now, Sink sink) {
+	private static void drawItem(Minecraft mc, PoseStack ps, Vec3 cam, Vec3 at, LyricScene.Item it, long now, Sink sink) {
 		Config c = Config.INSTANCE;
 		if (now < it.sungAt[0]) return;
 
@@ -198,7 +290,6 @@ public final class LyricsWorld {
 		float smear = c.blur / 100f * Math.max(1f - born, dying);
 
 		stickNow = it.stick;
-		Vec3 at = SCENE.worldPos(it, c.follow);
 		if (it.sky) { // slow sideways drift, like a cloud
 			Vec3 d = at.subtract(cam);
 			double len = Math.max(1.0, Math.hypot(d.x, d.z));
@@ -217,6 +308,9 @@ public final class LyricsWorld {
 		double yawRad = Math.toRadians(-it.yaw);
 		Vec3 toCam = cam.subtract(at);
 		float away = (toCam.x * Math.sin(yawRad) + toCam.z * Math.cos(yawRad)) >= 0 ? -1f : 1f;
+		// Seen from behind (you walked past it): in the world the text shows its back, mirrored like a real 3D object,
+		// instead of vanishing and leaving its glow behind. Words stuck on blocks and the lobby words stay one-sided.
+		backNow = away < 0 && !it.stick && !lobbyNow;
 
 		Font font = mc.font;
 		int n = it.words.length;
@@ -235,7 +329,23 @@ public final class LyricsWorld {
 		int current = -1;
 		for (int i = 0; i < n; i++) if (now >= it.sungAt[i]) current = i;
 		float x = -total / 2f, y = -font.lineHeight / 2f;
+		if (c.prettyLyrics && (it.pretty == null || it.pretty.length != n)) it.pretty = new dev.slyrics.pretty.PrettyWord[n];
 		for (int i = 0; i < n; i++) {
+			if (c.prettyLyrics) { // Pretty Lyrics: the word's own springs, a soft sweep and glow instead of the word animations
+				String raw = it.words[i];
+				long dur = Math.max(1, it.heldUntil[i] - it.sungAt[i]);
+				if (it.pretty[i] == null) it.pretty[i] = new dev.slyrics.pretty.PrettyWord(raw.length(), dev.slyrics.pretty.PrettyHud.emphasized(raw, dur, c));
+				var pw = it.pretty[i];
+				float t = clamp01((now - it.sungAt[i]) / (float) dur);
+				pw.update(t);
+				float glitch = c.flicker ? glitch(now, it.seed + i * 1.9f) : 0f;
+				ps.pushPose();
+				ps.translate(x + widths[i] / 2f, 0f, 0f);
+				drawPretty(font, c, texts[i], colored[i], raw, pw, t, widths[i], y, alpha, smear, glitch, away, sink);
+				ps.popPose();
+				x += widths[i] + gap;
+				continue;
+			}
 			float a = alpha, grow = 1f;
 			if (n > 1) {
 				boolean active = now >= it.sungAt[i] && (now < it.heldUntil[i] || i == current);
@@ -429,6 +539,135 @@ public final class LyricsWorld {
 					if (pcol != 0) sink.draw(LyricsHud.styled(raw.substring(whole, whole + 1), c, true), cx, y, z, pcol, top);
 				}
 			}
+		}
+	}
+
+	/**
+	 * One word in Pretty Lyrics style, centered at x = 0 (top at y): it grows and lifts around the middle of its baseline,
+	 * the base layers (3D body, outline, the normal glow) are drawn dim, the sung color sweeps over it with a soft edge, and it
+	 * glows while sung. With letter ripple on, every letter also hops and grows while the sweep passes it (held notes more,
+	 * each letter with its own glow).
+	 */
+	private static void drawPretty(Font font, Config c, Component text, Component colored, String raw, dev.slyrics.pretty.PrettyWord pw, float t,
+								   float w, float y, float a, float smear, float glitch, float away, Sink sink) {
+		var ps = poseNow;
+		float motion = c.prettyMotion / 100f, unsung = c.prettyUnsung / 100f, sung = c.prettySung / 100f;
+		float lh = font.lineHeight, gain = dev.slyrics.pretty.PrettyHud.LIFT_GAIN;
+		int hi = hex(c.sweepColor, 0xFFFFFF);
+		float edge = dev.slyrics.pretty.PrettyHud.edgeWidth(c, lh);
+		float litTo = -edge + (w + edge) * clamp01(t);
+		int n = raw.length();
+		float[] cws = new float[n], xs = new float[n];
+		float ax = 0;
+		for (int k = 0; k < n; k++) {
+			cws[k] = font.width(LyricsHud.styled(raw.substring(k, k + 1), c));
+			xs[k] = ax;
+			ax += cws[k];
+		}
+		boolean letters = c.prettyLetters && pw.n == n && n > 1;
+		float sc = pw.emph && letters ? 1f : 1f + (pw.scale() - 1f) * motion;
+		float lift = pw.emph && letters ? 0f : pw.lift() * lh * gain * motion;
+		ps.pushPose();
+		ps.translate(0f, y + lh, 0f);
+		ps.scale(sc, sc, 1f);
+		ps.translate(0f, -lh + lift, 0f);
+		if (!pw.emph || !letters) prettyGlow(cws, -w / 2f, a, pw.glow(), false, away, lh);
+		if (!letters) {
+			drawWord(text, colored, raw, -w / 2f, 0f, a * unsung, smear, glitch, 1f, away, 0f, 0f, sink);
+			prettySweep(font, c, raw, -w / 2f, w, litTo, edge, a * sung, hi, away, sink);
+			ps.popPose();
+			return;
+		}
+		float[] lt = new float[n], gt = new float[n];
+		dev.slyrics.pretty.PrettyWord.letterProgress(litTo, edge, xs, cws, w, t, lt, gt);
+		pw.letters(lt, gt);
+		for (int k = 0; k < n; k++) {
+			String sub = raw.substring(k, k + 1);
+			Component ch = LyricsHud.styled(sub, c), chc = LyricsHud.styled(sub, c, true);
+			float cw = cws[k], ls = 1f + (pw.letterScale(k) - 1f) * motion;
+			ps.pushPose();
+			ps.translate(-w / 2f + xs[k] + cw / 2f, lh, 0f);
+			ps.scale(ls, ls, 1f);
+			ps.translate(-cw / 2f, -lh + pw.letterLift(k) * lh * gain * motion, 0f);
+			if (pw.emph) prettyGlow(new float[]{cw}, 0f, a, pw.letterGlow(k), true, away, lh);
+			drawWord(ch, chc, sub, 0f, 0f, a * unsung, smear, glitch, 1f, away, 0f, 0f, sink);
+			float b = edge <= 0.001f ? (xs[k] + cw / 2f <= litTo ? 1f : 0f) : clamp01((litTo + edge - (xs[k] + cw / 2f)) / edge);
+			int col = argb(a * sung * b, hi);
+			if (col != 0) sink.draw(chc, 0f, 0f, -away * LAYER_GAP, col, Font.DisplayMode.POLYGON_OFFSET);
+			ps.popPose();
+		}
+		ps.popPose();
+	}
+
+	/**
+	 * Pretty Lyrics glow in the glow color, as on the screen: a soft blob behind every character and a faint halo around the
+	 * whole word, drawn as glowing quads (not copies of the font), behind the text. widths = character widths, x = left edge.
+	 */
+	private static void prettyGlow(float[] widths, float x, float a, float gv, boolean emph, float away, float lh) {
+		Config c = Config.INSTANCE;
+		gv *= c.prettyGlow / 100f;
+		if (gv < 0.02f || a < 0.02f || collectorNow == null) return;
+		int rgb = hex(c.glowColor, 0xFFFFFF);
+		float r = (emph ? 4f + 6f * gv : 4f + 2f * gv) / 32f * lh * 2.2f;
+		float op = Math.min(1f, emph ? gv : 0.45f * gv) * a;
+		float total = 0;
+		for (float w : widths) total += w;
+		float z = away * LAYER_GAP * 3f; // behind the text
+		glowQuad(x - 2f * r, lh * 0.45f - (lh + 3f * r) / 2f, total + 4f * r, lh + 3f * r, z, op * 0.35f, rgb);
+		float cx = x;
+		for (float w : widths) {
+			if (w > 0) glowQuad(cx - r, lh * 0.45f - (lh * 0.9f + 2f * r) / 2f, w + 2f * r, lh * 0.9f + 2f * r, z, op * 0.5f, rgb);
+			cx += w;
+		}
+	}
+
+	/** One soft blob (the Pretty Lyrics glow texture) filling the box, both sides visible, never cut off at low alpha. */
+	private static void glowQuad(float x, float y, float w, float h, float z, float alpha, int rgb) {
+		int al = Math.round(clamp01(alpha) * 255);
+		if (al < 2 || w <= 0 || h <= 0) return;
+		int col = (al << 24) | (rgb & 0xFFFFFF);
+		var type = net.minecraft.client.renderer.rendertype.RenderTypes.eyes(dev.slyrics.pretty.PrettyGlow.texture());
+		int light = LightCoordsUtil.FULL_BRIGHT, overlay = net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY;
+		float x1 = x + w, y1 = y + h;
+		collectorNow.submitCustomGeometry(poseNow, type, (pose, vc) -> {
+			float[][] q = {{x, y, 0, 0}, {x, y1, 0, 1}, {x1, y1, 1, 1}, {x1, y, 1, 0}};
+			for (int side = 0; side < 2; side++) // both windings, so culling never hides it
+				for (int i = 0; i < 4; i++) {
+					float[] v = q[side == 0 ? i : 3 - i];
+					vc.addVertex(pose, v[0], v[1], z).setColor(col).setUv(v[2], v[3]).setOverlay(overlay).setLight(light).setNormal(0f, 0f, 1f);
+				}
+		});
+	}
+
+	/** The sung color over the word: fully on up to litTo, fading out over the soft edge (in the word's units, as on the screen). */
+	private static void prettySweep(Font font, Config c, String raw, float x, float w, float litTo, float edge, float a, int rgb, float away, Sink sink) {
+		if (litTo + edge <= 0f || raw.isEmpty() || w <= 0) return;
+		float z = -away * LAYER_GAP; // a little in front of the base text
+		var top = Font.DisplayMode.POLYGON_OFFSET;
+		if (litTo >= w) {
+			int col = argb(a, rgb);
+			if (col != 0) sink.draw(LyricsHud.styled(raw, c, true), x, 0f, z, col, top);
+			return;
+		}
+		int n = raw.length();
+		float[] xs = new float[n], bright = new float[n];
+		float ax = 0;
+		for (int i = 0; i < n; i++) {
+			float cw = font.width(LyricsHud.styled(raw.substring(i, i + 1), c));
+			xs[i] = ax;
+			float mid = ax + cw / 2f;
+			bright[i] = edge <= 0.001f ? (mid <= litTo ? 1f : 0f) : clamp01((litTo + edge - mid) / edge);
+			ax += cw;
+		}
+		int full = 0;
+		while (full < n && bright[full] >= 0.99f) full++;
+		if (full > 0) {
+			int col = argb(a, rgb);
+			if (col != 0) sink.draw(LyricsHud.styled(raw.substring(0, full), c, true), x, 0f, z, col, top);
+		}
+		for (int i = full; i < n && bright[i] >= 0.02f; i++) {
+			int col = argb(a * bright[i], rgb);
+			if (col != 0) sink.draw(LyricsHud.styled(raw.substring(i, i + 1), c, true), x + xs[i], 0f, z, col, top);
 		}
 	}
 

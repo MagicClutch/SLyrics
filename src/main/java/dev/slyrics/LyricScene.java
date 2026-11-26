@@ -72,6 +72,8 @@ public final class LyricScene {
 		/** Floating mode: travel speed in blocks per second, and how far it has travelled so far. */
 		public Vec3 vel, drift;
 		public boolean floatInit;
+		/** Pretty Lyrics: the animation state of each word (made when the word is first drawn). */
+		public dev.slyrics.pretty.PrettyWord[] pretty;
 
 		Item(String[] words, long[] sungAt, long[] heldUntil, Vec3 pos, Vec3 anchor, float yaw, float pitch, float roll,
 			 float fit, double spanH, double spanV, float seed, boolean sky, boolean stick) {
@@ -107,11 +109,13 @@ public final class LyricScene {
 	public void clear() {
 		items.clear();
 		queue.clear();
+		lobbyQueue.clear();
 	}
 
 	public void fadeAll(long now) {
 		for (Item it : items) it.fadeAt = Math.min(it.fadeAt, now);
 		queue.clear();
+		lobbyQueue.clear();
 	}
 
 	/** Fades out the words that are on screen right now (the upcoming ones stay queued). Used at AFK camera cuts. */
@@ -156,6 +160,160 @@ public final class LyricScene {
 		return it.drift == null ? base : base.add(it.drift);
 	}
 
+	/** A line split into its words, with when each word is sung and when it ends (wall-clock ms). */
+	private record Prepared(String[] words, long[] start, long[] end) {}
+
+	private static Prepared prepare(String text, long lineTimeMs, long lineEndMs, long positionMs, long now, long[] wordStart, long[] wordEnd) {
+		Config c = Config.INSTANCE;
+		List<String> list = new ArrayList<>();
+		for (String w : text.trim().split("\\s+")) {
+			if (w.isEmpty()) continue;
+			String d = Emojis.decorate(w, "", c);
+			list.add(c.uppercase ? d.toUpperCase() : d);
+		}
+		if (list.isEmpty()) return null;
+		String[] words = list.toArray(new String[0]);
+
+		long songStart = now - positionMs;
+		long duration = Math.max(400L, lineEndMs - lineTimeMs);
+		long[] start, end;
+		if (wordStart != null && wordEnd != null && wordStart.length == words.length && wordEnd.length == words.length) {
+			start = new long[words.length];
+			end = new long[words.length];
+			for (int i = 0; i < words.length; i++) {
+				start[i] = songStart + wordStart[i];
+				end[i] = songStart + wordEnd[i];
+			}
+		} else {
+			start = schedule(words, songStart + lineTimeMs, duration);
+			end = new long[words.length];
+			for (int i = 0; i < words.length; i++) end[i] = i + 1 < words.length ? start[i + 1] : songStart + lineEndMs;
+		}
+		return new Prepared(words, start, end);
+	}
+
+	// ------------------------------------------------------------------ OneClient lobby (experimental)
+
+	/** Lobby words waiting for their moment: they are placed in a lobby frame, where the lobby camera is known. */
+	private final List<Queued> lobbyQueue = new ArrayList<>();
+	/** Word height on the screen at 100 % Word size, as a share of the screen height. */
+	private static final double LOBBY_WORD_H = 0.075;
+	/** Screen areas kept free in the lobby ({u0, v0, u1, v1}, v up): your character in the middle, the menu panels. */
+	private static final double[][] LOBBY_FREE = {
+		{-0.2, -1.0, 0.2, 0.3},   // the character
+		{0.5, -1.0, 1.0, -0.15},  // play panel, bottom right
+		{-1.0, -1.0, -0.5, -0.7}, // social bar, bottom left
+	};
+
+	/** Lobby: a new line is being sung; its words are queued one by one, each placed shortly before it is sung. */
+	public void setLobbyLine(String text, long lineTimeMs, long lineEndMs, long positionMs, long now, long[] wordStart, long[] wordEnd) {
+		lobbyQueue.clear();
+		Prepared pr = prepare(text, lineTimeMs, lineEndMs, positionMs, now, wordStart, wordEnd);
+		if (pr == null) return;
+		Config c = Config.INSTANCE;
+		long hold = c.wordHoldMs > 0 ? c.wordHoldMs : WORD_HOLD_MS;
+		for (int i = 0; i < pr.words().length; i++) {
+			long fadeAt = pr.start()[i] + Math.min(MAX_SUNG_MS, Math.max(0, pr.end()[i] - pr.start()[i])) + hold;
+			if (fadeAt < now) continue;
+			lobbyQueue.add(new Queued(pr.words()[i], pr.start()[i], pr.end()[i], fadeAt, 0));
+		}
+	}
+
+	/**
+	 * Lobby frame: places the words whose moment has come on a free spot of what the lobby camera sees right now. Once
+	 * placed, a word stays at its place in the world: when the camera turns, sways or zooms in, it moves over the screen
+	 * (and may leave it) like any block would.
+	 */
+	public void frameLobby(Minecraft mc, Vec3 eye, float camYaw, float camPitch, double hFovDeg, double vFovDeg, long now) {
+		Config c = Config.INSTANCE;
+		double tanH = Math.tan(Math.toRadians(hFovDeg) / 2), tanV = Math.tan(Math.toRadians(vFovDeg) / 2);
+		double halfH = LOBBY_WORD_H * c.lobbyTextSize / 100.0; // half the word height in v units (the screen is 2 high)
+		double spread = Math.max(0.3, Math.min(1.0, c.lobbySpread / 100.0));
+		Vec3 fwd = dirOf(camYaw, camPitch), up = dirOf(camYaw, camPitch - 90), right = fwd.cross(up).normalize();
+
+		long latestStarted = Long.MIN_VALUE;
+		for (Queued q : lobbyQueue) if (q.sungAt() <= now) latestStarted = Math.max(latestStarted, q.sungAt());
+		for (int i = 0; i < lobbyQueue.size(); i++) {
+			Queued q = lobbyQueue.get(i);
+			if (now < q.sungAt() - PLACE_LEAD_NORMAL_MS) continue;
+			lobbyQueue.remove(i--);
+			if (now > q.fadeAt() || q.sungAt() < latestStarted) continue;
+			String[] w = {q.word()};
+			double halfW = halfH * tanV / tanH * pixelWidth(mc, w) / 9.0;
+			double maxHalfW = 0.45 * spread;
+			double wordH = halfH;
+			if (halfW > maxHalfW) { // a very long word: smaller, so it still fits
+				wordH *= maxHalfW / halfW;
+				halfW = maxHalfW;
+			}
+			double[] spot = lobbySpot(eye, fwd, right, up, tanH, tanV, halfW, wordH, spread, now);
+
+			Vec3 dir = fwd.add(right.scale(spot[0] * tanH)).add(up.scale(spot[1] * tanV)).normalize();
+			double dist = Math.max(2.0, c.lobbyDistance) * (0.8 + 0.4 * rng.nextDouble());
+			Vec3 at = eye.add(dir.scale(dist));
+			if (mc.level != null) { // a hill in the way: just in front of it (it then looks just as big)
+				var hit = mc.level.clip(new ClipContext(eye, at, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, net.minecraft.world.phys.shapes.CollisionContext.empty()));
+				if (hit.getType() != HitResult.Type.MISS) {
+					dist = Math.max(1.5, hit.getLocation().distanceTo(eye) * 0.85);
+					at = eye.add(dir.scale(dist));
+				}
+			}
+			// world height so the word covers 2*wordH of the screen height from where the camera is now
+			double along = dist * dir.dot(fwd);
+			float fit = (float) (2 * wordH * tanV * along / (9 * unit()));
+			Vec3 off = at.subtract(eye);
+			float yaw = (float) Math.toDegrees(Math.atan2(off.z, off.x)) - 90f + (rng.nextFloat() - 0.5f) * 30f;
+			float pitch = (float) -Math.toDegrees(Math.atan2(off.y, Math.hypot(off.x, off.z)));
+			// span: half size in blocks across and up, used to keep the next words apart on the screen
+			double worldHalfW = halfW * tanH * along, worldHalfH = wordH * tanV * along;
+			Item it = new Item(w, new long[]{q.sungAt()}, new long[]{q.heldUntil()}, at, at, yaw, pitch,
+				(rng.nextFloat() - 0.5f) * 14f, fit, worldHalfW, worldHalfH, rng.nextFloat() * 100f, false, false);
+			it.fadeAt = q.fadeAt();
+			items.add(it);
+		}
+		trim();
+		items.removeIf(it -> now - it.fadeAt > FADE_MS);
+	}
+
+	/**
+	 * A free spot on the lobby screen (u, v in -1..1, v up) for a word of this half size: the try with the most room to the
+	 * words that show now (wherever the camera has moved them) wins.
+	 */
+	private double[] lobbySpot(Vec3 eye, Vec3 fwd, Vec3 right, Vec3 up, double tanH, double tanV, double halfW, double halfH, double spread, long now) {
+		// where the other words are on the screen now
+		List<double[]> others = new ArrayList<>();
+		for (Item it : items) {
+			if (now - it.fadeAt > FADE_MS) continue;
+			Vec3 off = it.pos.subtract(eye);
+			double z = off.dot(fwd);
+			if (z < 0.1) continue;
+			others.add(new double[]{off.dot(right) / (z * tanH), off.dot(up) / (z * tanV), it.spanH / (z * tanH), it.spanV / (z * tanV)});
+		}
+		double uMax = Math.max(0.05, 0.92 * spread - halfW), vMax = Math.max(0.05, 0.8 * spread - halfH);
+		double[] best = {0, 0.5};
+		double bestScore = Double.NEGATIVE_INFINITY;
+		for (int k = 0; k < 60; k++) {
+			double u = (rng.nextDouble() * 2 - 1) * uMax, v = (rng.nextDouble() * 2 - 1) * vMax;
+			double score = 10;
+			for (double[] f : LOBBY_FREE) {
+				double dx = Math.max(f[0] - (u + halfW), (u - halfW) - f[2]);
+				double dy = Math.max(f[1] - (v + halfH), (v - halfH) - f[3]);
+				double out = Math.max(dx, dy); // > 0: outside the free area by that much
+				if (out < 0) score = Math.min(score, out * 20 - 1);
+			}
+			for (double[] o : others) {
+				double dx = Math.abs(u - o[0]) - (halfW + o[2]), dy = Math.abs(v - o[1]) - (halfH + o[3]);
+				double gap = Math.max(dx, dy * 1.4);
+				score = Math.min(score, gap < 0 ? gap * 10 - 1 : gap);
+			}
+			if (score > bestScore) {
+				bestScore = score;
+				best = new double[]{u, v};
+			}
+		}
+		return best;
+	}
+
 	// ------------------------------------------------------------------ a new line
 
 	/** Distributes the line's duration over its words, weighted by word length. */
@@ -176,7 +334,11 @@ public final class LyricScene {
 		return t;
 	}
 
-	public void setLine(Minecraft mc, String text, long lineTimeMs, long lineEndMs, long positionMs, long now) {
+	/**
+	 * A new line is being sung. wordStart / wordEnd: when each word is sung in song ms (exact word times or Pretty Lyrics'
+	 * timing), or null to spread the line over its words here.
+	 */
+	public void setLine(Minecraft mc, String text, long lineTimeMs, long lineEndMs, long positionMs, long now, long[] wordStart, long[] wordEnd) {
 		Config c = Config.INSTANCE;
 		var player = mc.player;
 		if (player == null) return;
@@ -184,20 +346,10 @@ public final class LyricScene {
 		queue.clear();
 		for (Item it : items) if (it.fadeAt == Long.MAX_VALUE) it.fadeAt = now;
 
-		List<String> list = new ArrayList<>();
-		for (String w : text.trim().split("\\s+")) {
-			if (w.isEmpty()) continue;
-			String d = Emojis.decorate(w, "", c);
-			list.add(c.uppercase ? d.toUpperCase() : d);
-		}
-		if (list.isEmpty()) return;
-		String[] words = list.toArray(new String[0]);
-
-		long songStart = now - positionMs;
-		long duration = Math.max(400L, lineEndMs - lineTimeMs);
-		long[] start = schedule(words, songStart + lineTimeMs, duration);
-		long[] end = new long[words.length];
-		for (int i = 0; i < words.length; i++) end[i] = i + 1 < words.length ? start[i + 1] : songStart + lineEndMs;
+		Prepared pr = prepare(text, lineTimeMs, lineEndMs, positionMs, now, wordStart, wordEnd);
+		if (pr == null) return;
+		String[] words = pr.words();
+		long[] start = pr.start(), end = pr.end();
 
 		if (follow == null || follow.distanceToSqr(player.position()) > 900) follow = player.position();
 		floatSign = -floatSign;

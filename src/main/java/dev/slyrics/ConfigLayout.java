@@ -7,7 +7,7 @@ import dev.slyrics.LayoutAnnotations.*;
  * The values live in {@link Config}; an entry's id is the name of its Config field. The field types pick the widget (an enum
  * is a dropdown, an int with {@code @Color} a color picker); their initial values are not used.
  */
-@Page(categories = {ConfigLayout.Connectivity.class, ConfigLayout.TextSettings.class, ConfigLayout.Modes.class, ConfigLayout.Hud.class})
+@Page(categories = {ConfigLayout.Connectivity.class, ConfigLayout.TextSettings.class, ConfigLayout.Modes.class, ConfigLayout.Hud.class, ConfigLayout.Experimental.class})
 public final class ConfigLayout {
 	private static final Config D = new Config();
 
@@ -54,6 +54,10 @@ public final class ConfigLayout {
 		@ConfigEntry(id = "devMode")
 		@Comment("Developer mode: shows all the detailed settings (effects, distances, AFK camera, ...) in the OneConfig page. Off: only the easy, everyday settings.")
 		public static boolean devMode = D.devMode;
+
+		@ConfigButton(title = "Reset all settings", text = "Reset")
+		@Comment("Puts every SLyrics setting back to its default, like a fresh download: also removes the Spotify Client ID and login, and resets the media keys. Saved profiles are kept. Press twice to confirm. Only shown in Developer mode.")
+		public static final Runnable resetAll = Config::resetAllButton;
 	}
 
 	@Category(value = "Spotify")
@@ -67,7 +71,7 @@ public final class ConfigLayout {
 		public static String clientId = D.clientId;
 	}
 
-	@Category(value = "Text Settings", categories = {TextLook.class, Effects.class, Animations.class, Sweep.class})
+	@Category(value = "Text Settings", categories = {TextLook.class, Effects.class, Animations.class, Sweep.class, PrettyCat.class})
 	public static final class TextSettings {
 	}
 
@@ -177,6 +181,71 @@ public final class ConfigLayout {
 		@Comment("Color of the sweep")
 		@Color
 		public static int sweepColor = hex(D.sweepColor);
+	}
+
+	@Category(value = "Pretty Lyrics")
+	public static final class PrettyCat {
+		@ConfigEntry(id = "prettyLyrics")
+		@Comment("Smooth karaoke style for the karaoke panel, the lyric line and the words in the world: the sung color sweeps softly over each word, words grow and lift a little while sung and spring back, held notes glow and ripple letter by letter, and three dots count down instrumental pauses. Uses your text, sweep and glow colors (all white = the Spotify look). While on, it replaces the word animation, the typewriter and the normal word sweep.")
+		public static boolean prettyLyrics = D.prettyLyrics;
+
+		@ConfigEntry(id = "prettyMotion")
+		@Comment("How strongly words grow and lift while they are sung. 0 = only the sweep and the glow.")
+		@Range(min = 0, max = 200)
+		@Slider
+		public static int prettyMotion = D.prettyMotion;
+
+		@ConfigEntry(id = "prettyGlow")
+		@Comment("How strongly words glow while they are sung (in the glow color).")
+		@Range(min = 0, max = 200)
+		@Slider
+		public static int prettyGlow = D.prettyGlow;
+
+		@ConfigEntry(id = "prettyEdge")
+		@Comment("Width of the soft edge of the sweep. 20 = about the height of a letter, the same for short and long words. 0 = a hard edge.")
+		@Range(min = 0, max = 60)
+		@Slider
+		public static int prettyEdge = D.prettyEdge;
+
+		@ConfigEntry(id = "prettySung")
+		@Comment("Brightness of the part that has been sung, in percent")
+		@Range(min = 10, max = 100)
+		@Slider
+		public static int prettySung = D.prettySung;
+
+		@ConfigEntry(id = "prettyUnsung")
+		@Comment("Brightness of the part that is not sung yet, in percent")
+		@Range(min = 10, max = 100)
+		@Slider
+		public static int prettyUnsung = D.prettyUnsung;
+
+		@ConfigEntry(id = "prettyLetters")
+		@Comment("Letters move on their own: each one hops and grows a little while the sweep passes over it, so a wave runs through the word. Held notes move their letters more and every letter glows on its own.")
+		public static boolean prettyLetters = D.prettyLetters;
+
+		@ConfigEntry(id = "prettyEmphasisMs")
+		@Comment("How long a word has to be held to ripple letter by letter, in ms (only words of up to 12 letters)")
+		@Range(min = 500, max = 3000)
+		@Slider
+		public static int prettyEmphasisMs = D.prettyEmphasisMs;
+
+		@ConfigEntry(id = "prettyDots")
+		@Comment("Three dots light up one after another during an instrumental pause (panel and lyric line)")
+		public static boolean prettyDots = D.prettyDots;
+
+		@ConfigEntry(id = "prettyPauseMs")
+		@Comment("From how long a gap between two lines the pause dots show, in ms")
+		@Range(min = 2000, max = 10000)
+		@Slider
+		public static int prettyPauseMs = D.prettyPauseMs;
+
+		@ConfigEntry(id = "prettySoftNeighbors")
+		@Comment("Karaoke panel: lines farther from the one being sung are a little dimmer")
+		public static boolean prettySoftNeighbors = D.prettySoftNeighbors;
+
+		@ConfigEntry(id = "prettyWordTimes")
+		@Comment("Use the exact time of every word when the lyrics have it (Enhanced LRC on LRCLIB). Otherwise the word times are estimated from the word lengths.")
+		public static boolean prettyWordTimes = D.prettyWordTimes;
 	}
 
 	@Category(value = "Features", categories = {PickModes.class, AuraWords.class, SkyWords.class, StickWords.class, CommonCat.class, AfkCat.class})
@@ -322,6 +391,35 @@ public final class ConfigLayout {
 		@ConfigButton(title = "Open HUD editor", text = "Open")
 		@Comment("Add the lyric line, the karaoke panel or the media player in OneConfig's HUD editor to show it; drag and scale it there and click it for its settings. Also: /slyrics hud")
 		public static final Runnable editHud = dev.slyrics.compat.oneconfig.OneConfigBridge::openHudEditor;
+	}
+
+	@Category(value = "Experimental", categories = {LobbyCat.class})
+	public static final class Experimental {
+	}
+
+	@Category("OneClient lobby")
+	public static final class LobbyCat {
+		@ConfigEntry(id = "lobbyLyrics")
+		@Comment("Experimental: shows the lyrics as single words spread over the OneClient lobby (the 3D world behind the main menu). They follow the lobby camera, so they stay on screen even when it zooms in. Needs OneClient's lobby (PolyPlus).")
+		public static boolean lobbyLyrics = D.lobbyLyrics;
+
+		@ConfigEntry(id = "lobbyDistance")
+		@Comment("How far from the lobby camera the words stand, in blocks (each word a bit nearer or farther). A hill in the way pulls the word in front of it.")
+		@Range(min = 4, max = 40)
+		@Slider
+		public static float lobbyDistance = D.lobbyDistance;
+
+		@ConfigEntry(id = "lobbySpread")
+		@Comment("How much of the screen the words spread over, in percent. Your character in the middle and the menu panels stay free.")
+		@Range(min = 30, max = 100)
+		@Slider
+		public static int lobbySpread = D.lobbySpread;
+
+		@ConfigEntry(id = "lobbyTextSize")
+		@Comment("Size of the words on the screen, in percent")
+		@Range(min = 40, max = 250)
+		@Slider
+		public static int lobbyTextSize = D.lobbyTextSize;
 	}
 
 	@Category("Others")

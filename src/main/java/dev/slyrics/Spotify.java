@@ -49,6 +49,10 @@ public final class Spotify {
 	private static boolean loginHinted;
 	private static volatile long pausedUntil;
 	private static String verifier;
+	/** The local server that waits for Spotify's answer during a login; null when no login is waiting. */
+	private static HttpServer loginServer;
+	/** The Client ID the current login (or waiting login) belongs to; a different or empty ID in the config ends it. */
+	private static volatile String boundClientId = "";
 
 	// ---- public state for the HUD ----
 	public static volatile Track track;
@@ -78,7 +82,23 @@ public final class Spotify {
 
 	public static void start() {
 		loadAuth();
+		checkClientId();
 		EXEC.scheduleWithFixedDelay(Spotify::pollSafe, 1, 1, TimeUnit.SECONDS);
+	}
+
+	/**
+	 * A login only belongs to the Client ID it was made with. When the ID in the config is emptied (or replaced by
+	 * another one), everything of the old login goes: the saved token, the session and a login that is still waiting.
+	 */
+	public static void checkClientId() {
+		String now = Config.INSTANCE.clientId.trim();
+		boolean changed = !now.equals(boundClientId);
+		boolean hadLogin = refreshToken != null || accessToken != null || loginServer != null;
+		boundClientId = now;
+		if (hadLogin && (changed || now.isEmpty())) {
+			SLyricsClient.LOGGER.info("Spotify Client ID {}: the old login was removed", now.isEmpty() ? "removed" : "changed");
+			logout();
+		}
 	}
 
 	// ---------------- Login ----------------
@@ -93,6 +113,8 @@ public final class Spotify {
 			.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII)));
 		String state = Long.toHexString(new SecureRandom().nextLong());
 
+		stopLoginServer(); // a login that is still waiting would keep the port busy ("Address already in use")
+		boundClientId = clientId;
 		HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), 0);
 		server.createContext("/callback", ex -> {
 			String q = ex.getRequestURI().getQuery();
@@ -104,7 +126,7 @@ public final class Spotify {
 			ex.sendResponseHeaders(200, body.length);
 			ex.getResponseBody().write(body);
 			ex.close();
-			server.stop(1);
+			stopLoginServer(server, false);
 			EXEC.execute(() -> {
 				try {
 					if (!ok) throw new IllegalStateException("Invalid response from Spotify");
@@ -118,23 +140,54 @@ public final class Spotify {
 		});
 		server.setExecutor(EXEC);
 		server.start();
-		EXEC.schedule(() -> server.stop(0), 5, TimeUnit.MINUTES);
+		synchronized (Spotify.class) {
+			loginServer = server;
+		}
+		EXEC.schedule(() -> stopLoginServer(server, true), 5, TimeUnit.MINUTES);
 
 		return "https://accounts.spotify.com/authorize?response_type=code&client_id=" + enc(clientId)
 			+ "&scope=" + enc(SCOPE) + "&redirect_uri=" + enc(REDIRECT)
 			+ "&code_challenge_method=S256&code_challenge=" + challenge + "&state=" + state;
 	}
 
+	/** Stops the login server if one is waiting, and frees the port before returning. */
+	private static synchronized void stopLoginServer() {
+		if (loginServer != null) stopLoginServer(loginServer, true);
+	}
+
+	/**
+	 * Stops this login server (the field is only cleared if it is still the current one). now = false from inside the
+	 * server's own request: stop() waits for running requests, so it then has to happen afterwards on another thread.
+	 */
+	private static synchronized void stopLoginServer(HttpServer server, boolean now) {
+		if (loginServer == server) loginServer = null;
+		if (now) server.stop(0);
+		else EXEC.execute(() -> server.stop(0));
+	}
+
+	/** Forgets the Spotify login completely: token file, session, permissions and a login that is still waiting. */
 	public static void logout() {
+		stopLoginServer();
 		accessToken = null;
+		accessExpiresAt = 0;
 		refreshToken = null;
-		track = null;
-		lyrics = List.of();
-		playing = false;
+		grantedScope = "";
+		verifier = null;
+		loginHinted = false;
+		pausedUntil = 0;
+		if (fromSpotify) {
+			track = null;
+			lyrics = List.of();
+			playing = false;
+			coverUrl = "";
+			fromSpotify = false;
+		}
 		status = "Not connected. Use /slyrics login";
 		try {
 			Files.deleteIfExists(AUTH_FILE);
-		} catch (Exception ignored) {}
+		} catch (Exception e) {
+			SLyricsClient.LOGGER.warn("Could not delete the saved Spotify login", e);
+		}
 	}
 
 	private static void exchangeCode(String code) throws Exception {
@@ -182,6 +235,7 @@ public final class Spotify {
 			if (Files.exists(AUTH_FILE)) {
 				JsonObject o = JsonParser.parseString(Files.readString(AUTH_FILE)).getAsJsonObject();
 				refreshToken = o.get("refresh_token").getAsString();
+				boundClientId = Config.INSTANCE.clientId.trim();
 				status = "Connected. Waiting for playback...";
 			}
 		} catch (Exception e) {
@@ -207,9 +261,14 @@ public final class Spotify {
 	}
 
 	private static void pollSafe() {
+		try {
+			checkClientId(); // also catches an ID emptied in slyrics.json or by a reset
+		} catch (Throwable t) {
+			SLyricsClient.LOGGER.warn("Client ID check failed", t);
+		}
 		long t0 = System.currentTimeMillis();
 		if (t0 < nextPollAt) return;
-		if (net.minecraft.client.Minecraft.getInstance().player == null) return; // nothing to show yet
+		if (net.minecraft.client.Minecraft.getInstance().player == null && !LyricsWorld.lobbyWanted()) return; // nothing to show yet (unless lyrics show in the OneClient lobby)
 		nextPollAt = t0 + POLL_IDLE_MS;
 		try {
 			poll();

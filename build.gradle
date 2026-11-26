@@ -30,6 +30,10 @@ dependencies {
 	if (!project.hasProperty("noPolydium")) {
 		runtimeOnly "maven.modrinth:polydium:DdODy1g5"
 	}
+	// PolyPlus (OneClient's lobby) to test the experimental lobby lyrics; run with -PnoLobby to leave it out
+	if (!project.hasProperty("noLobby")) {
+		runtimeOnly "maven.modrinth:polyplus:${project.polyplus_version}"
+	}
 }
 
 processResources {

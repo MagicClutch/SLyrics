@@ -43,6 +43,8 @@ public class LyricsHud implements HudElement {
 			return;
 		}
 
+		if (c.prettyLyrics && dev.slyrics.pretty.PrettyHud.drawLine(g, font, c, lines, cx, cy, k, half)) return;
+
 		long pos = Spotify.positionMs() - c.offsetMs;
 		int idx = -1;
 		int lo = 0, hi = lines.size() - 1;
@@ -67,7 +69,7 @@ public class LyricsHud implements HudElement {
 			alpha = Math.max(0f, Math.min(1f, alpha));
 		}
 
-		if ((c.lineScroll || c.lineMaxWords > 0) && drawWords(g, font, c, lines, idx, pos, cx, cy, alpha, k, half)) return;
+		if ((c.lineScroll || c.lineMaxWords > 0) && drawWords(g, font, c, lines, idx, c.prettyLyrics ? dev.slyrics.pretty.PrettyHud.pos(c) : pos, cx, cy, alpha, k, half)) return;
 
 		String text = Emojis.decorate(cur.text(), " ", c);
 		if (!text.isEmpty()) {
@@ -91,38 +93,18 @@ public class LyricsHud implements HudElement {
 		}
 	}
 
-	private record Word(String text, long start) {}
+	/** A word of the lyric line: its text, when it is sung (song ms), and where it is in the lyrics (line, index in the line). */
+	private record Word(String text, long start, long end, int line, int idx) {}
 
-	/** The same timing as the words in the world: the line's duration spread over its words by length. */
-	private static long[] schedule(String[] words, long start, long duration) {
-		double[] w = new double[words.length];
-		double sum = 0;
-		for (int i = 0; i < words.length; i++) {
-			w[i] = words[i].length() + 1.5;
-			sum += w[i];
-		}
-		double usable = Math.min(duration * 0.85, 420.0 * sum / 4.0);
-		long[] t = new long[words.length];
-		double acc = 0;
-		for (int i = 0; i < words.length; i++) {
-			t[i] = start - 90 + Math.round(acc / sum * usable);
-			acc += w[i];
-		}
-		return t;
-	}
-
-	/** The words of lines from..to (inclusive) with the time each one is sung. */
+	/** The words of lines from..to (inclusive) with the time each one is sung (exact when the lyrics have word times). */
 	private static List<Word> words(List<LyricLine> lines, int from, int to, Config c, int[] firstOfCurrent, int current) {
 		List<Word> out = new java.util.ArrayList<>();
+		dev.slyrics.pretty.PrettyTimes.ensure(lines, c);
 		for (int li = Math.max(0, from); li <= Math.min(lines.size() - 1, to); li++) {
-			String t = lines.get(li).text().trim();
-			if (t.isEmpty()) continue;
+			var ln = dev.slyrics.pretty.PrettyTimes.line(li);
+			if (ln == null || ln.words.length == 0) continue;
 			if (li == current) firstOfCurrent[0] = out.size();
-			String[] ws = t.split("\\s+");
-			long start = lines.get(li).timeMs();
-			long end = li + 1 < lines.size() ? lines.get(li + 1).timeMs() : start + 5000;
-			long[] at = schedule(ws, start, Math.max(400L, end - start));
-			for (int i = 0; i < ws.length; i++) out.add(new Word(Emojis.decorate(ws[i], " ", c), at[i]));
+			for (int i = 0; i < ln.words.length; i++) out.add(new Word(Emojis.decorate(ln.words[i], " ", c), ln.start[i], ln.end[i], li, i));
 		}
 		return out;
 	}
@@ -146,23 +128,18 @@ public class LyricsHud implements HudElement {
 				long t = pos + Math.round(SCROLL_SMOOTH_MS * (2f * j / (ps.length - 1) - 1f));
 				ps[j] = scrollPos(all, t);
 			}
-			List<String> texts = new java.util.ArrayList<>();
-			for (Word w : all) texts.add(w.text());
 			int left = max > 0 ? (max - 1) / 2 : 1000, right = max > 0 ? max / 2 : 1000;
-			drawStrip(g, font, c, texts, k, ps, left, right, false, started, cx, cy, sz, 1f, half); // no fade between lines: it keeps running
+			drawStrip(g, font, c, all, k, ps, left, right, false, started, cx, cy, sz, 1f, half, pos); // no fade between lines: it keeps running
 			return true;
 		}
-		String[] ws = lines.get(idx).text().trim().split("\\s+");
-		if (max <= 0 || ws.length <= max) return false;
-		long start = lines.get(idx).timeMs();
-		long end = idx + 1 < lines.size() ? lines.get(idx + 1).timeMs() : start + 5000;
-		long[] at = schedule(ws, start, Math.max(400L, end - start));
-		int cw = 0;
-		for (int i = 0; i < ws.length; i++) if (at[i] <= pos) cw = i;
-		int from = cw / max * max, to = Math.min(ws.length, from + max);
-		List<String> part = new java.util.ArrayList<>();
-		for (int i = from; i < to; i++) part.add(Emojis.decorate(ws[i], " ", c));
-		drawStrip(g, font, c, part, cw - from, null, 1000, 1000, true, at[cw] <= pos, cx, cy, sz, alpha, half);
+		dev.slyrics.pretty.PrettyTimes.ensure(lines, c);
+		var ln = dev.slyrics.pretty.PrettyTimes.line(idx);
+		if (ln == null || max <= 0 || ln.words.length <= max) return false;
+		int cw = Math.max(0, ln.wordAt(pos));
+		int from = cw / max * max, to = Math.min(ln.words.length, from + max);
+		List<Word> part = new java.util.ArrayList<>();
+		for (int i = from; i < to; i++) part.add(new Word(Emojis.decorate(ln.words[i], " ", c), ln.start[i], ln.end[i], idx, i));
+		drawStrip(g, font, c, part, cw - from, null, 1000, 1000, true, ln.start[cw] <= pos, cx, cy, sz, alpha, half, pos);
 		return true;
 	}
 
@@ -190,8 +167,8 @@ public class LyricsHud implements HudElement {
 	 * scrolls: ps are word positions (fractional indices) sampled around now, their mean place in the row is at cx, and only
 	 * left/right words around it are shown, fading in and out at the ends.
 	 */
-	private static void drawStrip(GuiGraphicsExtractor g, Font font, Config c, List<String> words, int cur, float[] ps, int left, int right,
-								  boolean rowCentered, boolean highlight, float cx, float cy, float scale, float alpha, float half) {
+	private static void drawStrip(GuiGraphicsExtractor g, Font font, Config c, List<Word> words, int cur, float[] ps, int left, int right,
+								  boolean rowCentered, boolean highlight, float cx, float cy, float scale, float alpha, float half, long pos) {
 		int n = words.size();
 		if (n == 0) return;
 		MutableComponent[] comps = new MutableComponent[n];
@@ -200,7 +177,7 @@ public class LyricsHud implements HudElement {
 		int space = font.width(" ");
 		float x = 0;
 		for (int i = 0; i < n; i++) {
-			comps[i] = styled(words.get(i), c, true);
+			comps[i] = styled(words.get(i).text(), c, true);
 			wd[i] = font.width(comps[i]);
 			lx[i] = x;
 			x += wd[i] + space;
@@ -233,6 +210,14 @@ public class LyricsHud implements HudElement {
 			boolean now = i == cur;
 			// brightness follows the distance to the middle, so words brighten and dim smoothly while they pass
 			float dim = rowCentered ? (now ? 1f : 0.78f) : Math.max(0.35f, 1f - 0.25f * Math.abs(d));
+			if (c.prettyLyrics) { // every word follows its own time: sweep, lift and glow
+				Word w = words.get(i);
+				var pw = dev.slyrics.pretty.PrettyHud.word(w.line(), w.idx(), w.text(), w.start(), w.end(), c);
+				float t = dev.slyrics.pretty.PrettyHud.progress(pos, w.start(), w.end());
+				pw.update(t);
+				dev.slyrics.pretty.PrettyHud.drawWord(g, font, c, w.text(), pw, t, lx[i] - anchor, -font.lineHeight / 2f, alpha * vis * (rowCentered ? 1f : dim));
+				continue;
+			}
 			int a = Math.round(255 * alpha * vis * (now ? Math.max(dim, 0.9f) : dim));
 			if (a < 4) continue;
 			int rgb = now && highlight ? hi : base;
@@ -258,7 +243,8 @@ public class LyricsHud implements HudElement {
 		if (st == null) return;
 		String prev = (String) st[0], cur = (String) st[1], next = (String) st[2];
 		float[] box = panelBox(font, c, g.guiWidth(), g.guiHeight(), prev, cur, next, true);
-		drawPanelBox(g, font, c, prev, cur, next, (Float) st[3], box);
+		if (c.prettyLyrics) dev.slyrics.pretty.PrettyHud.drawPanel(g, font, c, lines, box);
+		else drawPanelBox(g, font, c, prev, cur, next, (Float) st[3], box);
 	}
 
 	/** The three lines and how much of the current one is sung {prev, cur, next, progress}, or null if there is nothing to show. */
@@ -308,7 +294,10 @@ public class LyricsHud implements HudElement {
 			prev = SAMPLE[0]; cur = SAMPLE[1]; next = SAMPLE[2]; // the sample also gives the size when nothing is playing
 		}
 		float[] box = localBox(font, c, prev, cur, next);
-		if (g != null) drawPanelBox(g, font, c, prev, cur, next, progress, box);
+		if (g != null) {
+			if (c.prettyLyrics && st != null) dev.slyrics.pretty.PrettyHud.drawPanel(g, font, c, Spotify.lyrics, box);
+			else drawPanelBox(g, font, c, prev, cur, next, progress, box);
+		}
 		return new float[]{box[3], box[4]};
 	}
 
@@ -318,6 +307,7 @@ public class LyricsHud implements HudElement {
 		int wp = font.width(styled(prev, c, true)), wc = font.width(styled(cur, c, true)), wn = font.width(styled(next, c, true));
 		float width = Math.max(Math.max(wp * side, wc), wn * side);
 		float height = (prev.isEmpty() ? 0 : lh * side + 2) + lh + 2 + (next.isEmpty() ? 0 : lh * side + 2);
+		if (c.prettyLyrics) height = dev.slyrics.pretty.PrettyHud.panelContentHeight(font); // always three rows: they scroll through
 		return new float[]{0, 0, 1f, width + pad * 2, height + pad * 2};
 	}
 
@@ -334,6 +324,7 @@ public class LyricsHud implements HudElement {
 		float pad = 4f;
 		float width = Math.max(Math.max(wp * side, wc), wn * side);
 		float height = (prev.isEmpty() ? 0 : lh * side + 2) + lh + 2 + (next.isEmpty() ? 0 : lh * side + 2);
+		if (c.prettyLyrics) height = dev.slyrics.pretty.PrettyHud.panelContentHeight(font); // always three rows: they scroll through
 
 		float scale = c.hudScale / 100f;
 		float x0 = guiW * c.hudX / 100f, y0 = guiH * c.hudY / 100f;
